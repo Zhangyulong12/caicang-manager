@@ -1,5 +1,12 @@
 # 更新记录
 
+## 2026-10-14 — 任务 01 清单复核与补齐
+
+- 补充 infra/compose.dev.yml 与说明，引用已有开发数据库定义；验证两套入口解析后的配置相同，并保持同一个持久化数据卷。
+- README 保留原内容并追加 infra 与统一启动命令；现有 docs、AGENTS.md、database/schema.sql 保持不变。
+- 浏览器验收发现管理端缺少 Element Plus 基础样式，补齐 theme-chalk/base.css；欢迎页和真实连接检查完成复核。
+- 重新执行锁文件安装、lint、类型检查、三端构建与已有自动化测试，实际结果见 infra/README.md。
+
 ## 2026-10-14 — 环境复查与任务 01
 
 - 确认 Windows 25H2、WSL2、Docker Server 和 hello-world 正常，核实 Docker 数据 VHDX 位于 D 盘。

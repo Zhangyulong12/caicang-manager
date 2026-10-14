@@ -93,3 +93,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 - 采购订单状态、物流签收状态、仓库实际验收状态分开管理。
 - 多租户隔离（tenant_id）、数据库一致性和库存幂等是第一版的强制要求。
 - 演示金额和示例运单号均为测试数据；不可用于真实物流查询。
+
+## 任务 01：infra 配置入口补充
+
+`infra/compose.dev.yml` 引用已有开发数据库配置，复用相同的 Compose 项目名和数据卷。完整说明见 [infra/README.md](infra/README.md)。在新的 PowerShell 中可执行：
+
+```powershell
+cd D:\Dev\caicang-manager
+pnpm install --frozen-lockfile
+pnpm db:up
+docker compose --env-file .env -f infra/compose.dev.yml config --quiet
+pnpm dev
+```
+
+单独启动命令：后端 `pnpm dev:api`，Web `pnpm dev:web`，手机 H5 `pnpm dev:mobile`；手机 App 资源编译为 `pnpm --filter @caicang/mobile build:app`，此命令不生成签名 APK。三端和公共包统一检查使用 `pnpm typecheck`、`pnpm build`。

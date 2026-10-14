@@ -1,0 +1,5 @@
+name: caicang-manager-dev
+
+# Reuse the existing, tested local PostgreSQL definition and persistent volume.
+include:
+  - ../scripts/compose.dev.yml
