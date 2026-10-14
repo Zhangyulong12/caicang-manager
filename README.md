@@ -107,3 +107,19 @@ pnpm dev
 ```
 
 单独启动命令：后端 `pnpm dev:api`，Web `pnpm dev:web`，手机 H5 `pnpm dev:mobile`；手机 App 资源编译为 `pnpm --filter @caicang/mobile build:app`，此命令不生成签名 APK。三端和公共包统一检查使用 `pnpm typecheck`、`pnpm build`。
+
+## 任务 02：本地数据库与后端启动
+
+本次任务 02 按用户指令限定为数据库环境准备，业务模型和初始迁移另行执行。完整步骤见 [docs/LOCAL_DATABASE.md](docs/LOCAL_DATABASE.md)。
+
+```powershell
+cd D:\Dev\caicang-manager
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm db:check
+pnpm start:api
+```
+
+另开终端执行 `pnpm api:check`，或访问 `http://localhost:3000/api/v1/health`。停止 API 用当前终端的 Ctrl+C；数据库停止用 `pnpm db:stop`，容器和数据卷保留。再次启动用 `pnpm db:up`。
+
+迁移命令入口已提供：`pnpm prisma:migrate:dev --name init`、`pnpm prisma:migrate:deploy`、`pnpm prisma:migrate:status`。当前没有业务迁移，status 会报告未纳入 Prisma Migrate 管理；本次不导入参考 SQL，不应用空初始迁移。数据库停启与接口恢复验证使用 `pnpm test:db`，实测记录见 [任务 02 报告](docs/TASK_02_REPORT.md)。

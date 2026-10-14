@@ -1,0 +1,2 @@
+# PostgreSQL migration provider. No initial migration has been applied yet.
+provider = "postgresql"

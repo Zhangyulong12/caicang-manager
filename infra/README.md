@@ -2,6 +2,8 @@
 
 任务 01 的本地部署入口是 `compose.dev.yml`，通过 Compose include 引用已有 `scripts/compose.dev.yml`。两者使用相同的项目名 `caicang-manager-dev`、服务与持久化命名卷；数据库镜像版本和 digest 在原定义中统一维护。
 
+任务 02 已补充 `pnpm db:stop`、`pnpm db:check`、`pnpm start:api` 和 `pnpm api:check`。最新环境操作与迁移边界见 [本地数据库指南](../docs/LOCAL_DATABASE.md)。
+
 从项目根目录执行：
 
 ```powershell

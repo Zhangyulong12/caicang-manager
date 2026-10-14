@@ -10,7 +10,12 @@ if (-not (Test-Path -LiteralPath $envFile)) {
     try { $rng.GetBytes($randomBytes) } finally { $rng.Dispose() }
     $password = [BitConverter]::ToString($randomBytes).Replace('-', '').ToLowerInvariant()
     $contents = "POSTGRES_PASSWORD=$password`nDATABASE_URL=postgresql://caicang:$password@localhost:5432/caicang?schema=public`nAPI_PORT=3000`nWEB_ORIGIN=http://localhost:5173,http://localhost:5174`n"
-    [IO.File]::WriteAllText($envFile, $contents, (New-Object Text.UTF8Encoding($false)))
+    # CreateNew also prevents concurrent startup from overwriting an existing file.
+    $stream = [IO.File]::Open($envFile, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try {
+        $encodedContents = (New-Object Text.UTF8Encoding($false)).GetBytes($contents)
+        $stream.Write($encodedContents, 0, $encodedContents.Length)
+    } finally { $stream.Dispose() }
     Write-Output 'Created local .env with a random database password (credentials not printed).'
 } else {
     Write-Output 'Keeping existing .env without overwriting credentials or configuration.'

@@ -10,4 +10,5 @@ datasource db {
   provider = "postgresql"
 }
 
-// Task 01: connectivity only. Business models and migrations belong to Task 02.
+// Current Task 02 is local database setup only, per the user's explicit scope.
+// Add business models and initial SQL migration only in a later authorized task.

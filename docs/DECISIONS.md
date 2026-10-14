@@ -28,3 +28,12 @@
 - Docker 数据位置已由设置、WSL 注册信息和 D 盘 VHDX 文件共同核实。开发 Compose 将 PostgreSQL 16.15 镜像固定到本次真实拉取的 digest，命名卷持久化，数据库端口仅绑定 127.0.0.1。不删除卷、不初始化业务表。
 - 公开健康接口返回 `data`/`requestId` 契约，并实际查询 PostgreSQL；Swagger 位于 `/api/docs`。只提供健康路由，不提前开放未经认证的业务接口。
 - 来源：[NestJS 入门](https://docs.nestjs.com/first-steps)、[Prisma 7](https://www.prisma.io/docs/guides/upgrade-prisma-orm/v7)、[DCloud CLI 模板](https://github.com/dcloudio/uni-preset-vue/tree/vite-ts)、[pnpm 配置](https://pnpm.io/settings)。
+
+## ADR-009：用户任务 02 的数据库环境范围与停启验证
+
+- 最新用户任务 02 限定为本地数据库环境，优先于原阶段清单中的模型/迁移/种子范围。不添加业务模型、不导入参考 schema.sql、不应用空初始迁移。
+- 继续使用 PostgreSQL 16.15 固定 digest、既有命名卷与 Prisma 7.10.0；不重建数据库，不改变已有 .env。新增停止脚本使用 compose stop，保留容器和卷。
+- 首次生成 .env 使用 CreateNew 避免并发覆盖；已存在的环境配置不修改。数据库检查通过 TCP 与容器内环境变量进行密码认证，SQL 使用标准输入，避免 Windows PowerShell 5.1 的嵌套引号丢失。
+- 提供 migrate dev/deploy/status 命令与 PostgreSQL migration_lock.toml；没有迁移历史时 migrate status 的退出码 1 如实报告，模型任务再初始化迁移，不通过重复应用 SQL 制造成功状态。
+- 停启测试比较既有 PostgreSQL 集群标识、容器、卷与 .env 哈希，验证运行中的 API 在数据库停止时返回 503、恢复后返回 200，不写入或删除任何业务数据。测试子进程采用异步执行，避免阻塞 HTTP 连接关闭事件；失败时 finally 尝试恢复原本运行的数据库。
+- 影响范围：本地脚本、根命令、迁移目录配置、测试与文档；PrismaService、健康接口和业务数据库结构沿用现状。

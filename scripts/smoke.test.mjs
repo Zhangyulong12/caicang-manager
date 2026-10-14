@@ -1,62 +1,10 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { readFile, access } from 'node:fs/promises';
-import { createServer } from 'node:net';
-import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { test } from 'node:test';
-
-const root = fileURLToPath(new URL('../', import.meta.url));
-
-async function freePort() {
-  const server = createServer();
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const port = server.address().port;
-  await new Promise((resolve) => server.close(resolve));
-  return port;
-}
+import { startTestApi } from './api-test-server.mjs';
 
 test('built NestJS serves real PostgreSQL health, OpenAPI and CORS policy', async (t) => {
-  const port = await freePort();
-  const child = spawn(process.execPath, ['apps/api/dist/main.js'], {
-    cwd: root,
-    env: { ...process.env, API_PORT: String(port) },
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  let output = '';
-  child.stdout.on('data', (data) => {
-    output = (output + data.toString()).slice(-4000);
-  });
-  child.stderr.on('data', (data) => {
-    output = (output + data.toString()).slice(-4000);
-  });
-  t.after(async () => {
-    if (child.exitCode === null) {
-      const exited = once(child, 'exit');
-      child.kill();
-      await exited;
-    }
-  });
-
-  const base = `http://127.0.0.1:${port}`;
-  let ready = false;
-  for (let attempt = 0; attempt < 300; attempt++) {
-    if (child.exitCode !== null) assert.fail(`API exited during startup: ${output}`);
-    try {
-      const response = await fetch(`${base}/api/v1/health`, { signal: AbortSignal.timeout(2000) });
-      if (response.ok) {
-        ready = true;
-        break;
-      }
-    } catch {
-      /* Retry only while the test server starts. */
-    }
-    await delay(100);
-  }
-  assert.ok(ready, `API did not become ready: ${output}`);
+  const base = await startTestApi(t);
 
   await t.test('health reads PostgreSQL and follows the JSON contract', async () => {
     const response = await fetch(`${base}/api/v1/health`);
