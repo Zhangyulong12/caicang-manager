@@ -1,0 +1,12 @@
+{
+  "comment": "Demo only: replace packageId and purchaseOrderItemId with real UUID from your local database",
+  "packageId": "00000000-0000-4000-8000-000000000001",
+  "clientOperationId": "c0f21ff9-b97c-4cea-b5d5-e99861c08c63",
+  "items": [
+    {
+      "purchaseOrderItemId": "00000000-0000-4000-8000-000000000002",
+      "receivedQty": 3
+    }
+  ],
+  "remark": "Demo receiving, not a real goods receipt"
+}

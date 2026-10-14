@@ -1,0 +1,59 @@
+# Dependencies and local tool caches
+node_modules/
+.pnpm-store/
+.npm/
+.cache/
+.turbo/
+.vite/
+.eslintcache
+*.tsbuildinfo
+
+# Local environment and credentials; templates remain trackable
+.env
+.env.*
+!.env.example
+!.env.*.example
+.npmrc.local
+
+# Build, test and Android output
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+unpackage/
+.gradle/
+*.apk
+*.aab
+local.properties
+
+# APK signing keys and secret configuration
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+key.properties
+signing.properties
+signing-config.json
+secrets/
+
+# Local database data and backups (keep schema.sql and migrations)
+.data/
+pgdata/
+backups/
+*.dump
+*.backup
+
+# Logs and operating system files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Personal IDE state
+.idea/
+.vscode/
