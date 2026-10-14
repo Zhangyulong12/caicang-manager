@@ -105,7 +105,7 @@ caicang-manager/
    └─ smoke-test.ps1
 ```
 
-以上是**目标代码仓结构**，本设计资料包目前不包含所有 `apps/` 运行时代码；Codex 按任务逐步建立。
+以上是**目标代码仓结构**。任务 01 已建立 API、管理端、手机端和两个公共包的骨架；业务 modules、迁移和生产 infra 按后续任务建立。手机工程采用 DCloud CLI 标准布局，App.vue、main.ts、manifest.json、pages.json 和页面实际位于 `apps/mobile/src`，HBuilderX 后续打开 `apps/mobile` 根目录。开发 Compose 统一位于 `scripts/compose.dev.yml`；具体版本与取舍见 ADR-008。
 
 ## 3. 关键职责边界
 

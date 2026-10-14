@@ -1,4 +1,43 @@
-# 任务 00：Windows 开发环境检查
+# Windows 开发环境检查
+
+## 最新复查：2026-10-14（用户完成环境准备后）
+
+以下结果取代本文后面的首次任务 00 检查结论。此次没有重装 Git、Node.js、pnpm、VS Code；没有安装 Ubuntu、HBuilderX 或 PowerShell 7。
+
+| 检查项 | 本次实际结果 | 是否阻塞任务 01 |
+| --- | --- | --- |
+| Windows | Windows 11 家庭版 25H2，Build 26200.9457；仍处于官方支持期 | 否 |
+| WSL2 | WSL 3.0.3.0，内核 6.18.54.1-1；docker-desktop 分发运行于 VERSION 2 | 否 |
+| Linux 命令 | `wsl --system --exec uname -r` 输出 `6.18.54.1-microsoft-standard-WSL2`，退出码 0 | 否 |
+| Docker Desktop | 4.95.0 (242831)，已安装且运行 | 否 |
+| Docker Engine | Client 和 Server 均为 29.8.2，Linux x86_64；`docker info` 正常 | 否 |
+| Docker Compose | v5.6.0 | 否 |
+| 测试容器 | `docker run --rm hello-world` 实际输出 `Hello from Docker!`，退出码 0 | 否 |
+| Docker 数据 | `D:\docker\DockerDesktopWSL\disk\docker_data.vhdx` 已存在，另有 `main\ext4.vhdx` | 否 |
+| Node / pnpm | 22.22.2 LTS / 11.25.0，沿用已有安装 | 否 |
+| 空闲空间（启动前） | C 盘约 52.24 GiB，D 盘约 361.18 GiB | 否 |
+| HBuilderX / Ubuntu / PowerShell 7 | 按用户指令暂不处理 | 否；Android 真机与 APK 验证仍待后续阶段 |
+
+Windows 支持情况依据：[Microsoft 生命周期](https://learn.microsoft.com/en-us/lifecycle/products/windows-11-home-and-pro)。Docker 前置条件依据：[Docker 官方文档](https://docs.docker.com/desktop/setup/install/windows-install/)。
+
+### D 盘数据位置的证据
+
+- Docker `settings-store.json` 中 `CustomWslDistroDir=D:\docker\DockerDesktopWSL`。
+- WSL 注册信息：`docker-desktop` 的 BasePath 为 `\\?\D:\docker\DockerDesktopWSL\main`，Version=2。
+- 实际文件：`disk\docker_data.vhdx` 和 `main\ext4.vhdx` 均在上述 D 盘目录。C 盘默认 Docker WSL 目录未发现 VHDX。
+- Docker 的 `/var/lib/docker` 是 Linux 内部目录，不能单凭该字符串判断 Windows 宿主盘符；上述设置、注册信息和实际 VHDX 共同确认数据位置。
+- Docker 程序本体和少量用户配置仍在 C 盘，镜像、容器和本项目 PostgreSQL 命名卷使用 D 盘虚拟磁盘。无需剪切 AppData，也没有迁移或删除 C 盘用户文件。
+- pnpm 内容仓已确认在 `D:\.pnpm-store\v11`，项目下载缓存配置在 `D:\Dev\caicang-manager\.cache\pnpm`；源码与 node_modules 位于 D 盘。
+
+### 已修复的问题与当前阻塞
+
+当前 Codex 进程继承了安装 Docker 前的 PATH，首次 hello-world 失败于找不到 `docker-credential-desktop`，退出码 127。仅给当前进程补入 Docker CLI 目录后重试成功；用 Machine/User PATH 新开普通 PowerShell，Docker 版本和 Server 查询也成功。开发脚本增加目录探测，无需重装 Docker 或修改系统 PATH。
+
+WSL 命令仍提示 localhost 代理未镜像到 NAT 网络，但 Linux 命令及 Docker 拉取/运行已通过，因此目前不是任务 01 阻塞。若后续在 Linux 内部访问网络失败，再针对具体失败处理。
+
+本次启动的 PostgreSQL 16.15 容器 `caicang-postgres` 已 Healthy，`pg_isready` 与真实 SQL 查询成功。任务 01 的依赖安装、类型检查、构建和接口测试结果另见 `TASK_01_REPORT.md`。目前没有环境阻塞项；Android 工具和签名/真机验收属于后续阶段，不计作本次未完成环境。
+
+## 首次任务 00 的历史记录（已被以上复查结果取代）
 
 检查日期：2026-10-14（Asia/Shanghai）。项目目录：`D:\Dev\caicang-manager`。
 

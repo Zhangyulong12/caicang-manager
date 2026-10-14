@@ -1,0 +1,8 @@
+{
+  "pages": [{ "path": "pages/home/index", "style": { "navigationBarTitleText": "采仓管家" } }],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#f4f7f5",
+    "backgroundColor": "#f4f7f5"
+  }
+}

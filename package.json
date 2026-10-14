@@ -1,0 +1,36 @@
+{
+  "name": "caicang-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22.13.0 <23",
+    "pnpm": "11.25.0"
+  },
+  "scripts": {
+    "dev": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "dev:api": "pnpm --filter @caicang/api dev",
+    "dev:web": "pnpm --filter @caicang/admin-web dev",
+    "dev:mobile": "pnpm --filter @caicang/mobile dev:h5",
+    "db:up": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/db-up.ps1",
+    "prisma:generate": "pnpm --filter @caicang/api prisma:generate",
+    "prisma:validate": "pnpm --filter @caicang/api prisma:validate",
+    "build:shared": "pnpm --filter @caicang/api-contract --filter @caicang/utils build",
+    "typecheck": "pnpm build:shared && pnpm -r typecheck",
+    "build": "pnpm prisma:generate && pnpm -r --sort build",
+    "lint": "eslint apps packages scripts --max-warnings 0",
+    "format": "prettier --write apps packages scripts/*.mjs package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs",
+    "format:check": "prettier --check apps packages scripts/*.mjs package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs",
+    "test": "pnpm build && node --test scripts/smoke.test.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.19.15",
+    "eslint": "10.12.0",
+    "eslint-plugin-vue": "10.11.1",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2"
+  }
+}

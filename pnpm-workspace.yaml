@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  '@nestjs/core': false
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  core-js: false
+  core-js-pure: false
+  esbuild: true
+  prisma: true
+  vue-demi: true
+
+saveExact: true
+strictPeerDependencies: true
+storeDir: D:/.pnpm-store
+cacheDir: D:/Dev/caicang-manager/.cache/pnpm
+overrides:
+  'unplugin-auto-import>@vueuse/core': 10.11.1

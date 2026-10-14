@@ -1,0 +1,5 @@
+node_modules
+dist
+.pnpm-store
+apps/api/src/generated
+pnpm-lock.yaml

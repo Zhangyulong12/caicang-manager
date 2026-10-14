@@ -7,6 +7,7 @@ node_modules/
 .vite/
 .eslintcache
 *.tsbuildinfo
+apps/api/src/generated/
 
 # Local environment and credentials; templates remain trackable
 .env

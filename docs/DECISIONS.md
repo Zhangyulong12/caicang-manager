@@ -17,3 +17,14 @@
 - 初始化 main 分支并保存设计与环境快照。Docker、WSL2、HBuilderX 的失败项如实记录，不以已安装 CLI 或默认 WSL 版本代替引擎验证。
 - Windows 11 22H2 超出支持期，先通过系统更新进入支持期，再修复 WSL2 和安装 Docker Desktop。不安装旧 Docker 绕过操作系统条件。
 - 影响范围：开发工作区、工具配置、Git 忽略规则和环境文档；无数据库变更、API 变更或业务实现。验收依据见 `ENV_CHECK.md`。
+
+## ADR-008：任务 01 工程与版本基线（2026-10-14）
+
+- 保留现有 Node 22.22.2 和 pnpm 11.25.0，使用 pnpm workspace、精确直接依赖和锁文件。后端采用 NestJS 12.1.3 + TypeScript 5.9.3，通过 tsc 编译 ESM 与装饰器元数据，不调用需要更高 Node patch 的新 Nest CLI，不重装 Node。
+- Prisma 保持 7.10.0（CLI/client/adapter 同版本），采用 `prisma-client`、显式 output、ESM、prisma.config.ts 数据源 URL 和 adapter-pg。任务 01 仅执行真实数据库健康查询，schema 不增加业务模型，不执行参考 SQL 或迁移；业务模型留待任务 02。
+- Web 使用 Vue 3.5.44、Vite 8.3.4、Element Plus 2.14.7。手机工程按 DCloud 官方 CLI 模板的稳定版本 3.0.0-5020420260813003，锁定匹配的 Vue 3.4.21、Vite 5.2.8、DCloud types 3.4.31。pnpm 允许两个客户端各自使用适配的 Vite/Vue；不要强行统一导致 uni-app 编译器不兼容。
+- uni-app 使用官方 CLI 布局：`apps/mobile/src` 中放置 App.vue、main.ts、pages.json、manifest.json 与页面。后续 HBuilderX 打开 `apps/mobile` 项目根。此布局细化原目录示意，不改变手机端技术选择。本次验证 H5 与 App 编译资源时不把它们称为签名 APK 或真机验收。
+- pnpm 11 的配置放入 pnpm-workspace.yaml，使用 allowBuilds 逐包允许 Prisma/esbuild 构建脚本，明确拒绝非必需统计/募捐脚本；保持 strictPeerDependencies。固定 unplugin-auto-import 的可选 @vueuse/core peer 为兼容 Vue 3.4 的 10.11.1，避免自动选择要求 Vue 3.5 的版本。
+- Docker 数据位置已由设置、WSL 注册信息和 D 盘 VHDX 文件共同核实。开发 Compose 将 PostgreSQL 16.15 镜像固定到本次真实拉取的 digest，命名卷持久化，数据库端口仅绑定 127.0.0.1。不删除卷、不初始化业务表。
+- 公开健康接口返回 `data`/`requestId` 契约，并实际查询 PostgreSQL；Swagger 位于 `/api/docs`。只提供健康路由，不提前开放未经认证的业务接口。
+- 来源：[NestJS 入门](https://docs.nestjs.com/first-steps)、[Prisma 7](https://www.prisma.io/docs/guides/upgrade-prisma-orm/v7)、[DCloud CLI 模板](https://github.com/dcloudio/uni-preset-vue/tree/vite-ts)、[pnpm 配置](https://pnpm.io/settings)。

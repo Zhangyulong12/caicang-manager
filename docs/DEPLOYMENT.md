@@ -2,6 +2,12 @@
 
 > 这是一套 Codex 应按阶段搭建的操作方案。资料包仅含本地 PostgreSQL Compose 基础配置；生成 API/管理后台/手机 App 代码后才可完整执行。
 
+## 任务 01 当前可执行范围（2026-10-14）
+
+开发骨架已建立。当前从项目根执行 `pnpm install --frozen-lockfile`、`pnpm db:up`、`pnpm prisma:generate`、`pnpm build:shared`、`pnpm dev`，详情和实际验证记录见 README 与 `TASK_01_REPORT.md`。
+
+下文迁移、seed、Android 签名打包、生产部署均是后续阶段方案，当前未提供这些交付；不要执行不存在的脚本或将参考 SQL 导入已经使用迁移的数据库。Docker 数据已在 D 盘，不需要再次迁移。
+
 ## 1. Windows 准备
 
 推荐 Windows 11 + WSL2 + Docker Desktop + Git + VS Code/Codex + Node.js 当前兼容的 LTS + pnpm + HBuilderX。电脑磁盘空间不足可将工作区放在 D 盘；具体安装路径遵守软件安装器/官方指引，不能擅自移动 App 私有目录。

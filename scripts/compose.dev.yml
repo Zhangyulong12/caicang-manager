@@ -1,13 +1,15 @@
+name: caicang-manager-dev
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     container_name: caicang-postgres
     restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: caicang
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-in-env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/db-up.ps1 to prepare .env}
       POSTGRES_DB: caicang
       TZ: UTC
     volumes:

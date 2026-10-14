@@ -2,6 +2,8 @@
 
 Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 IPv4；正式生产 `https://api.<domain>/api/v1`。
 
+任务 01 实现范围：仅公开 `GET /health`，执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。下方其余业务接口均为后续阶段契约，当前尚未实现。
+
 所有业务路由（不含 auth/login、health）需要 `Authorization: Bearer <access_token>` 和 `X-Tenant-Id: <tenant UUID>`。服务端验证 JWT userId 在 X-Tenant-Id 指向的商家有 active membership，并针对路由检查角色。禁止直接相信任何请求体的 `tenantId`；tenantId 以服务端已认证上下文为准。
 
 统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100}}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。

@@ -1,0 +1,12 @@
+{
+  "name": "采仓管家",
+  "appid": "",
+  "description": "采购到仓库再出库发货",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "vueVersion": "3",
+  "uniStatistics": { "enable": false },
+  "app-plus": { "usingComponents": true, "distribute": { "android": { "permissions": [] } } },
+  "h5": { "router": { "mode": "hash" } }
+}

@@ -1,16 +1,57 @@
-# 采仓管家 V1.0 | Codex 开发资料包
+# 采仓管家 V1.0 | 开发工作区
 
-## 当前工作区与环境（任务 00）
+## 当前工作区与环境（任务 01）
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。Git 已初始化；当前尚未生成业务应用。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。当前已建立 pnpm workspace、NestJS 健康接口、Vue3 管理端欢迎页和 uni-app 手机端首页；未开发登录、采购、库存或出库业务。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 
-Windows 11 22H2 需要更新；WSL2 缺少内核；未发现 Docker Desktop 和 HBuilderX。完整实测输出、官方下载与安装步骤见 [docs/ENV_CHECK.md](docs/ENV_CHECK.md)。环境复查通过后，由用户明确指定阶段 01，再执行后续初始化命令。
+复查已确认 Windows 11 25H2、WSL2、Docker Server 和 hello-world 正常；Docker 数据磁盘位于 D 盘。详见 [docs/ENV_CHECK.md](docs/ENV_CHECK.md)。HBuilderX、Ubuntu 和 PowerShell 7 暂不处理；本阶段的手机 H5/App 编译资源不等于签名 APK 或 Android 真机验收。
+
+## 本地安装与运行（PowerShell）
+
+```powershell
+cd D:\Dev\caicang-manager
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm prisma:generate
+pnpm build:shared
+pnpm dev
+```
+
+`pnpm db:up` 仅在 `.env` 不存在时创建随机本地数据库密码，已有配置会保留。Compose 使用持久化命名卷和固定镜像 digest；不要执行 `down -v` 或重放 `database/schema.sql`。本阶段数据库没有业务表，也不提供 migrate/seed 命令。
+
+`pnpm dev` 在当前终端启动 API 和管理后台，Ctrl+C 停止开发进程，PostgreSQL 数据和容器保留。API TypeScript 改动由 tsc 监听并触发 Node 重启。也可在独立终端执行 `pnpm dev:api` 和 `pnpm dev:web`。手机 H5 预览使用 `pnpm dev:mobile`。
+
+| 地址 | 用途 |
+| --- | --- |
+| `http://localhost:3000/api/v1/health` | 查询真实 PostgreSQL 的健康接口 |
+| `http://localhost:3000/api/docs` | Swagger UI |
+| `http://localhost:3000/api/docs-json` | OpenAPI JSON |
+| `http://localhost:5173` | 管理后台欢迎页与真实连接检查 |
+| `http://localhost:5174` | 手机 H5 首页预览 |
+| `127.0.0.1:5432` | 仅本机可访问的 PostgreSQL |
+
+前端 `.env.example` 分别位于 `apps/admin-web` 和 `apps/mobile`。需要修改时复制为同目录 `.env.local`，使用 `VITE_API_BASE_URL`；前端配置不可含数据库密码。Android 设备使用电脑局域网地址，不能使用手机自身的 localhost。后续 HBuilderX 打开 `apps/mobile` 根目录，CLI 工程的 manifest/pages/App 位于 `src`。
+
+## 检查与构建
+
+```powershell
+pnpm prisma:validate
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm build
+pnpm test
+pnpm --filter @caicang/mobile build:app
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
+```
+
+`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`build:app` 只生成 uni-app 的 App 资源，不签名、不生成可安装 APK。实际执行记录和未解决事项见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)。
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> **注意：这是项目完整设计/执行包，不是已经实现的应用源代码，也不是可直接安装的 APK。** `database/schema.sql` 是用于 PostgreSQL 的可执行数据库结构初稿，需要 Codex 创建对应 ORM 模型、迁移与测试。
+> 下方保留 V1 设计说明。任务 01 已实现工程骨架，但业务功能尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，任务 02 才建立业务 ORM 模型、迁移和测试。
 
 ## 使用顺序
 
