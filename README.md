@@ -143,3 +143,9 @@ pnpm start:api
 17 张表由 Prisma Migrate 管理。seed 建立 2 个商家、6 个用户、7 个成员关系、4 个仓库、6 个商品；重复执行保留已有记录与用户修改。测试账号默认停用，密码仅保存 bcrypt 哈希，暂不提供登录功能。`pnpm test:models` 使用本机 PostgreSQL 中独立随机空测试库，验证迁移、重复/并发 seed 与约束后仅清理本次创建的测试库，不清空开发库或数据卷。
 
 后续更改模型时执行 `pnpm prisma:migrate:dev --name 描述`，审阅迁移，再明确执行 `pnpm prisma:generate`；Prisma 7 的 generate/seed 不随迁移自动运行。字段差异、约束边界和实际检查结果见 [任务 03 报告](docs/TASK_03_REPORT.md) 与 [数据库设计](docs/DATABASE_DESIGN.md)。
+
+## 任务 04：后端公共基础模块
+
+已接入全局 DTO 验证、成功/错误包装、业务错误码、requestId、日志脱敏、配置验证、CORS、安全头与限流。开发运行命令仍为 `pnpm db:up`、`pnpm start:api`；健康接口 `/api/v1/health`，开发文档 `/api/docs`。生产必须显式提供 HTTPS WEB_ORIGIN，Swagger 强制关闭；详细变量和新模块用法见 [后端基础说明](docs/BACKEND_FOUNDATION.md)。
+
+`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共模块和原有冒烟测试；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存，尚未实现登录、角色权限或业务接口；不将公共框架完成视为这些业务已完成。实际修改和验收结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。

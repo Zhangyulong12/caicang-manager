@@ -4,9 +4,25 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 任务 01 实现范围：仅公开 `GET /health`，执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。下方其余业务接口均为后续阶段契约，当前尚未实现。
 
+任务 04 已把前缀、DTO 验证、响应、错误、requestId、安全头、CORS、日志和限流统一接入公共基础模块。`health` 仍是唯一业务运行路由，登录/权限及下方业务接口尚未实现。Swagger 仅开发/测试模式可启用，生产强制关闭。
+
 所有业务路由（不含 auth/login、health）需要 `Authorization: Bearer <access_token>` 和 `X-Tenant-Id: <tenant UUID>`。服务端验证 JWT userId 在 X-Tenant-Id 指向的商家有 active membership，并针对路由检查角色。禁止直接相信任何请求体的 `tenantId`；tenantId 以服务端已认证上下文为准。
 
-统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100}}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。
+统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100},"requestId":"..."}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。
+
+## 公共规范（任务 04）
+
+- JSON 成功和错误体均有 requestId，响应头 `X-Request-Id` 与其一致。客户端可发送合法 UUID 作为关联 ID；缺失、重复头合并值或非法格式会替换为服务器 UUID。此值不作为认证、租户或幂等依据。下文示例省略 requestId 时仍遵循此规则。
+- 控制器只返回数据；列表返回 `PageResult(items,pagination)`，全局拦截器负责包装，undefined 返回 data:null，保留原 HTTP 状态。Swagger HTML/OpenAPI 标准文档、OPTIONS 204 和无内容响应不套 JSON 成功体。
+- DTO 必须用 class-validator 装饰器定义，嵌套类配 `@Type` 和 `@ValidateNested`。全局启用 transform、whitelist、forbidNonWhitelisted/forbidUnknownValues，关闭隐式转换；数字请求体不得用字符串冒充。分页使用 `PaginationQueryDto` 显式转换，page≥1、pageSize 1–100。
+- DTO 错误为 400 `VALIDATION_ERROR`，details.fields 仅含字段路径和验证规则名，不返回 target/value 或带原值的验证消息；未知字段名归一化。畸形 JSON/顶层 null 等在解析阶段返回 400 `BAD_REQUEST`；超限 JSON 返回 413 `PAYLOAD_TOO_LARGE`（默认 64 KiB）。
+- 业务异常统一 `BusinessException(code, details)`，HTTP 状态和消息由公共注册表控制，不自行组装 error。内置 HTTP 异常转换为同一结构；未知错误统一 500 `INTERNAL_ERROR`，不返回 SQL、堆栈、连接串或异常原文。
+- 通用码：BAD_REQUEST、VALIDATION_ERROR、UNAUTHENTICATED、FORBIDDEN、NOT_FOUND、METHOD_NOT_ALLOWED、RESOURCE_CONFLICT、BUSINESS_VALIDATION_FAILED、RATE_LIMITED、PAYLOAD_TOO_LARGE、UNSUPPORTED_MEDIA_TYPE、INTERNAL_ERROR、SERVICE_UNAVAILABLE、DATABASE_UNAVAILABLE。库存/幂等码按后续章节保留；错误码联合类型位于 `packages/api-contract`。
+- 日志只写时间、事件、requestId、方法、状态、耗时与错误码；不记录原始 URL/路径/查询、正文、头、密码、Token、地址、异常原文或堆栈。所有 Nest Logger 调用经 SafeLogger，不能用 console 或 Prisma query logging 绕过。结构化业务错误详情递归遮蔽敏感字段。
+- CORS 使用精确 origin 白名单，支持 GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS 与 Authorization/Content-Type/X-Tenant-Id/X-Request-Id；暴露追踪及限流响应头。无 Origin 的原生客户端可请求；非白名单 Origin 返回统一 403。CORS 不替代认证与角色检查，当前不启用跨域 cookie credentials。
+- 全局限流默认每 IP 每路由 120 次/60 秒；未来敏感接口使用 `@SensitiveRateLimit()` 收紧到 5 次/60 秒，超限统一 429，带 Retry-After。采用单进程内存存储，重启计数清零；多实例部署前需共享存储，当前不宣称分布式限流。
+- 默认不信任 X-Forwarded-For。反向代理配置必须明确通过 TRUSTED_PROXIES 指定 IP/CIDR，并由部署限制直连；不接受 true、任意跳数或 0 位前缀范围。基础安全头覆盖成功、错误和预检；生产启用 HSTS，TLS 终止在后续部署阶段配置。
+- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`，公共 OpenAPI 自动追加错误响应、requestId 参数及未来认证方案定义；定义方案不代表认证已实现。
 
 ## 1. 账号/商家
 

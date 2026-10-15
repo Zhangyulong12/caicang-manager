@@ -29,7 +29,8 @@
     "lint": "eslint apps packages scripts --max-warnings 0",
     "format": "prettier --write apps packages scripts/*.mjs package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs",
     "format:check": "prettier --check apps packages scripts/*.mjs package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.mjs",
-    "test": "pnpm build && node --test scripts/smoke.test.mjs",
+    "test": "pnpm build && pnpm --filter @caicang/api build:test && node --test --test-concurrency=1 scripts/smoke.test.mjs scripts/api-foundation.test.mjs",
+    "test:api": "pnpm prisma:generate && pnpm build:shared && pnpm --filter @caicang/api build && pnpm --filter @caicang/api build:test && node --test scripts/api-foundation.test.mjs",
     "test:db": "pnpm prisma:generate && pnpm build:shared && pnpm --filter @caicang/api build && node --test scripts/database-lifecycle.test.mjs",
     "db:seed": "pnpm prisma:generate && pnpm build:shared && pnpm --filter @caicang/api build && pnpm --filter @caicang/api prisma:seed",
     "test:models": "pnpm prisma:generate && pnpm build:shared && pnpm --filter @caicang/api build && node --test scripts/database-models.test.mjs"

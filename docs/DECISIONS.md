@@ -47,3 +47,14 @@
 - seed 使用固定演示租户/用户 UUID、自然唯一键 upsert、单事务与事务级 advisory lock；update 为空，保留已有数据、密码与角色。随机未公开密码用固定版本 bcryptjs 3.0.3 的 bcrypt cost 12 哈希；测试账号默认停用。允许可选 SEED_PASSWORD（12–72 字节），但不打印或提交密码。seed 拒绝生产模式和非本地/非指定开发测试数据库。
 - 约束测试在同一 PostgreSQL 实例创建随机空数据库，只清理本轮拥有的测试数据库，不 reset 开发库、不删除容器/卷。实际执行迁移两次、seed 两次及并发重试、真实 SQL 正反例与并发唯一性校验；结构 diff 外另查系统目录确保 CHECK/触发器存在。
 - 来源：[Prisma 7 seed](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/seeding)、[迁移中管理不支持的数据库特性](https://www.prisma.io/docs/orm/v7/prisma-schema/data-model/unsupported-database-features)。
+
+## ADR-011：后端公共规范与安全边界（2026-10-15，任务 04）
+
+- 使用 Nest 全局 APP_* 提供者统一 DTO 校验、成功体、异常、限流，单一 bootstrap 配置 /api/v1、CORS、请求追踪及安全头。健康接口只查询真实 PostgreSQL 并返回 HealthData，不再自行生成 ID 或错误体。列表也强制有 requestId，细化原列表示例。
+- 固定 class-validator 0.15.1、class-transformer 0.5.1、@nestjs/throttler 6.7.1（peer 明确兼容 Nest 12）、@types/express 5.0.6。使用项目已锁定 Nest 12.1.3 的原生 useSecurityHeaders，不额外引入 Helmet；生产 HSTS 与本地 HTTP 开发的 CSP 升级指令分开配置。
+- 错误码与 JSON 类型在 api-contract 共享，业务消息/状态由后端注册表控制，默认 HTTP 异常文案与未知异常原文不对外返回。DTO 详情只保留字段路径/规则，关闭隐式转换、拒绝多余字段，避免错误中反射敏感输入。
+- 日志采用元数据白名单，SafeLogger 丢弃任意文本/异常堆栈，不试图用不完整正则猜测地址文本；请求日志不写 URL、头、正文等敏感来源。可用 requestId/errorCode/状态/耗时定位问题。后续诊断扩展须定义安全字段，不能直接开启原始请求、SQL 或错误日志。
+- UUID 请求头只做追踪；不是幂等或信任凭证。配置集中校验，生产不自动加载根 .env，必须由进程注入 DATABASE_URL 和精确 HTTPS WEB_ORIGIN，公共 Swagger 强制关闭；保留当前开发 .env 不覆盖。JWT 仍未启用，本次不伪造认证功能或对未使用密钥施加登录语义。
+- 限流选择内存 @nestjs/throttler，默认 120/60 秒、敏感装饰器 5/60 秒，每 IP 每路由；生产横向扩展须换共享存储。默认 trust proxy=false，仅允许明确 IP/CIDR，防止客户端用转发头绕过 IP 限流。账号维度锁定属于后续登录任务。
+- Nest 12 的 404 默认限定于全局前缀，前缀外未知路径会回落 Express HTML；在 init 后安装根兜底，调用同一 GlobalExceptionFilter，确保禁用的 Swagger 与其他未匹配路径也返回统一 JSON。DTO/分页/限流测试夹具编译到独立 .test-build，不引入生产路由。
+- 来源：[Nest 验证](https://docs.nestjs.com/application/validation)、[安全头与 CORS](https://docs.nestjs.com/techniques/security/cors)、[限流](https://docs.nestjs.com/security/rate-limiting)。

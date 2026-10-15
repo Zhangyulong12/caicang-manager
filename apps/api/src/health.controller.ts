@@ -1,7 +1,7 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
-import { randomUUID } from 'node:crypto';
-import type { HealthResponse } from '@caicang/api-contract';
+import type { HealthData } from '@caicang/api-contract';
+import { BusinessException } from './common/errors.js';
 import { PrismaService } from './prisma/prisma.service.js';
 
 class HealthDataDto {
@@ -23,24 +23,17 @@ export class HealthController {
 
   @Get()
   @ApiOkResponse({ type: HealthResponseDto, description: 'API 和 PostgreSQL 可连接' })
-  async health(): Promise<HealthResponse> {
-    const requestId = randomUUID();
+  async health(): Promise<HealthData> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
     } catch {
-      throw new ServiceUnavailableException({
-        error: { code: 'DATABASE_UNAVAILABLE', message: '数据库暂不可用', details: {} },
-        requestId,
-      });
+      throw new BusinessException('DATABASE_UNAVAILABLE');
     }
     return {
-      data: {
-        status: 'ok',
-        service: 'caicang-api',
-        database: 'reachable',
-        timestamp: new Date().toISOString(),
-      },
-      requestId,
+      status: 'ok',
+      service: 'caicang-api',
+      database: 'reachable',
+      timestamp: new Date().toISOString(),
     };
   }
 }

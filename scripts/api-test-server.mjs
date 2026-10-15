@@ -7,15 +7,15 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 
-export async function startTestApi(t) {
+export async function startTestApi(t, options = {}) {
   const server = createServer();
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const port = server.address().port;
   await new Promise((resolve) => server.close(resolve));
-  const child = spawn(process.execPath, ['apps/api/dist/main.js'], {
+  const child = spawn(process.execPath, [options.entry ?? 'apps/api/dist/main.js'], {
     cwd: projectRoot,
-    env: { ...process.env, API_PORT: String(port) },
+    env: { ...process.env, ...options.env, API_PORT: String(port) },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -23,6 +23,7 @@ export async function startTestApi(t) {
   for (const stream of [child.stdout, child.stderr]) {
     stream.on('data', (data) => {
       output = (output + data.toString()).slice(-4000);
+      options.onOutput?.(data.toString());
     });
   }
   t.after(async () => {
