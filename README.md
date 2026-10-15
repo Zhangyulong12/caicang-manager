@@ -51,7 +51,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> 下方保留 V1 设计说明。任务 01 已实现工程骨架，但业务功能尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，任务 02 才建立业务 ORM 模型、迁移和测试。
+> 下方保留 V1 设计说明。工程骨架和任务 03 数据模型、迁移、seed 已实现；业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
 
 ## 使用顺序
 
@@ -122,4 +122,24 @@ pnpm start:api
 
 另开终端执行 `pnpm api:check`，或访问 `http://localhost:3000/api/v1/health`。停止 API 用当前终端的 Ctrl+C；数据库停止用 `pnpm db:stop`，容器和数据卷保留。再次启动用 `pnpm db:up`。
 
-迁移命令入口已提供：`pnpm prisma:migrate:dev --name init`、`pnpm prisma:migrate:deploy`、`pnpm prisma:migrate:status`。当前没有业务迁移，status 会报告未纳入 Prisma Migrate 管理；本次不导入参考 SQL，不应用空初始迁移。数据库停启与接口恢复验证使用 `pnpm test:db`，实测记录见 [任务 02 报告](docs/TASK_02_REPORT.md)。
+任务 02 时仅提供迁移命令入口，尚未建立业务迁移；任务 03 的当前初始化步骤见下节。数据库停启与接口恢复验证使用 `pnpm test:db`，任务 02 的历史实测记录见 [任务 02 报告](docs/TASK_02_REPORT.md)。
+
+## 任务 03：数据库迁移、seed 与约束验证
+
+新环境使用已提交的迁移初始化，不执行 `database/schema.sql`：
+
+```powershell
+cd D:\Dev\caicang-manager
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm prisma:migrate:deploy
+pnpm prisma:migrate:status
+pnpm db:seed
+pnpm db:seed
+pnpm test:models
+pnpm start:api
+```
+
+17 张表由 Prisma Migrate 管理。seed 建立 2 个商家、6 个用户、7 个成员关系、4 个仓库、6 个商品；重复执行保留已有记录与用户修改。测试账号默认停用，密码仅保存 bcrypt 哈希，暂不提供登录功能。`pnpm test:models` 使用本机 PostgreSQL 中独立随机空测试库，验证迁移、重复/并发 seed 与约束后仅清理本次创建的测试库，不清空开发库或数据卷。
+
+后续更改模型时执行 `pnpm prisma:migrate:dev --name 描述`，审阅迁移，再明确执行 `pnpm prisma:generate`；Prisma 7 的 generate/seed 不随迁移自动运行。字段差异、约束边界和实际检查结果见 [任务 03 报告](docs/TASK_03_REPORT.md) 与 [数据库设计](docs/DATABASE_DESIGN.md)。

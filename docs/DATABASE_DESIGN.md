@@ -2,6 +2,20 @@
 
 可执行建表参考：`../database/schema.sql`。本文件解释表之间的关系、业务约束、成本计算和事务实现要求。schema 是初稿，编码时以 Prisma Migrate 产生可追踪 migration；不能在已有真实数据库直接重放 SQL。
 
+任务 03 已建立 `apps/api/prisma/schema.prisma` 与 `20261015012323_initial_business_models` 初始迁移；以下实施补充以迁移为准，参考 SQL 原件保留。启动与验证见 `TASK_03_REPORT.md`。
+
+## 任务 03 实施补充
+
+- `tenants` 是租户根，`users` 是跨商家的全局账号，因此不增加循环 tenant_id；其余 15 张表均有非空 tenant_id 和租户外键。同一账号通过 memberships 关联多个商家。
+- 所有模型有 UUID 主键、created_at/updated_at（timestamptz）。补齐参考稿缺失的时间字段；Prisma @updatedAt 与迁移内 PostgreSQL BEFORE UPDATE 触发器共同覆盖 ORM 和 SQL 写入。时间字段不意味着可编辑历史入库、库存流水或审计记录。
+- 所有租户业务关系采用复合外键和 Restrict 删除/更新；操作者关联 `(tenant_id,user_id)` membership，进一步防止无商家成员身份的操作记录。是否激活及角色权限仍须后续认证守卫验证。
+- 包裹预计行与入库行增加 purchase_order_id。复合外键保证预计行和包裹同订单、收货单和包裹同订单、收货仓库和采购单相同、入库行产品与采购行相同。
+- 价格/折扣/运费为 NUMERIC(18,2)，单位及总库存成本统一 NUMERIC(20,4)，遵循本设计的成本精度口径，扩展参考 SQL 的部分 NUMERIC(18,4) 字段。
+- 保留参考稿全部 31 个 CHECK，额外拒绝全空格 SKU。状态字段保留 VARCHAR + CHECK；CHECK 与时间触发器由版本化 SQL 管理，未来迁移须保留并审阅。
+- 商品非空条码、承运商+运单号的唯一性用普通 nullable UNIQUE 表达：PostgreSQL 默认 NULLS DISTINCT 允许多个 NULL，与参考稿部分唯一索引的业务规则一致。运单查询用租户+运单索引，保留原订单、库存、流水与审计查询索引。
+- source_item_id（库存流水多态来源）及 audit_logs.object_id（多态审计对象）沿用参考设计。无法用单一外键指向多张表，必须在后续事务服务中做租户、SKU、仓库及来源真实性验证。本次没有开放业务写接口。
+- 超收/预计总量、状态转换、库存余额与流水原子一致性仍属后续业务事务职责。本次仅验证数据库模型和数据库约束，不能将这些验证当作完整库存流程或权限验收。
+
 ## 1. 核心实体及关联
 
 ```mermaid

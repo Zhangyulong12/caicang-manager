@@ -81,16 +81,17 @@ pnpm prisma:validate
 pnpm prisma:migrate:status
 ```
 
-当前没有业务模型、迁移 SQL 或 `_prisma_migrations` 表。**本次 `migrate status` 实测退出码为 1，提示数据库尚未被 Prisma Migrate 管理**；这是当前未初始化迁移历史的状态，不能记为迁移成功，也不是健康接口连通失败。`migration_lock.toml` 仅固定 PostgreSQL provider，不执行 SQL。
+任务 02 时没有业务模型、迁移 SQL 或 `_prisma_migrations` 表，`migrate status` 当时实测退出码 1。**任务 03 已建立并应用初始迁移，当前 migrate status 应成功报告最新状态**；历史结果保留在 TASK_02_REPORT.md，不代表当前状态。
 
-后续收到业务模型开发任务后，再使用以下已配置的命令：
+新环境应用已提交迁移并创建测试基础数据：
 
 ```powershell
-pnpm prisma:migrate:dev --name init
-pnpm prisma:generate
+pnpm prisma:migrate:deploy
+pnpm db:seed
+pnpm prisma:migrate:status
 ```
 
-`prisma migrate dev` 用于本地开发；`prisma migrate deploy` 用于应用已经评审并提交的迁移。对应根命令为 `pnpm prisma:migrate:deploy`。本次未执行这两个写入命令。不要在同一数据库中重放参考 `schema.sql` 和同一套 Prisma 初始迁移。
+`prisma migrate dev` 用于开发新的迁移；`prisma migrate deploy` 用于应用已评审提交的迁移。任务 03 已实际生成并部署业务迁移。不要在同一数据库中重放参考 `schema.sql` 和 Prisma 初始迁移。
 
 Prisma 7 不再由 migrate dev 自动执行 generate/seed，客户端生成须明确执行。依据：[Prisma 7 官方指南](https://www.prisma.io/docs/guides/upgrade-prisma-orm/v7)、[Prisma CLI 文档](https://www.prisma.io/docs/orm/v7/reference/prisma-cli-reference)。
 

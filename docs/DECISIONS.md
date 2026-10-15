@@ -37,3 +37,13 @@
 - 提供 migrate dev/deploy/status 命令与 PostgreSQL migration_lock.toml；没有迁移历史时 migrate status 的退出码 1 如实报告，模型任务再初始化迁移，不通过重复应用 SQL 制造成功状态。
 - 停启测试比较既有 PostgreSQL 集群标识、容器、卷与 .env 哈希，验证运行中的 API 在数据库停止时返回 503、恢复后返回 200，不写入或删除任何业务数据。测试子进程采用异步执行，避免阻塞 HTTP 连接关闭事件；失败时 finally 尝试恢复原本运行的数据库。
 - 影响范围：本地脚本、根命令、迁移目录配置、测试与文档；PrismaService、健康接口和业务数据库结构沿用现状。
+
+## ADR-010：用户任务 03 数据模型与初始迁移（2026-10-15）
+
+- 本次用户任务 03 对应原阶段清单的数据库模型范围；不提前开发登录、基础资料或库存接口。17 张表通过 Prisma 7.10.0 migrate dev --create-only 生成追踪迁移，再补齐 CHECK、数据库时间触发器和显式事务。只用 migrate deploy 应用迁移，不执行参考 schema.sql。
+- 维持全局 User 和租户根 Tenant，其余表 tenant_id 非空。业务关联使用 tenant_id 复合外键；操作者引用对应租户 membership。采用 Restrict，避免级联删除历史记录。
+- 增加 expected/receipt 行 purchase_order_id 与复合候选键，把同商家不同订单串单、收货仓库不一致和商品错配从服务约定提升为数据库约束。成本快照统一 NUMERIC(20,4)，所有表补齐创建/更新时间。
+- 普通 nullable UNIQUE 保留 PostgreSQL NULLS DISTINCT，与参考部分唯一索引有相同的非空唯一语义，不增加预览功能依赖。参考 CHECK 保留，另增加非空格 SKU CHECK。触发器不授予历史单据更新权限；多态流水/审计对象及总量限制留给后续事务服务。
+- seed 使用固定演示租户/用户 UUID、自然唯一键 upsert、单事务与事务级 advisory lock；update 为空，保留已有数据、密码与角色。随机未公开密码用固定版本 bcryptjs 3.0.3 的 bcrypt cost 12 哈希；测试账号默认停用。允许可选 SEED_PASSWORD（12–72 字节），但不打印或提交密码。seed 拒绝生产模式和非本地/非指定开发测试数据库。
+- 约束测试在同一 PostgreSQL 实例创建随机空数据库，只清理本轮拥有的测试数据库，不 reset 开发库、不删除容器/卷。实际执行迁移两次、seed 两次及并发重试、真实 SQL 正反例与并发唯一性校验；结构 diff 外另查系统目录确保 CHECK/触发器存在。
+- 来源：[Prisma 7 seed](https://www.prisma.io/docs/orm/v7/prisma-migrate/workflows/seeding)、[迁移中管理不支持的数据库特性](https://www.prisma.io/docs/orm/v7/prisma-schema/data-model/unsupported-database-features)。

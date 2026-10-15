@@ -1,0 +1,4 @@
+# Keep tracked migrations identical across Windows/Linux checkouts.
+apps/api/prisma/migrations/**/*.sql text eol=lf
+apps/api/prisma/migrations/migration_lock.toml text eol=lf
+apps/api/prisma/schema.prisma text eol=lf
