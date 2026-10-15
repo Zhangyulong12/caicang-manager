@@ -31,27 +31,34 @@ export async function createApplication(
   });
   app.set('trust proxy', config.trustedProxies.length ? config.trustedProxies : false);
   app.use(requestContext(app.get(SafeLogger)));
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (error: Error | null, allow?: boolean) => void,
+  app.enableCors(
+    (
+      request: ApiRequest,
+      callback: (error: Error | null, options: Record<string, unknown>) => void,
     ) => {
-      if (!origin || config.origins.includes(origin)) callback(null, true);
-      else callback(new BusinessException('FORBIDDEN'));
+      const origin = request.headers.origin;
+      const sameOrigin = origin === `${request.protocol}://${request.get('host')}`;
+      if (origin && !sameOrigin && !config.origins.includes(origin)) {
+        callback(new BusinessException('FORBIDDEN'), { origin: false });
+        return;
+      }
+      callback(null, {
+        origin: Boolean(origin),
+        methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id', 'X-Request-Id', 'Accept'],
+        exposedHeaders: [
+          'X-Request-Id',
+          'Retry-After',
+          'X-RateLimit-Limit',
+          'X-RateLimit-Remaining',
+          'X-RateLimit-Reset',
+        ],
+        credentials: false,
+        optionsSuccessStatus: 204,
+        maxAge: 600,
+      });
     },
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Id', 'X-Request-Id', 'Accept'],
-    exposedHeaders: [
-      'X-Request-Id',
-      'Retry-After',
-      'X-RateLimit-Limit',
-      'X-RateLimit-Remaining',
-      'X-RateLimit-Reset',
-    ],
-    credentials: false,
-    optionsSuccessStatus: 204,
-    maxAge: 600,
-  });
+  );
   app.useBodyParser('json', { limit: config.bodyLimitBytes });
   app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();

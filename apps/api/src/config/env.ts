@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { isIP } from 'node:net';
 import { dirname, join, parse } from 'node:path';
 import { loadEnvFile } from 'node:process';
@@ -16,6 +17,8 @@ export interface Environment {
   rateLimit: number;
   rateTtlMs: number;
   bodyLimitBytes: number;
+  jwtAccessSecret: string;
+  jwtAccessTtlSeconds: number;
 }
 
 export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
@@ -52,6 +55,14 @@ export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
     return value === 'true';
   };
   const production = nodeEnv === 'production';
+  const jwtAccessSecret = source.JWT_ACCESS_SECRET ?? '';
+  if (
+    Buffer.byteLength(jwtAccessSecret) < 32 ||
+    /replace|changeme|placeholder/i.test(jwtAccessSecret)
+  )
+    bad('JWT_ACCESS_SECRET');
+  const jwtAccessTtlSeconds = integer('JWT_ACCESS_TTL_SECONDS', 900, 900);
+  if (jwtAccessTtlSeconds < 60) bad('JWT_ACCESS_TTL_SECONDS');
   const origins = (
     source.WEB_ORIGIN ?? (production ? '' : 'http://localhost:5173,http://localhost:5174')
   )
@@ -106,6 +117,8 @@ export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
     rateLimit: integer('RATE_LIMIT_LIMIT', 120, 10000),
     rateTtlMs: integer('RATE_LIMIT_TTL_MS', 60000, 3600000),
     bodyLimitBytes: integer('API_BODY_LIMIT_KB', 64, 1024) * 1024,
+    jwtAccessSecret,
+    jwtAccessTtlSeconds,
   };
 }
 
@@ -118,6 +131,23 @@ function loadDevelopmentEnvironment(): void {
   }
   const envPath = join(directory, '.env');
   if (existsSync(envPath)) loadEnvFile(envPath);
+  // Production mode must be explicitly supplied by the process, never activated by a local file.
+  if (process.env.NODE_ENV === 'production') throw new Error('Invalid configuration: NODE_ENV');
+  if (!process.env.JWT_ACCESS_SECRET) {
+    const authPath = join(directory, '.env.auth.local');
+    if (!existsSync(authPath)) {
+      try {
+        writeFileSync(authPath, `JWT_ACCESS_SECRET=${randomBytes(48).toString('hex')}\n`, {
+          flag: 'wx',
+          mode: 0o600,
+        });
+      } catch (error: unknown) {
+        if (!(error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST'))
+          throw new Error('Cannot prepare local authentication configuration', { cause: error });
+      }
+    }
+    loadEnvFile(authPath);
+  }
 }
 @Injectable()
 export class ConfigService {

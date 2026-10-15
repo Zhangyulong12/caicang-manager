@@ -111,6 +111,8 @@ caicang-manager/
 
 任务 04：`apps/api/src/bootstrap.ts` 是唯一启动配置入口；CommonModule 使用 APP_PIPE/APP_FILTER/APP_INTERCEPTOR/APP_GUARD 将公共规范应用到全部业务控制器，PrismaService 通过 ConfigService 读取经过校验的配置。测试夹具仅存在于独立 test 根模块及忽略的 .test-build 中，正式 AppModule 不引用它们。新增模块规范见 `BACKEND_FOUNDATION.md`。
 
+任务 05：AuthModule 提供邮箱认证与全局 AccessTokenGuard，控制器默认需要身份；health/register/login 显式 Public，GET /me 从 CurrentUser 读取守卫已验证的安全账号信息。PrismaModule 导出唯一共享 PrismaService，避免每个业务模块建立独立连接池。全局账号认证与商家权限分开，当前没有开放商家业务接口；后续必须在身份之后实现 tenant/membership/role 守卫。
+
 - 前端只负责表单、扫码、扫码候选展示和请求发出；**不得在前端计算最终库存或写入成本**。
 - API guard 负责认证、商家成员身份和角色；DTO 负责输入验证；业务 service 负责状态机及权限细节；数据库负责最终事务/约束。
 - `receiving`、`outbound`、`inventory` 必须共同约定库存写入服务，不允许三套独立库存算法。

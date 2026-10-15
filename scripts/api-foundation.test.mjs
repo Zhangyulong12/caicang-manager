@@ -13,6 +13,7 @@ loadEnvFile(new URL('../.env', import.meta.url));
 const runFile = promisify(execFile);
 const validEnv = {
   DATABASE_URL: 'postgresql://demo:test-password-for-validation@localhost:5432/caicang',
+  JWT_ACCESS_SECRET: 'unit-test-only-signing-key-that-is-not-a-production-credential',
 };
 const assertError = async (response, status, code) => {
   assert.equal(response.status, status);
@@ -51,6 +52,8 @@ test('configuration rejects invalid development and production values without ex
     RATE_LIMIT_LIMIT: '0',
     RATE_LIMIT_TTL_MS: 'NaN',
     API_BODY_LIMIT_KB: '-1',
+    JWT_ACCESS_SECRET: 'short',
+    JWT_ACCESS_TTL_SECONDS: '901',
   })) {
     await t.test(`invalid ${key}`, () =>
       assert.throws(
@@ -85,6 +88,26 @@ test('configuration rejects invalid development and production values without ex
           SWAGGER_ENABLED: 'true',
         }),
       /SWAGGER_ENABLED/,
+    );
+  });
+  await t.test('signing keys are required and token duration stays short', () => {
+    for (const secret of [
+      undefined,
+      'short',
+      'replace-with-long-random-secret-that-is-still-placeholder',
+    ])
+      assert.throws(
+        () => validateEnvironment({ ...validEnv, JWT_ACCESS_SECRET: secret }),
+        /JWT_ACCESS_SECRET/,
+      );
+    for (const ttl of ['0', '59', '901', 'NaN'])
+      assert.throws(
+        () => validateEnvironment({ ...validEnv, JWT_ACCESS_TTL_SECONDS: ttl }),
+        /JWT_ACCESS_TTL_SECONDS/,
+      );
+    assert.equal(
+      validateEnvironment({ ...validEnv, JWT_ACCESS_TTL_SECONDS: '60' }).jwtAccessTtlSeconds,
+      60,
     );
   });
 });
@@ -126,6 +149,9 @@ test('all controllers inherit global HTTP foundations', async (t) => {
     },
   });
   const endpoint = `${base}/api/v1/__test`;
+  await t.test('new controllers require authentication by default', async () =>
+    assertError(await fetch(`${base}/api/v1/__private-test`), 401, 'UNAUTHENTICATED'),
+  );
   const payload = { name: 'sample', items: [{ sku: '001', quantity: 2 }] };
   const post = (body, path = 'validate') =>
     fetch(`${endpoint}/${path}`, {
@@ -391,7 +417,7 @@ test('production bootstrap has security headers and no public Swagger or fixture
   const response = await fetch(`${base}/api/v1/health`);
   assert.equal(response.status, 200);
   assert.ok(response.headers.get('strict-transport-security'));
-  for (const path of ['/api/docs', '/api/docs-json', '/api/v1/__test/page', '/api/v1/auth/login'])
+  for (const path of ['/api/docs', '/api/docs-json', '/api/v1/__test/page', '/api/v1/auth/refresh'])
     await assertError(await fetch(`${base}${path}`), 404, 'NOT_FOUND');
 });
 

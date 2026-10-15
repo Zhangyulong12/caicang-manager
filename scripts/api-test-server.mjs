@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +16,12 @@ export async function startTestApi(t, options = {}) {
   await new Promise((resolve) => server.close(resolve));
   const child = spawn(process.execPath, [options.entry ?? 'apps/api/dist/main.js'], {
     cwd: projectRoot,
-    env: { ...process.env, ...options.env, API_PORT: String(port) },
+    env: {
+      ...process.env,
+      JWT_ACCESS_SECRET: randomBytes(48).toString('hex'),
+      ...options.env,
+      API_PORT: String(port),
+    },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

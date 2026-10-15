@@ -87,9 +87,16 @@ test(
               'SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations',
             )
           ).rows;
-          assert.equal(rows.length, 1);
-          assert.ok(rows[0].finished_at);
-          assert.equal(rows[0].rolled_back_at, null);
+          assert.equal(rows.length, 2);
+          for (const row of rows) {
+            assert.ok(row.finished_at);
+            assert.equal(row.rolled_back_at, null);
+          }
+          assert.ok(
+            rows.some(
+              (row) => row.migration_name === '20261015090000_unique_normalized_user_email',
+            ),
+          );
           await prisma('migrate', 'status');
         },
       );

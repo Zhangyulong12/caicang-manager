@@ -51,7 +51,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> 下方保留 V1 设计说明。工程骨架和任务 03 数据模型、迁移、seed 已实现；业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
+> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed 和任务 05 用户认证已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
 
 ## 使用顺序
 
@@ -148,4 +148,10 @@ pnpm start:api
 
 已接入全局 DTO 验证、成功/错误包装、业务错误码、requestId、日志脱敏、配置验证、CORS、安全头与限流。开发运行命令仍为 `pnpm db:up`、`pnpm start:api`；健康接口 `/api/v1/health`，开发文档 `/api/docs`。生产必须显式提供 HTTPS WEB_ORIGIN，Swagger 强制关闭；详细变量和新模块用法见 [后端基础说明](docs/BACKEND_FOUNDATION.md)。
 
-`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共模块和原有冒烟测试；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存，尚未实现登录、角色权限或业务接口；不将公共框架完成视为这些业务已完成。实际修改和验收结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。
+`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共、认证和原有冒烟测试；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存。任务 05 已提供账号认证，商家角色权限和库存业务接口仍未实现；任务 04 历史结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。
+
+## 任务 05：注册、登录与本人资料
+
+运行 `pnpm prisma:migrate:deploy` 应用邮箱规范化唯一索引，再用 `pnpm start:api` 启动。开发缺少 JWT_ACCESS_SECRET 时会创建被忽略的 `.env.auth.local`，保留现有 .env 和密钥文件；生产必须通过进程环境提供签名密钥。Access Token 默认 15 分钟。
+
+在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，实际结果与修改清单见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；不实现 refresh/logout、商家/角色或库存业务。

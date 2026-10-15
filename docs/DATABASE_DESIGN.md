@@ -6,6 +6,8 @@
 
 ## 任务 03 实施补充
 
+任务 05 补充：新增追踪迁移 `20261015090000_unique_normalized_user_email`，在 users 上创建 `lower(btrim(email))` 表达式唯一索引。保留原 email 值和原唯一约束，不改写既有用户；应用前若已有规范化重复邮箱则迁移会失败，必须显式处理，不自动合并或删除。新注册保存规范化邮箱，登录使用同一表达式的参数化查询；索引因 Prisma 模型无法表达函数索引，由 SQL 迁移管理。没有新增业务表、修改库存字段或重放参考 SQL。
+
 - `tenants` 是租户根，`users` 是跨商家的全局账号，因此不增加循环 tenant_id；其余 15 张表均有非空 tenant_id 和租户外键。同一账号通过 memberships 关联多个商家。
 - 所有模型有 UUID 主键、created_at/updated_at（timestamptz）。补齐参考稿缺失的时间字段；Prisma @updatedAt 与迁移内 PostgreSQL BEFORE UPDATE 触发器共同覆盖 ORM 和 SQL 写入。时间字段不意味着可编辑历史入库、库存流水或审计记录。
 - 所有租户业务关系采用复合外键和 Restrict 删除/更新；操作者关联 `(tenant_id,user_id)` membership，进一步防止无商家成员身份的操作记录。是否激活及角色权限仍须后续认证守卫验证。

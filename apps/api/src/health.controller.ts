@@ -3,6 +3,7 @@ import { ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { HealthData } from '@caicang/api-contract';
 import { BusinessException } from './common/errors.js';
 import { PrismaService } from './prisma/prisma.service.js';
+import { Public } from './modules/auth/public.decorator.js';
 
 class HealthDataDto {
   @ApiProperty({ enum: ['ok'] }) status!: 'ok';
@@ -22,6 +23,7 @@ export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
+  @Public()
   @ApiOkResponse({ type: HealthResponseDto, description: 'API 和 PostgreSQL 可连接' })
   async health(): Promise<HealthData> {
     try {

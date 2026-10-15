@@ -58,3 +58,17 @@
 - 限流选择内存 @nestjs/throttler，默认 120/60 秒、敏感装饰器 5/60 秒，每 IP 每路由；生产横向扩展须换共享存储。默认 trust proxy=false，仅允许明确 IP/CIDR，防止客户端用转发头绕过 IP 限流。账号维度锁定属于后续登录任务。
 - Nest 12 的 404 默认限定于全局前缀，前缀外未知路径会回落 Express HTML；在 init 后安装根兜底，调用同一 GlobalExceptionFilter，确保禁用的 Swagger 与其他未匹配路径也返回统一 JSON。DTO/分页/限流测试夹具编译到独立 .test-build，不引入生产路由。
 - 来源：[Nest 验证](https://docs.nestjs.com/application/validation)、[安全头与 CORS](https://docs.nestjs.com/techniques/security/cors)、[限流](https://docs.nestjs.com/security/rate-limiting)。
+
+## ADR-012：邮箱认证与短期 Access Token（2026-10-15，任务 05）
+
+- 本次只有 register/login/me，不实现 Refresh Token、logout、商家或角色模块。全局 User 与商家数据保持分离，注册仅建立启用账号，/me 只返回认证主体的安全资料，不接受客户端 userId 作为身份。
+- 沿用 bcryptjs 3.0.3、cost 12；注册要求 12 字符与大小写/数字/符号、最多 72 UTF-8 字节，登录也拒绝超长输入，不做静默截断或密码 trim。未知邮箱同样做 bcrypt 比较，失败不区分邮箱不存在、密码错或账号停用。
+- 注册/登录各自显式声明密码校验，共享的父 DTO 仅承载邮箱规则，避免 class-validator 在子类同属性自定义验证器覆盖父规则的问题；接口反例测试已验证长度、控制字符和多字节边界。
+- 邮箱统一 trim/lower；原用户原文保留，新增追踪 SQL 表达式唯一索引 lower(btrim(email))，配合同表达式参数化登录查询。创建账号的 P2002 统一为 EMAIL_ALREADY_EXISTS，数据库唯一性处理并发，不采用先查再插的竞态策略。
+- 固定 @nestjs/jwt 12.0.3（peer 支持 Nest 12），签发 HS256、900 秒（可配 60–900）Access Token，限定 issuer/audience/type/sub/jti/iat/exp；每次请求再次查账号启用状态。公有资料显式 select/map，不把含 passwordHash 的记录展开到响应。
+- AuthModule 的 APP_GUARD 默认保护控制器，health/register/login 显式 Public；测试根模块的公共夹具也显式标记。未来商家业务须另外实现 tenant/membership/role 检查，当前只有全局账号身份，不宣称完成授权。
+- PrismaService 抽到共享 PrismaModule，避免 Auth 与健康接口产生独立池。复用既有全局验证/响应/错误/日志及敏感接口限流，不另造错误格式或日志输出。
+- 开发缺少进程/.env 密钥时以 CreateNew 语义生成忽略的 .env.auth.local（48 随机字节转 hex），只读已有文件，保留 .env；生产必须显式以进程 NODE_ENV=production 启动且注入至少 32 字节非占位密钥，不读取/生成本地密钥。Token 在同一密钥下跨重启仍有效，到期需重新登录。
+- 来源：[Nest JWT 实现](https://github.com/nestjs/jwt)、[OWASP 密码存储](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)。
+
+同阶段补充：同源 Swagger POST 可能携带 Origin，不能当未知跨域请求拒绝。CORS 委托按请求协议与 Host 识别同源，其他来源仍须精确匹配 WEB_ORIGIN；默认不信任转发头，受信代理行为沿用部署配置。真实接口测试覆盖同源登录/me 成功及未授权跨域失败，不增加通配符或认证绕过。

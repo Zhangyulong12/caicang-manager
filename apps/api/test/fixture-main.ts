@@ -30,6 +30,7 @@ import { PaginationQueryDto } from '../src/common/pagination.dto.js';
 import { SensitiveRateLimit } from '../src/common/rate-limit.js';
 import { ConfigService } from '../src/config/env.js';
 import { Prisma } from '../src/generated/prisma/client.js';
+import { Public } from '../src/modules/auth/public.decorator.js';
 
 class LineDto {
   @IsString() @MinLength(1) sku!: string;
@@ -45,6 +46,7 @@ class InputDto {
 }
 // Isolated test root; never imported by AppModule or production main.
 @Controller('__test')
+@Public()
 class FixtureController {
   constructor(private readonly logger: SafeLogger) {}
   @Post('validate') validate(@Body() dto: InputDto) {
@@ -96,7 +98,13 @@ class FixtureController {
     return { accepted: true };
   }
 }
-@Module({ imports: [AppModule], controllers: [FixtureController] })
+@Controller('__private-test')
+class PrivateFixtureController {
+  @Get() value() {
+    return { private: true };
+  }
+}
+@Module({ imports: [AppModule], controllers: [FixtureController, PrivateFixtureController] })
 class FixtureModule {}
 const app = await createApplication(FixtureModule);
 await app.listen(app.get(ConfigService).values.port, '127.0.0.1');

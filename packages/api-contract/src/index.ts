@@ -40,9 +40,30 @@ export const API_ERROR_CODES = [
   'IDEMPOTENCY_CONFLICT',
   'RECEIPT_QTY_EXCEEDED',
   'STATUS_CONFLICT',
+  'EMAIL_ALREADY_EXISTS',
+  'INVALID_CREDENTIALS',
+  'INVALID_ACCESS_TOKEN',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
   error: { code: ApiErrorCode; message: string; details: Record<string, unknown> };
   requestId: string;
+}
+
+export interface PublicUser {
+  id: string;
+  email: string;
+  displayName: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface RegisterData {
+  user: PublicUser;
+}
+export interface LoginData {
+  accessToken: string;
+  tokenType: 'Bearer';
+  expiresIn: number;
+  user: PublicUser;
 }

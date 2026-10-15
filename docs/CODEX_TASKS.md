@@ -6,6 +6,8 @@
 
 用户任务 04 是“后端公共基础模块”，交付统一验证、响应、异常、追踪、配置、日志与安全组件及自动化测试，见 `BACKEND_FOUNDATION.md` 和 `TASK_04_REPORT.md`。原阶段 03 的登录/商家/权限仍等待后续明确指令；阶段编号不能代替用户当前任务范围。
 
+用户任务 05 仅实现用户邮箱密码注册、登录短期 Access Token、GET /me 和真实数据库接口测试，见 `AUTHENTICATION.md` 与 `TASK_05_REPORT.md`。原清单中的 refresh/logout、商家、成员、角色与商品仓库 CRUD 均未包含在本次任务。
+
 ## 阶段 00 — 确认环境与初始化 Git
 
 目标：验证 Windows 工具；确定 D: 或其他工作区目录；确认 Node、pnpm、Docker Desktop、HBuilderX 版本；准备 Git 分支与 .gitignore。

@@ -20,6 +20,9 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   IDEMPOTENCY_CONFLICT: { status: 409, message: '操作标识与原请求不一致' },
   RECEIPT_QTY_EXCEEDED: { status: 409, message: '收货数量超过可收数量' },
   STATUS_CONFLICT: { status: 409, message: '当前状态不允许此操作' },
+  EMAIL_ALREADY_EXISTS: { status: 409, message: '此邮箱已注册' },
+  INVALID_CREDENTIALS: { status: 401, message: '邮箱或密码不正确' },
+  INVALID_ACCESS_TOKEN: { status: 401, message: '登录凭证无效或已过期，请重新登录' },
 };
 export class BusinessException extends HttpException {
   constructor(

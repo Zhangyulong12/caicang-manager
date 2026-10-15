@@ -2,11 +2,11 @@
 
 Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 IPv4；正式生产 `https://api.<domain>/api/v1`。
 
-任务 01 实现范围：仅公开 `GET /health`，执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。下方其余业务接口均为后续阶段契约，当前尚未实现。
+健康接口 `GET /health` 执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。开发 Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。
 
-任务 04 已把前缀、DTO 验证、响应、错误、requestId、安全头、CORS、日志和限流统一接入公共基础模块。`health` 仍是唯一业务运行路由，登录/权限及下方业务接口尚未实现。Swagger 仅开发/测试模式可启用，生产强制关闭。
+任务 04 已统一公共基础模块。任务 05 新增 `POST /auth/register`、`POST /auth/login`、`GET /me`；其余业务、refresh/logout、商家/角色权限仍是后续契约，未实现。Swagger 仅开发/测试模式可启用，生产强制关闭。
 
-所有业务路由（不含 auth/login、health）需要 `Authorization: Bearer <access_token>` 和 `X-Tenant-Id: <tenant UUID>`。服务端验证 JWT userId 在 X-Tenant-Id 指向的商家有 active membership，并针对路由检查角色。禁止直接相信任何请求体的 `tenantId`；tenantId 以服务端已认证上下文为准。
+`auth/register`、`auth/login`、`health` 公开。`GET /me` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id；仅返回当前账号资料，不返回商家数据。其他后续商家业务路由必须同时验证 Token、`X-Tenant-Id` 对应 active membership 和角色后才能开放。禁止相信请求体 tenantId；当前 AccessTokenGuard 只实现身份验证，不冒充商家权限检查。
 
 统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100},"requestId":"..."}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。
 
@@ -19,20 +19,54 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 - 业务异常统一 `BusinessException(code, details)`，HTTP 状态和消息由公共注册表控制，不自行组装 error。内置 HTTP 异常转换为同一结构；未知错误统一 500 `INTERNAL_ERROR`，不返回 SQL、堆栈、连接串或异常原文。
 - 通用码：BAD_REQUEST、VALIDATION_ERROR、UNAUTHENTICATED、FORBIDDEN、NOT_FOUND、METHOD_NOT_ALLOWED、RESOURCE_CONFLICT、BUSINESS_VALIDATION_FAILED、RATE_LIMITED、PAYLOAD_TOO_LARGE、UNSUPPORTED_MEDIA_TYPE、INTERNAL_ERROR、SERVICE_UNAVAILABLE、DATABASE_UNAVAILABLE。库存/幂等码按后续章节保留；错误码联合类型位于 `packages/api-contract`。
 - 日志只写时间、事件、requestId、方法、状态、耗时与错误码；不记录原始 URL/路径/查询、正文、头、密码、Token、地址、异常原文或堆栈。所有 Nest Logger 调用经 SafeLogger，不能用 console 或 Prisma query logging 绕过。结构化业务错误详情递归遮蔽敏感字段。
-- CORS 使用精确 origin 白名单，支持 GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS 与 Authorization/Content-Type/X-Tenant-Id/X-Request-Id；暴露追踪及限流响应头。无 Origin 的原生客户端可请求；非白名单 Origin 返回统一 403。CORS 不替代认证与角色检查，当前不启用跨域 cookie credentials。
+- CORS 使用精确 origin 白名单，支持 GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS 与 Authorization/Content-Type/X-Tenant-Id/X-Request-Id；暴露追踪及限流响应头。API 自身同源请求（例如 Swagger POST）与无 Origin 的原生客户端可请求；其他非白名单 Origin 返回统一 403。CORS 不替代认证与角色检查，当前不启用跨域 cookie credentials。
 - 全局限流默认每 IP 每路由 120 次/60 秒；未来敏感接口使用 `@SensitiveRateLimit()` 收紧到 5 次/60 秒，超限统一 429，带 Retry-After。采用单进程内存存储，重启计数清零；多实例部署前需共享存储，当前不宣称分布式限流。
 - 默认不信任 X-Forwarded-For。反向代理配置必须明确通过 TRUSTED_PROXIES 指定 IP/CIDR，并由部署限制直连；不接受 true、任意跳数或 0 位前缀范围。基础安全头覆盖成功、错误和预检；生产启用 HSTS，TLS 终止在后续部署阶段配置。
-- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`，公共 OpenAPI 自动追加错误响应、requestId 参数及未来认证方案定义；定义方案不代表认证已实现。
+- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`，公共 OpenAPI 自动追加错误响应与 requestId 参数。Bearer 认证在任务 05 已实现；商家头方案仅预留，尚未实现商家授权。
+
+## 任务 05：注册、登录与本人资料（已实现）
+
+### POST /auth/register（公开，成功 201）
+
+```json
+{"email":"new-user@example.com","password":"CaicangDemo!2026","displayName":"新用户"}
+```
+
+- email 去首尾空格并转小写，验证邮箱格式及最长 320 字符。数据库 `lower(btrim(email))` 唯一索引防止大小写/空格差异及并发重复注册；冲突返回 409 `EMAIL_ALREADY_EXISTS`。
+- password 至少 12 字符，含大小写字母、数字、符号，最多 72 个 UTF-8 字节，不接受控制字符或无效代理字符；不裁剪、不去空格。使用 bcrypt cost 12 保存哈希。
+- displayName 可省略，默认使用邮箱 @ 前部分；若填写则去首尾空格、1–100 字符。禁止提交 role、tenantId、isActive 或 passwordHash 等多余字段。
+- 成功：`{"data":{"user":{"id":"<UUID>","email":"new-user@example.com","displayName":"新用户","isActive":true,"createdAt":"<ISO8601>","updatedAt":"<ISO8601>"}},"requestId":"<UUID>"}`。
+- 注册只创建全局账号并启用，不创建商家/成员关系、不自动返回 Token；随后调用 login。未实现邮箱验证邮件。
+
+### POST /auth/login（公开，成功 200）
+
+```json
+{"email":"new-user@example.com","password":"CaicangDemo!2026"}
+```
+
+- 成功 data 为 `{accessToken:"<JWT>",tokenType:"Bearer",expiresIn:900,user:<同上安全用户信息>}`。没有 Refresh Token。
+- 密码错误、邮箱不存在或账号停用统一 401 `INVALID_CREDENTIALS`（邮箱或密码不正确），不区分账号是否存在；未知邮箱也执行 bcrypt 比较，减少明显时序差异。
+- 注册/登录均按既有敏感限流策略每 IP 每路由 5 次/60 秒，包含失败与无效输入，超限返回 429/Retry-After。
+
+### GET /me（需 Bearer，成功 200）
+
+请求头：`Authorization: Bearer <data.accessToken>`；不传密码、userId 或 X-Tenant-Id。返回 `data:<安全用户信息>`，只包含 id/email/displayName/isActive/createdAt/updatedAt，绝不包含密码哈希。
+
+Access Token 使用 HS256，默认 900 秒，可配置 60–900 秒；校验签名、算法、issuer=caicang-api、audience=caicang-clients、sub UUID、type=access、jti UUID、iat/exp 和最大时长。每次受保护请求查数据库确认账号存在且启用。缺少 Token 返回 401 `UNAUTHENTICATED`，格式错误/伪造/过期返回 401 `INVALID_ACCESS_TOKEN`；停用或已删除用户返回 401。Token 不接受 query 参数或自定义用户身份头。
+
+所有已注册控制器默认需要 Access Token；仅显式 `@Public()` 的端点例外。商家业务仍须在后续阶段加入 tenant/membership/role 检查，不能只靠当前身份守卫开放业务。
+
+Swagger 操作：先执行 register，再执行 login，复制 data.accessToken 到页面 Authorize 的 bearer 输入框（只填 Token 本身），执行 GET /api/v1/me。重复注册示例邮箱会得到 409，可改为新的测试邮箱。完整步骤见 `AUTHENTICATION.md`。
 
 ## 1. 账号/商家
 
 |Method|Endpoint|用途|角色|
 |---|---|---|---|
 |POST|`/auth/register`|注册账号|公开|
-|POST|`/auth/login`|登录，获得 access/refresh token|公开|
+|POST|`/auth/login`|登录，获得短期 Access Token（当前无 refresh）|公开|
 |POST|`/auth/refresh`|刷新短期令牌|已登录/有效 refresh|
 |POST|`/auth/logout`|注销 refresh token|用户|
-|GET|`/me`|当前用户和可选商家列表|全部|
+|GET|`/me`|当前用户资料；商家列表留待后续|已登录|
 |POST|`/tenants`|创建商家及默认仓库|登录用户|
 |GET|`/tenants/current`|当前商家信息|成员|
 |GET|`/members`|成员列表|OWNER/ADMIN|
