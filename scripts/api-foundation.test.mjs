@@ -54,6 +54,7 @@ test('configuration rejects invalid development and production values without ex
     API_BODY_LIMIT_KB: '-1',
     JWT_ACCESS_SECRET: 'short',
     JWT_ACCESS_TTL_SECONDS: '901',
+    REFRESH_TOKEN_TTL_SECONDS: '2592001',
   })) {
     await t.test(`invalid ${key}`, () =>
       assert.throws(
@@ -108,6 +109,30 @@ test('configuration rejects invalid development and production values without ex
     assert.equal(
       validateEnvironment({ ...validEnv, JWT_ACCESS_TTL_SECONDS: '60' }).jwtAccessTtlSeconds,
       60,
+    );
+  });
+  await t.test('production never permits missing, weak or placeholder JWT keys', () => {
+    for (const key of [undefined, '', 'short', 'changeme'.repeat(10)])
+      assert.throws(
+        () =>
+          validateEnvironment({
+            ...validEnv,
+            NODE_ENV: 'production',
+            WEB_ORIGIN: 'https://admin.example',
+            JWT_ACCESS_SECRET: key,
+          }),
+        /JWT_ACCESS_SECRET/,
+      );
+    for (const ttl of ['0', '3599', '2592001', 'NaN'])
+      assert.throws(
+        () => validateEnvironment({ ...validEnv, REFRESH_TOKEN_TTL_SECONDS: ttl }),
+        /REFRESH_TOKEN_TTL_SECONDS/,
+      );
+    assert.equal(validateEnvironment(validEnv).refreshTokenTtlSeconds, 604800);
+    assert.equal(
+      validateEnvironment({ ...validEnv, REFRESH_TOKEN_TTL_SECONDS: '3600' })
+        .refreshTokenTtlSeconds,
+      3600,
     );
   });
 });

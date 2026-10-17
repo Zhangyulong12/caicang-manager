@@ -8,6 +8,8 @@
 
 用户任务 05 仅实现用户邮箱密码注册、登录短期 Access Token、GET /me 和真实数据库接口测试，见 `AUTHENTICATION.md` 与 `TASK_05_REPORT.md`。原清单中的 refresh/logout、商家、成员、角色与商品仓库 CRUD 均未包含在本次任务。
 
+用户任务 06 仅增加 Refresh Token、轮换、服务端会话撤销、安全退出与真实数据库并发/重启测试；见 `AUTHENTICATION.md`、`TASK_06_REPORT.md`。不提前实现商家/角色、前端登录页或库存功能。
+
 ## 阶段 00 — 确认环境与初始化 Git
 
 目标：验证 Windows 工具；确定 D: 或其他工作区目录；确认 Node、pnpm、Docker Desktop、HBuilderX 版本；准备 Git 分支与 .gitignore。

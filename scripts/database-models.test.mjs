@@ -87,7 +87,7 @@ test(
               'SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations',
             )
           ).rows;
-          assert.equal(rows.length, 2);
+          assert.equal(rows.length, 3);
           for (const row of rows) {
             assert.ok(row.finished_at);
             assert.equal(row.rolled_back_at, null);
@@ -101,7 +101,7 @@ test(
         },
       );
       await t.test(
-        '17 tables, UUID keys, timestamps and 15 tenant scoped tables exist',
+        '17 original tables plus 2 authentication tables, UUID keys and 15 tenant scoped tables exist',
         async () => {
           const actual = (
             await db.query(
@@ -110,7 +110,7 @@ test(
           ).rows
             .map((r) => r.tablename)
             .sort();
-          assert.deepEqual(actual, [...tables].sort());
+          assert.deepEqual(actual, [...tables, 'auth_sessions', 'refresh_tokens'].sort());
           const columns = (
             await db.query(
               "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public'",
@@ -149,13 +149,13 @@ test(
               "SELECT conname FROM pg_constraint WHERE contype='c' AND connamespace='public'::regnamespace",
             )
           ).rows;
-          assert.equal(checks.length, 32);
+          assert.equal(checks.length, 33);
           const triggers = (
             await db.query(
               "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tr_%_updated_at'",
             )
           ).rows;
-          assert.equal(triggers.length, 17);
+          assert.equal(triggers.length, 19);
           const indexes = (
             await db.query("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
           ).rows.map((r) => r.indexname);

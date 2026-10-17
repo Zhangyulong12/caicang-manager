@@ -113,6 +113,21 @@ V1 币种人民币。确认采购时计算：
 
 库存余额的 `(tenant_id, warehouse_id, product_id)` 唯一索引与事务是最终正确性的关键。所有重试行为严格限定为可识别的幂等操作，不可盲目重复扣增。
 
+## 任务 06：全局登录会话与刷新凭据
+
+在原 17 张业务/身份表之外，追踪迁移 `20261017090000_auth_refresh_sessions` 新增两张认证基础表。它们与 users 一样是全局账号身份基础设施，不持有商家业务数据，不带 tenant_id；原有 15 张租户业务表隔离规则保持不变。`database/schema.sql` 保留为原始参考，不含本任务认证表，禁止作为初始化脚本叠加执行。
+
+|表|字段及约束|用途|
+|---|---|---|
+|auth_sessions|UUID id、user_id 外键、expires_at、revoked_at、created_at/updated_at；user/revoked 和 expiry 索引|每次登录独立会话；过期或撤销时拒绝 Access/Refresh|
+|refresh_tokens|UUID id、session_id 外键、token_hash VARCHAR(64) 唯一并校验小写 hex、used_at、created_at/updated_at；session 索引|保存随机凭据的 SHA-256 摘要；已用行保留以检测重放|
+
+两个外键在删除账号/会话时级联删除其认证凭据，不影响原业务外键的 Restrict。更新时间有数据库触发器。会话绝对有效期在登录时确定，刷新不延长。Refresh Token 原文只在签发时返回；不保存 Token 原文、地址、IP、UA 或签名密钥。
+
+refresh/logout 都在事务内按 session id 执行 SELECT FOR UPDATE，随后重新读取凭据消费与会话状态，解决跨 API 进程并发。一次消费与新凭据入库原子提交；旧凭据重放先提交会话撤销，再在事务外返回标准 401，避免异常回滚撤销。退出同样锁会话且不覆盖已有 revoked_at。后续请求校验 JWT sid 与账号绑定并查询会话状态。
+
+本次不自动删除任何已有数据，也未增加清理定时任务。已用哈希应至少保留到会话到期，后续可在会话到期后按 expires_at 分批归档/清理；清理流程需另行授权与测试。
+
 ## 7. 索引与历史数据
 
 已有联合索引：采购状态时间、包裹运单、库存 SKU、流水 SKU/时间、出库状态、审计时间。未来可扩充分区/归档，但 V1 不需要。禁止物理删除有采购/库存流水的商品和订单；取消单据用状态机表示。

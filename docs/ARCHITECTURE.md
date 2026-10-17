@@ -137,3 +137,11 @@ caicang-manager/
 ## 7. 文档更新规则
 
 任何业务流程改变必须先更新 spec/API/DB 决策，再改实现，最后加测试。`schema.sql` 和 Prisma schema 要一致；后续以 Prisma 迁移为最终运行源，SQL 参考稿需标示是否仍同步。分阶段由 Codex 更新 CHANGELOG。
+
+## 任务 06：可撤销认证会话
+
+AuthModule 继续复用统一 DTO/响应/错误/日志/限流。每次登录创建 PostgreSQL auth_sessions 与 refresh_tokens；Refresh Token 为 256 位随机值，只存 SHA-256 哈希。refresh/logout 不依赖有效 Access Token，以正文中的随机凭据证明会话持有权。会话行锁将轮换、重放撤销与退出串行化，可跨 API 实例共享数据库状态。Access JWT 新增 sid，每次受保护请求检查账号、会话归属、到期和撤销；旧版无 sid 的 Token 需要重新登录。
+
+严格轮换不提供旧凭据宽限重试：重放撤销该登录会话的整条凭据链。正常刷新不立即废除同会话尚未到期的旧 Access Token；退出、重放撤销与会话到期会在后续认证请求中拒绝全部关联 Access Token。已经通过认证的在途请求不被强行中断。其他设备会话互相独立。
+
+会话是全局账号身份设施，无商家数据或权限；后续商家路由仍必须独立检查 tenant/membership/role。API 限流仍是进程内存计数，分布式限流及前端安全存储不在本任务范围。

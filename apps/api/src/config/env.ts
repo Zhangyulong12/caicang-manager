@@ -19,6 +19,7 @@ export interface Environment {
   bodyLimitBytes: number;
   jwtAccessSecret: string;
   jwtAccessTtlSeconds: number;
+  refreshTokenTtlSeconds: number;
 }
 
 export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
@@ -63,6 +64,8 @@ export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
     bad('JWT_ACCESS_SECRET');
   const jwtAccessTtlSeconds = integer('JWT_ACCESS_TTL_SECONDS', 900, 900);
   if (jwtAccessTtlSeconds < 60) bad('JWT_ACCESS_TTL_SECONDS');
+  const refreshTokenTtlSeconds = integer('REFRESH_TOKEN_TTL_SECONDS', 604800, 2592000);
+  if (refreshTokenTtlSeconds < 3600) bad('REFRESH_TOKEN_TTL_SECONDS');
   const origins = (
     source.WEB_ORIGIN ?? (production ? '' : 'http://localhost:5173,http://localhost:5174')
   )
@@ -119,6 +122,7 @@ export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
     bodyLimitBytes: integer('API_BODY_LIMIT_KB', 64, 1024) * 1024,
     jwtAccessSecret,
     jwtAccessTtlSeconds,
+    refreshTokenTtlSeconds,
   };
 }
 

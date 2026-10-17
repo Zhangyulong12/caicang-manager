@@ -72,3 +72,15 @@
 - 来源：[Nest JWT 实现](https://github.com/nestjs/jwt)、[OWASP 密码存储](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)。
 
 同阶段补充：同源 Swagger POST 可能携带 Origin，不能当未知跨域请求拒绝。CORS 委托按请求协议与 Host 识别同源，其他来源仍须精确匹配 WEB_ORIGIN；默认不信任转发头，受信代理行为沿用部署配置。真实接口测试覆盖同源登录/me 成功及未授权跨域失败，不增加通配符或认证绕过。
+
+## ADR-013：随机刷新凭据、严格轮换与数据库会话撤销（2026-10-17，任务 06）
+
+- 保持 Access HS256 与 60–900 秒配置，默认 15 分钟；新增 sid UUID，每个受保护请求检查对应会话归属、绝对到期和撤销。退出在后续请求中立即阻止该会话的 Access Token；已认证的在途请求不被中断。升级前无 sid 的旧令牌需要重新登录。
+- Refresh Token 使用 Node crypto.randomBytes(32) 的规范 base64url（43 字符），数据库仅存 SHA-256 digest，不存原文。随机源具有 256 位熵，区别于需要慢哈希的用户密码，不增加无用途的 JWT_REFRESH_SECRET。沿用锁定依赖，无新增依赖或密钥硬编码。
+- auth_sessions/refresh_tokens 是全局账号身份基础设施，无 tenant_id 或商家数据；原 17 张表与租户约束不变。追踪迁移由 Prisma 7.10.0 migrate diff 对比上一提交和当前 schema 生成，再补充 BEGIN/COMMIT、哈希 CHECK 和更新时间触发器；旧迁移与参考 SQL 不改写，不运行 schema.sql。from-migrations 方式缺少专用 shadowDatabaseUrl，未创建或清空影子库，改用两个 schema 的只读差异生成。
+- 会话默认绝对有效期 7 天，允许 1 小时–30 天；轮换不延长。每次登录独立会话，退出只影响对应设备。旧凭据记录保留用于重放检测；本次不加入删除/清理定时任务。
+- refresh/logout 使用同一会话 SELECT FOR UPDATE 锁，锁后重新读取消费状态；旧 token 消费、新 token 摘要和 Access 签发在同一事务。重放/到期/账号停用时先提交撤销，再在事务外抛统一 401，防止撤销被回滚。跨进程并发同 token 至多一次成功，另一请求会撤销整个会话，成功响应中的令牌也随之失效。
+- 不设刷新宽限窗口，客户端需 single-flight 串行刷新、原子替换两个令牌；响应丢失不能盲目重试旧 token，需重新登录。这是严格重放防护与重试便利性之间的明确选择。单纯随机无效凭据找不到会话，不影响合法会话。
+- refresh/logout 显式 Public 是为了允许 Access 过期后的操作，必须以 JSON 正文 Refresh Token 证明会话持有权。logout 对格式合法未知/已撤销凭据统一成功，避免枚举且幂等；非法格式 400，数据库故障不能伪报成功。已使用的旧凭据也允许退出所属会话。
+- 认证成功体和 /me 设置 Cache-Control:no-store；沿用日志字段白名单与敏感接口 5次/IP/路由/分钟，不打印 Token、哈希、密码、连接串或数据库异常。生产继续强制进程环境密钥；前端存储、Cookie/BFF、分布式限流、商家授权均未纳入本次任务。
+- 参考 [RFC 9700 §4.14.2](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14.2) 的轮换与重放撤销建议，以及 [OWASP 会话管理](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)。本项目是邮箱密码登录 API，不宣称实现完整 OAuth 协议。

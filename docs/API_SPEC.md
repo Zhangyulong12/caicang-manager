@@ -4,9 +4,9 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 健康接口 `GET /health` 执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。开发 Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。
 
-任务 04 已统一公共基础模块。任务 05 新增 `POST /auth/register`、`POST /auth/login`、`GET /me`；其余业务、refresh/logout、商家/角色权限仍是后续契约，未实现。Swagger 仅开发/测试模式可启用，生产强制关闭。
+任务 04 已统一公共基础模块。任务 05 提供注册、登录与本人资料；任务 06 已实现 `POST /auth/refresh`、`POST /auth/logout` 与数据库会话撤销。其余商家/角色与业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
 
-`auth/register`、`auth/login`、`health` 公开。`GET /me` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id；仅返回当前账号资料，不返回商家数据。其他后续商家业务路由必须同时验证 Token、`X-Tenant-Id` 对应 active membership 和角色后才能开放。禁止相信请求体 tenantId；当前 AccessTokenGuard 只实现身份验证，不冒充商家权限检查。
+`auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id；仅返回当前账号资料，不返回商家数据。其他后续商家业务路由必须同时验证 Token、`X-Tenant-Id` 对应 active membership 和角色后才能开放。禁止相信请求体 tenantId；当前 AccessTokenGuard 只实现身份验证，不冒充商家权限检查。
 
 统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100},"requestId":"..."}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。
 
@@ -44,7 +44,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 {"email":"new-user@example.com","password":"CaicangDemo!2026"}
 ```
 
-- 成功 data 为 `{accessToken:"<JWT>",tokenType:"Bearer",expiresIn:900,user:<同上安全用户信息>}`。没有 Refresh Token。
+- 成功 data 为 `{accessToken:"<JWT>",refreshToken:"<43字符随机凭据>",tokenType:"Bearer",expiresIn:900,refreshExpiresIn:<会话剩余秒数>,user:<同上安全用户信息>}`。每次登录建立独立会话，默认绝对有效期 7 天。
 - 密码错误、邮箱不存在或账号停用统一 401 `INVALID_CREDENTIALS`（邮箱或密码不正确），不区分账号是否存在；未知邮箱也执行 bcrypt 比较，减少明显时序差异。
 - 注册/登录均按既有敏感限流策略每 IP 每路由 5 次/60 秒，包含失败与无效输入，超限返回 429/Retry-After。
 
@@ -52,20 +52,43 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 请求头：`Authorization: Bearer <data.accessToken>`；不传密码、userId 或 X-Tenant-Id。返回 `data:<安全用户信息>`，只包含 id/email/displayName/isActive/createdAt/updatedAt，绝不包含密码哈希。
 
-Access Token 使用 HS256，默认 900 秒，可配置 60–900 秒；校验签名、算法、issuer=caicang-api、audience=caicang-clients、sub UUID、type=access、jti UUID、iat/exp 和最大时长。每次受保护请求查数据库确认账号存在且启用。缺少 Token 返回 401 `UNAUTHENTICATED`，格式错误/伪造/过期返回 401 `INVALID_ACCESS_TOKEN`；停用或已删除用户返回 401。Token 不接受 query 参数或自定义用户身份头。
+Access Token 使用 HS256，默认 900 秒，可配置 60–900 秒；校验签名、算法、issuer=caicang-api、audience=caicang-clients、sub/sid/jti UUID、type=access、iat/exp 和最大时长。每次受保护请求查数据库确认账号启用，以及 sid 会话属于此账号、未撤销且未到期。缺少 Token 返回 401 `UNAUTHENTICATED`，格式错误/伪造/过期/会话失效返回 401 `INVALID_ACCESS_TOKEN`；停用或已删除用户返回 401。Token 不接受 query 参数或自定义用户身份头。升级前没有 sid 的旧 Access Token 需要重新登录。
 
 所有已注册控制器默认需要 Access Token；仅显式 `@Public()` 的端点例外。商家业务仍须在后续阶段加入 tenant/membership/role 检查，不能只靠当前身份守卫开放业务。
 
 Swagger 操作：先执行 register，再执行 login，复制 data.accessToken 到页面 Authorize 的 bearer 输入框（只填 Token 本身），执行 GET /api/v1/me。重复注册示例邮箱会得到 409，可改为新的测试邮箱。完整步骤见 `AUTHENTICATION.md`。
+
+## 任务 06：刷新与安全退出（已实现）
+
+### POST /auth/refresh（Refresh Token 凭据，成功 200）
+
+```json
+{"refreshToken":"<粘贴最近一次 login 或 refresh 返回的 data.refreshToken>"}
+```
+
+- 不需要 Access Token，过期 Access Token 不阻止刷新。refreshToken 必须是 32 随机字节的规范 base64url 字符串，43 字符，无 padding、空格或 Bearer 前缀。不接收 URL/query、cookie 或隐式身份。
+- 成功 data 与 login 相同，返回新的 Access/Refresh Token，user 为最新安全资料。客户端必须原子替换两个令牌，并串行刷新；旧 Refresh Token 一次性使用。会话绝对到期时间不会随刷新延长，refreshExpiresIn 是剩余秒数；REFRESH_TOKEN_TTL_SECONDS 默认 604800，允许 3600–2592000。
+- 未知、过期、撤销、已使用凭据或账号停用统一 401 `INVALID_REFRESH_TOKEN`，details 为空。旧凭据被重复使用时撤销整个会话，包括最新子令牌和关联 Access Token。并发刷新同一个凭据：至多一个成功，另一个返回 401 并撤销该会话；客户端须重新登录。网络响应丢失后不可盲目重试旧凭据。
+- 使用 PostgreSQL 事务和会话行锁，支持多个 API 进程；写入失败整体回滚，不消费旧凭据。只持久化 SHA-256 哈希，256 位随机源不使用密码式低熵凭据；无额外 JWT_REFRESH_SECRET。
+
+### POST /auth/logout（Refresh Token 凭据，成功 200）
+
+正文同 refresh；成功 `{"data":{"loggedOut":true},"requestId":"<UUID>"}`。
+
+- 凭据持有者撤销其所属整个会话，不信任 userId、tenantId 或另一个 Bearer 身份。已轮换的旧凭据也可退出。退出成功后的后续请求中，此会话 Access Token 返回 401，所有 Refresh Token 无法再刷新；已通过认证的在途请求不会被中断。
+- 不要求有效 Access Token。未知、已过期或已撤销的格式合法凭据也返回 200，重复退出幂等，不暴露凭据是否存在；无效格式为 400 `VALIDATION_ERROR`。数据库失败仍返回标准错误，不伪报退出成功。客户端收到成功后清除本地两个令牌。
+- 只撤销当前会话，不退出其他设备；撤销跨 API 重启有效。
+
+register/login/refresh/logout 均沿用每 IP 每路由 5 次/60 秒限流。认证成功响应与 /me 使用 `Cache-Control: no-store`。原始 Token、哈希、密钥和密码不进入应用日志。生产仍强制校验 JWT_ACCESS_SECRET，必须通过进程环境注入至少 32 字节非占位密钥并使用 HTTPS。令牌不设置 cookie；客户端存储集成不在本任务范围。
 
 ## 1. 账号/商家
 
 |Method|Endpoint|用途|角色|
 |---|---|---|---|
 |POST|`/auth/register`|注册账号|公开|
-|POST|`/auth/login`|登录，获得短期 Access Token（当前无 refresh）|公开|
+|POST|`/auth/login`|登录，获得短期 Access Token 与独立会话 Refresh Token|公开|
 |POST|`/auth/refresh`|刷新短期令牌|已登录/有效 refresh|
-|POST|`/auth/logout`|注销 refresh token|用户|
+|POST|`/auth/logout`|撤销当前登录会话|Refresh Token 凭据|
 |GET|`/me`|当前用户资料；商家列表留待后续|已登录|
 |POST|`/tenants`|创建商家及默认仓库|登录用户|
 |GET|`/tenants/current`|当前商家信息|成员|

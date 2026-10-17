@@ -30,7 +30,7 @@ pnpm test:db
 3. 控制器返回原始数据；分页返回 PageResult(items,{page,pageSize,total})。拦截器生成 data/requestId，原 HTTP 状态保留，undefined 数据变为 null。不得手工再套 envelope。
 4. 使用 BusinessException('OUT_OF_STOCK',{available:2}) 等注册错误码；新增码同时维护 api-contract、ERRORS、API 文档和测试。未在注册表中的任意异常统一 INTERNAL_ERROR。仅允许安全业务详情，不传入异常、请求或数据库对象。
 5. Swagger 用 ApiDataResponse(OutputDto,201) 或 ApiPageResponse(RowDto) 描述包装；输出 DTO 仍需 ApiProperty。bootstrap 自动附加公共错误和 requestId 参数；当前 health 保持兼容已有 HealthResponseDto。
-6. 任务 05 的登录/注册已加 SensitiveRateLimit，未来 refresh 等端点同样需要。限流为每路由/IP 规则；账号维度锁定和多实例共享存储仍是后续范围。
+6. 登录/注册及任务 06 refresh/logout 已加 SensitiveRateLimit。限流为每路由/IP 规则；账号维度锁定和多实例共享存储仍是后续范围。
 7. 注入 SafeLogger，不用 console 打印业务输入或错误。自由文本和异常默认不记录，请求日志只接受必要元数据字段。错误响应详情支持递归敏感字段遮蔽，但仍不能用任意异常原文作为公共详情。
 
 ## 配置
@@ -49,6 +49,7 @@ pnpm test:db
 | TRUSTED_PROXIES | 空 | 默认不信任转发头；仅 IP/CIDR，非 0 前缀，不接受 true 或跳数 |
 | JWT_ACCESS_SECRET | 首次开发启动生成忽略的 .env.auth.local | 至少 32 字节，拒绝示例占位值；生产必须由进程环境注入 |
 | JWT_ACCESS_TTL_SECONDS | 900 | 60–900 秒，验证签名、有效期、issuer/audience 和令牌类型 |
+| REFRESH_TOKEN_TTL_SECONDS | 604800 | 3600–2592000 秒；数据库会话绝对有效期，刷新不延长 |
 
 开发/测试读取根 .env，进程环境优先；缺少 JWT_ACCESS_SECRET 时只创建一次 .env.auth.local（随机 48 字节转 hex），重复启动只读取，不覆盖原密钥或 .env。生产必须在进程中显式设置 NODE_ENV=production，且只接受进程环境、不读/生成本地密钥文件；不允许靠本地 .env 切换到生产模式。根 .env.example 是开发示例，不能原样当生产配置。外部 HTTPS/TLS 留待后续部署任务。
 

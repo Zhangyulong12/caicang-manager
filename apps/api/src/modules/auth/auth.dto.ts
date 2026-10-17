@@ -8,6 +8,7 @@ import {
   IsStrongPassword,
   ValidateIf,
   registerDecorator,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -102,7 +103,29 @@ export class RegisterResultDto {
 export class LoginResultDto {
   @ApiProperty({ description: '短期 JWT，只用于 Authorization: Bearer 请求头' })
   accessToken!: string;
+  @ApiProperty({ description: '256 位随机凭据，只传给 refresh/logout，刷新成功后必须替换旧值' })
+  refreshToken!: string;
+  @ApiProperty({ example: 604800, description: '会话剩余有效秒数；轮换不会延长绝对到期时间' })
+  refreshExpiresIn!: number;
   @ApiProperty({ enum: ['Bearer'] }) tokenType!: 'Bearer';
   @ApiProperty({ example: 900, minimum: 60, maximum: 900 }) expiresIn!: number;
   @ApiProperty({ type: PublicUserDto }) user!: PublicUserDto;
+}
+
+export class RefreshTokenDto {
+  @ApiProperty({
+    description: '使用最近一次 login/refresh 返回的原始 refreshToken，不加 Bearer 前缀',
+    example: '<粘贴 data.refreshToken>',
+    writeOnly: true,
+    minLength: 43,
+    maxLength: 43,
+    pattern: '^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$',
+  })
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/)
+  refreshToken!: string;
+}
+
+export class LogoutResultDto {
+  @ApiProperty({ example: true }) loggedOut!: true;
 }

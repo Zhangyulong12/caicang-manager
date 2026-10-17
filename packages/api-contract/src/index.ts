@@ -43,6 +43,7 @@ export const API_ERROR_CODES = [
   'EMAIL_ALREADY_EXISTS',
   'INVALID_CREDENTIALS',
   'INVALID_ACCESS_TOKEN',
+  'INVALID_REFRESH_TOKEN',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -63,7 +64,13 @@ export interface RegisterData {
 }
 export interface LoginData {
   accessToken: string;
+  refreshToken: string;
+  refreshExpiresIn: number;
   tokenType: 'Bearer';
   expiresIn: number;
   user: PublicUser;
+}
+export type RefreshData = LoginData;
+export interface LogoutData {
+  loggedOut: true;
 }

@@ -23,6 +23,7 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   EMAIL_ALREADY_EXISTS: { status: 409, message: '此邮箱已注册' },
   INVALID_CREDENTIALS: { status: 401, message: '邮箱或密码不正确' },
   INVALID_ACCESS_TOKEN: { status: 401, message: '登录凭证无效或已过期，请重新登录' },
+  INVALID_REFRESH_TOKEN: { status: 401, message: '刷新凭证无效或已过期，请重新登录' },
 };
 export class BusinessException extends HttpException {
   constructor(

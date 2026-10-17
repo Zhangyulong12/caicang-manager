@@ -403,6 +403,7 @@ test(
         const now = Math.floor(Date.now() / 1000);
         const claims = {
           sub: user.id,
+          sid: jwt.decode(token).sid,
           type: 'access',
           jti: randomUUID(),
           iat: now,

@@ -51,7 +51,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed 和任务 05 用户认证已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
+> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed、用户认证及任务 06 令牌刷新/安全退出已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
 
 ## 使用顺序
 
@@ -154,4 +154,18 @@ pnpm start:api
 
 运行 `pnpm prisma:migrate:deploy` 应用邮箱规范化唯一索引，再用 `pnpm start:api` 启动。开发缺少 JWT_ACCESS_SECRET 时会创建被忽略的 `.env.auth.local`，保留现有 .env 和密钥文件；生产必须通过进程环境提供签名密钥。Access Token 默认 15 分钟。
 
-在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，实际结果与修改清单见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；不实现 refresh/logout、商家/角色或库存业务。
+在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，历史结果见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；商家/角色与库存业务尚未实现。
+
+## 任务 06：令牌刷新与安全退出
+
+```powershell
+cd D:\Dev\caicang-manager
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm prisma:migrate:deploy
+pnpm start:api
+```
+
+登录现在同时返回随机 Refresh Token。调用 `POST /api/v1/auth/refresh` 或 `/api/v1/auth/logout`，JSON 正文均为 `{"refreshToken":"<最近一次返回的 data.refreshToken>"}`；这两个端点无需有效 Access Token。刷新后必须保存新值，旧值重复刷新会撤销整个会话。退出后此会话的 Access Token 和 Refresh Token 均失效，其他设备登录不受影响。
+
+新增迁移只建立 auth_sessions/refresh_tokens，不清空原有数据。Access 默认 15 分钟，会话绝对有效期默认 7 天；生产强制校验进程 JWT_ACCESS_SECRET。客户端存储集成留待前端任务。详见 [认证操作说明](docs/AUTHENTICATION.md)、[API 契约](docs/API_SPEC.md) 和 [任务 06 报告](docs/TASK_06_REPORT.md)。
