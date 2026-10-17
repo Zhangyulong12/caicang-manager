@@ -15,6 +15,7 @@ import {
 } from './auth.dto.js';
 import { Public } from './public.decorator.js';
 import { CurrentUser } from './access-token.guard.js';
+import { GlobalAccount } from '../../common/tenancy/tenant.decorators.js';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -81,6 +82,7 @@ export class AuthController {
 }
 @ApiTags('account')
 @Controller('me')
+@GlobalAccount()
 export class MeController {
   @Get()
   @Header('Cache-Control', 'no-store')

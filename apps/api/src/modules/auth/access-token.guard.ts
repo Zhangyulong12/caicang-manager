@@ -11,7 +11,7 @@ import { BusinessException } from '../../common/errors.js';
 import { AuthService } from './auth.service.js';
 import { PUBLIC_ROUTE } from './public.decorator.js';
 
-interface AuthRequest extends ApiRequest {
+export interface AuthRequest extends ApiRequest {
   currentUser?: PublicUser;
 }
 @Injectable()

@@ -25,7 +25,7 @@ pnpm test:db
 
 ## 新模块的写法
 
-1. 模块加入 AppModule，自动继承 CommonModule 的验证/异常/响应/限流，以及任务 05 AuthModule 的默认身份守卫；公开接口须显式 Public。商家业务在此基础上仍需实现成员和角色检查。不再创建独立错误格式或 response.json。
+1. 模块加入 AppModule，自动继承 CommonModule 的验证/异常/响应/限流，以及身份→商家→角色全局 Guard；公开接口须显式 Public，全局账号操作须显式 GlobalAccount。商家业务显式 TenantEndpoint/Roles/RequirePermissions，使用 CurrentTenant 和 TenantContextService 事务检查，不再创建独立错误格式或 response.json。未声明权限默认拒绝。
 2. 请求用 DTO 类。字符串加 IsString 等装饰器；嵌套 DTO 配 Type/ValidateNested；金额保持字符串。关闭隐式转换，分页查询继承 PaginationQueryDto。不要把传入 tenantId 当认证上下文。
 3. 控制器返回原始数据；分页返回 PageResult(items,{page,pageSize,total})。拦截器生成 data/requestId，原 HTTP 状态保留，undefined 数据变为 null。不得手工再套 envelope。
 4. 使用 BusinessException('OUT_OF_STOCK',{available:2}) 等注册错误码；新增码同时维护 api-contract、ERRORS、API 文档和测试。未在注册表中的任意异常统一 INTERNAL_ERROR。仅允许安全业务详情，不传入异常、请求或数据库对象。

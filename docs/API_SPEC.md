@@ -4,9 +4,9 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 健康接口 `GET /health` 执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。开发 Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。
 
-任务 04 已统一公共基础模块。任务 05 提供注册、登录与本人资料；任务 06 已实现 `POST /auth/refresh`、`POST /auth/logout` 与数据库会话撤销。其余商家/角色与业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
+任务 04 已统一公共基础模块。任务 05–06 提供注册、登录、本人资料、刷新与安全退出。任务 07 已实现商家创建/当前商家及成员列表/添加/修改，建立 Tenant Context 与角色权限 Guard。商品、采购、库存等其余业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
 
-`auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id；仅返回当前账号资料，不返回商家数据。其他后续商家业务路由必须同时验证 Token、`X-Tenant-Id` 对应 active membership 和角色后才能开放。禁止相信请求体 tenantId；当前 AccessTokenGuard 只实现身份验证，不冒充商家权限检查。
+`auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me` 与 `POST /tenants` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id。其他商家路由同时验证 Token、唯一 UUID `X-Tenant-Id`、active membership 与显式角色/权限策略，禁止相信请求体 tenantId。AccessTokenGuard、TenantGuard、RolesGuard 顺序执行；未声明权限的新控制器默认拒绝。
 
 统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100},"requestId":"..."}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。
 
@@ -22,7 +22,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 - CORS 使用精确 origin 白名单，支持 GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS 与 Authorization/Content-Type/X-Tenant-Id/X-Request-Id；暴露追踪及限流响应头。API 自身同源请求（例如 Swagger POST）与无 Origin 的原生客户端可请求；其他非白名单 Origin 返回统一 403。CORS 不替代认证与角色检查，当前不启用跨域 cookie credentials。
 - 全局限流默认每 IP 每路由 120 次/60 秒；未来敏感接口使用 `@SensitiveRateLimit()` 收紧到 5 次/60 秒，超限统一 429，带 Retry-After。采用单进程内存存储，重启计数清零；多实例部署前需共享存储，当前不宣称分布式限流。
 - 默认不信任 X-Forwarded-For。反向代理配置必须明确通过 TRUSTED_PROXIES 指定 IP/CIDR，并由部署限制直连；不接受 true、任意跳数或 0 位前缀范围。基础安全头覆盖成功、错误和预检；生产启用 HSTS，TLS 终止在后续部署阶段配置。
-- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`，公共 OpenAPI 自动追加错误响应与 requestId 参数。Bearer 认证在任务 05 已实现；商家头方案仅预留，尚未实现商家授权。
+- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`，公共 OpenAPI 自动追加错误响应与 requestId 参数。任务 07 已实现商家授权：业务控制器必须显式声明 TenantEndpoint/Roles/RequirePermissions，并从 CurrentTenant 获取数据库验证的上下文；商家接口的 OpenAPI 使用同一 security 对象声明 Bearer 和 tenant 两者必需。
 
 ## 任务 05：注册、登录与本人资料（已实现）
 
@@ -54,7 +54,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 Access Token 使用 HS256，默认 900 秒，可配置 60–900 秒；校验签名、算法、issuer=caicang-api、audience=caicang-clients、sub/sid/jti UUID、type=access、iat/exp 和最大时长。每次受保护请求查数据库确认账号启用，以及 sid 会话属于此账号、未撤销且未到期。缺少 Token 返回 401 `UNAUTHENTICATED`，格式错误/伪造/过期/会话失效返回 401 `INVALID_ACCESS_TOKEN`；停用或已删除用户返回 401。Token 不接受 query 参数或自定义用户身份头。升级前没有 sid 的旧 Access Token 需要重新登录。
 
-所有已注册控制器默认需要 Access Token；仅显式 `@Public()` 的端点例外。商家业务仍须在后续阶段加入 tenant/membership/role 检查，不能只靠当前身份守卫开放业务。
+所有已注册控制器默认需要 Access Token；仅显式 `@Public()` 的端点例外。任务 07 起，其他默认商家控制器还必须通过 TenantGuard 与 RolesGuard；仅显式 GlobalAccount 的账号级接口免商家上下文，不免身份验证。
 
 Swagger 操作：先执行 register，再执行 login，复制 data.accessToken 到页面 Authorize 的 bearer 输入框（只填 Token 本身），执行 GET /api/v1/me。重复注册示例邮箱会得到 409，可改为新的测试邮箱。完整步骤见 `AUTHENTICATION.md`。
 
@@ -80,6 +80,17 @@ Swagger 操作：先执行 register，再执行 login，复制 data.accessToken 
 - 只撤销当前会话，不退出其他设备；撤销跨 API 重启有效。
 
 register/login/refresh/logout 均沿用每 IP 每路由 5 次/60 秒限流。认证成功响应与 /me 使用 `Cache-Control: no-store`。原始 Token、哈希、密钥和密码不进入应用日志。生产仍强制校验 JWT_ACCESS_SECRET，必须通过进程环境注入至少 32 字节非占位密钥并使用 HTTPS。令牌不设置 cookie；客户端存储集成不在本任务范围。
+
+## 任务 07：多商家与角色权限
+
+- POST /tenants：Bearer 登录用户，无需商家头；正文 `{"name":"我的商家"}`，成功 201 返回 `{tenant,membership,defaultWarehouse}`。事务建立商家、当前用户 OWNER、code=DEFAULT/name=默认仓库及审计。名称去首尾空格，1–150 字符；不接受 tenantId/userId/role。创建每次产生独立商家，不做按名称自动合并或重试去重。
+- GET /tenants/current：Bearer + 唯一 UUID X-Tenant-Id，所有 active 角色可用；返回 `{tenant,membership,permissions}`，只属于选定商家。permissions 是集中角色矩阵的当前权限说明，不代替服务端鉴权。
+- GET /members：仅 OWNER/ADMIN，商家头必需；page 默认 1，pageSize 默认 20、最多 100，返回标准 data 数组/pagination/requestId。成员含 id/tenantId/userId/role/isActive/createdAt/updatedAt 与安全 user(id/email/displayName/isActive)，不返回密码、Token 或其他商家关系。
+- POST /members：仅 OWNER/ADMIN，正文 `{"email":"registered@example.com","role":"BUYER"}`；仅加入已注册启用账号，成功 201 返回成员。OWNER 可授予 ADMIN/BUYER/WAREHOUSE/VIEWER，ADMIN 仅能授予 BUYER/WAREHOUSE/VIEWER。同一用户可加入多个商家，已存在（含停用）关系返回 409 MEMBER_ALREADY_EXISTS；停用关系需 PATCH 重新启用，不能重复创建。
+- PATCH /members/{membershipId}：仅 OWNER/ADMIN，正文可含 role、isActive，至少一项；成功 200 返回最新成员。OWNER 可修改非 OWNER；ADMIN 只能修改普通三类角色，不能操作 ADMIN/OWNER 或授予更高角色。OWNER 不能通过此接口授予、转让、降级或停用，违规 403；用户无法借自改角色提权。相同请求重复执行无额外变更/审计。
+- 缺失/非法/重复商家头为 400 INVALID_TENANT_HEADER；未加入、成员停用或权限不足为 403 FORBIDDEN。会员目标始终按 tenantId+membershipId 查询，跨商家与不存在目标均 404 NOT_FOUND。身份来自 Access Token，不能用请求体 tenantId、X-Role、X-User-Id 或 query 参数替代。
+- BUYER 具有采购写入权限且无收货/出库确认权限；WAREHOUSE 具有收货/出库权限且无采购写入权限，VIEWER 只读。集中权限矩阵与 Guard 本次已建立，实际采购/出入库接口仍等待后续任务。
+- 创建商家、添加/修改成员均在数据库事务中写审计；成员写入锁租户并重新验证操作者权限，不信任 Guard 的过时快照。审计记录角色/启用状态前后值及 requestId，不记录密码/Token/地址或任意请求正文。
 
 ## 1. 账号/商家
 

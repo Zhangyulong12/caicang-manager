@@ -84,3 +84,14 @@
 - refresh/logout 显式 Public 是为了允许 Access 过期后的操作，必须以 JSON 正文 Refresh Token 证明会话持有权。logout 对格式合法未知/已撤销凭据统一成功，避免枚举且幂等；非法格式 400，数据库故障不能伪报成功。已使用的旧凭据也允许退出所属会话。
 - 认证成功体和 /me 设置 Cache-Control:no-store；沿用日志字段白名单与敏感接口 5次/IP/路由/分钟，不打印 Token、哈希、密码、连接串或数据库异常。生产继续强制进程环境密钥；前端存储、Cookie/BFF、分布式限流、商家授权均未纳入本次任务。
 - 参考 [RFC 9700 §4.14.2](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14.2) 的轮换与重放撤销建议，以及 [OWASP 会话管理](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)。本项目是邮箱密码登录 API，不宣称实现完整 OAuth 协议。
+
+## ADR-014：商家上下文、角色边界与成员变更事务（2026-10-17，任务 07）
+
+- 仅实现创建商家、当前商家与成员列举/添加/修改五个接口，不提前实现商品、采购、库存等业务路由。使用现有表，不新增迁移或修改参考 SQL。创建商家事务同时创建 OWNER、DEFAULT 默认仓库及审计记录；新商家名称不作全局唯一标识。
+- 身份 Guard 后统一执行 TenantGuard 和 RolesGuard。显式 Public/GlobalAccount 路由可免商家头；其他控制器默认要求唯一合法 X-Tenant-Id、当前启用用户的 active membership，以及显式角色或权限元数据，缺少授权声明默认拒绝。上下文由服务端数据库建立，忽略客户端角色/身份头，拒绝 DTO 多余 tenantId。
+- OWNER 可管理 ADMIN/BUYER/WAREHOUSE/VIEWER；ADMIN 只可添加或修改 BUYER/WAREHOUSE/VIEWER，不能编辑 ADMIN/OWNER，也不能提升自身。OWNER 只由创建商家产生；当前不提供 OWNER 转让、降级、停用或额外授予。此选择保留原 OWNER，避免通过通用 PATCH 绕过所有权约束，不自动改写已有 seed 成员。
+- 列表只向 OWNER/ADMIN 开放并分页；所有 active 角色可读当前商家。BUYER 与 WAREHOUSE 的采购写入/收货出库权限在集中角色矩阵中区别定义，使用隔离测试路由验证同一生产 Guard；不把测试夹具当作已实现的采购/库存业务。
+- 所有成员目标查询/更新必须同时带 tenant_id 与 membership id。无成员身份返回 403，跨商家或未知目标统一 404。添加已注册账号按规范化 email 查询，仅向授权管理者返回安全成员资料；不返回密码/Token，不提供全局账号搜索接口。
+- 当前商家/列表读取事务持有租户根行 SHARE 锁；成员写入事务持有同一行 UPDATE 锁，锁后重查操作者 active membership、用户启用状态及权限。防止 Guard 与实际写入之间发生角色撤销竞态，审计与变更同一事务；重复无变化 PATCH 不重复审计，重复添加由唯一键返回冲突。已通过授权的在途读取不被强行中断。
+- 审计只写 tenant_id、actor_id、动作、目标及角色/启用状态前后值、requestId，不写邮箱、密码、Token、地址或任意客户端 metadata。注册账号和认证会话仍属全局身份，本任务不改变 /me 与 refresh/logout 的语义。
+- OpenAPI 商家安全声明使用同一对象 `{bearer:[],tenant:[]}`，表达两者同时必需，避免两个独立 security 项造成“任选一个”的误读。参考 [PostgreSQL 16 行锁](https://www.postgresql.org/docs/16/explicit-locking.html#LOCKING-ROWS) 与 [OWASP 默认拒绝、逐请求授权](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)。沿用锁定 Nest/Prisma，不新增授权依赖。

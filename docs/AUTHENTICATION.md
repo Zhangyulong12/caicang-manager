@@ -59,7 +59,7 @@ pnpm start:api
 - 参数无效 400 VALIDATION_ERROR；邮箱重复 409 EMAIL_ALREADY_EXISTS；账号不存在、密码错误或停用统一 401 INVALID_CREDENTIALS。未知邮箱也执行一次 bcrypt 比较。
 - 缺少 Token 返回 401 UNAUTHENTICATED；过期、签名错误、非 Access 类型或非法 claims 为 401 INVALID_ACCESS_TOKEN。账号删除或停用后，即使 Token 尚未过期，也无法调用 /me。
 - 注册和登录均按每路由/IP 5 次/60 秒限流，错误输入与失败登录也占次数；超限 429 带 Retry-After。当前是内存计数，尚未实现账号锁定或多实例共享存储。
-- Access Token 固定 HS256、issuer=caicang-api、audience=caicang-clients，包含 sub/sid/type/jti/iat/exp，不包含密码、邮箱或商家角色。sid 绑定数据库登录会话，每个受保护请求检查用户及会话状态。任务 05 旧 Token 不包含 sid，升级后需重新登录。每个已注册控制器默认要求 Token；公开端点显式 Public。商家业务仍须后续实现成员和角色校验。
+- Access Token 固定 HS256、issuer=caicang-api、audience=caicang-clients，包含 sub/sid/type/jti/iat/exp，不包含密码、邮箱或商家角色。sid 绑定数据库登录会话，每个受保护请求检查用户及会话状态。任务 05 旧 Token 不包含 sid，升级后需重新登录。每个已注册控制器默认要求 Token；公开端点显式 Public，账号级接口显式 GlobalAccount。商家接口再由任务 07 TenantGuard/RolesGuard 验证当前商家成员和角色。
 - refresh/logout 也使用每 IP 每路由 5 次/60 秒敏感限流；正文凭据严格校验，非法格式 400，刷新凭据无效统一 401 INVALID_REFRESH_TOKEN。退出对格式合法的未知或已撤销值返回相同 200，防止枚举。退出后清除客户端保存的两个令牌。
 
 ## 自动化验收
@@ -73,4 +73,4 @@ pnpm test:db
 
 认证测试在独立随机空 PostgreSQL 测试库重放真实迁移、通过真实 HTTP 注册/登录/me，验证哈希、错误、输入、并发和令牌；测试结束只清理本轮测试库，不删除开发数据。测试服务器显式信任本机代理，让用例分配不同测试 IP，保持真实限流组件启用，并另验证固定 IP 第六次请求受限；正式默认不信任转发头。
 
-任务 06 已完成 Refresh Token、轮换和 logout；测试包含两个真实 API 进程、事务回滚、重放、过期、停用、并发、隔离、重启、日志与 Swagger。尚未实现前端令牌存储、找回密码、邮件验证、商家创建或成员/角色管理，不把 JWT 身份认证等同于商家授权。
+任务 06 已完成 Refresh Token、轮换和 logout；测试包含两个真实 API 进程、事务回滚、重放、过期、停用、并发、隔离、重启、日志与 Swagger。任务 07 已另行实现商家创建与成员/角色管理，见 TENANT_AUTHORIZATION.md；商家角色每次查数据库，不写入 JWT。前端令牌存储、找回密码和邮件验证尚未实现。

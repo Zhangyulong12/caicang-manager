@@ -10,7 +10,7 @@
 
 - `tenants` 是租户根，`users` 是跨商家的全局账号，因此不增加循环 tenant_id；其余 15 张表均有非空 tenant_id 和租户外键。同一账号通过 memberships 关联多个商家。
 - 所有模型有 UUID 主键、created_at/updated_at（timestamptz）。补齐参考稿缺失的时间字段；Prisma @updatedAt 与迁移内 PostgreSQL BEFORE UPDATE 触发器共同覆盖 ORM 和 SQL 写入。时间字段不意味着可编辑历史入库、库存流水或审计记录。
-- 所有租户业务关系采用复合外键和 Restrict 删除/更新；操作者关联 `(tenant_id,user_id)` membership，进一步防止无商家成员身份的操作记录。是否激活及角色权限仍须后续认证守卫验证。
+- 所有租户业务关系采用复合外键和 Restrict 删除/更新；操作者关联 `(tenant_id,user_id)` membership，进一步防止无商家成员身份的操作记录。任务 07 的认证/商家/角色守卫与事务服务同时验证用户启用、active membership 与权限，外键本身不代替授权。
 - 包裹预计行与入库行增加 purchase_order_id。复合外键保证预计行和包裹同订单、收货单和包裹同订单、收货仓库和采购单相同、入库行产品与采购行相同。
 - 价格/折扣/运费为 NUMERIC(18,2)，单位及总库存成本统一 NUMERIC(20,4)，遵循本设计的成本精度口径，扩展参考 SQL 的部分 NUMERIC(18,4) 字段。
 - 保留参考稿全部 31 个 CHECK，额外拒绝全空格 SKU。状态字段保留 VARCHAR + CHECK；CHECK 与时间触发器由版本化 SQL 管理，未来迁移须保留并审阅。
@@ -127,6 +127,12 @@ V1 币种人民币。确认采购时计算：
 refresh/logout 都在事务内按 session id 执行 SELECT FOR UPDATE，随后重新读取凭据消费与会话状态，解决跨 API 进程并发。一次消费与新凭据入库原子提交；旧凭据重放先提交会话撤销，再在事务外返回标准 401，避免异常回滚撤销。退出同样锁会话且不覆盖已有 revoked_at。后续请求校验 JWT sid 与账号绑定并查询会话状态。
 
 本次不自动删除任何已有数据，也未增加清理定时任务。已用哈希应至少保留到会话到期，后续可在会话到期后按 expires_at 分批归档/清理；清理流程需另行授权与测试。
+
+## 任务 07：组织与授权的运行规则
+
+不新增表或迁移。创建商家同一事务插入 tenants、创建者 OWNER membership、code=DEFAULT 的 warehouses 和 TENANT_CREATED audit。tenant_memberships 的 tenant_id+user_id 唯一性处理重复加入，tenant_id+id 用于限定修改对象；所有成员变更和成功审计同事务。
+
+读商家/成员列表先锁 tenants 根行 FOR SHARE；成员写入 FOR UPDATE，随后重新检查 actor 的用户启用、active membership 与角色。OWNER 不可通过普通成员 API 授予/修改/停用；ADMIN 只能管理普通三类角色。权限 before/after 与 requestId 保存至 audit_logs.metadata，不保存邮箱/Token/密码或请求正文。相同 PATCH 无变化时不更新、不新增审计；不物理删除成员以保留历史操作者外键。
 
 ## 7. 索引与历史数据
 

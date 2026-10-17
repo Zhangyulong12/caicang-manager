@@ -111,7 +111,7 @@ caicang-manager/
 
 任务 04：`apps/api/src/bootstrap.ts` 是唯一启动配置入口；CommonModule 使用 APP_PIPE/APP_FILTER/APP_INTERCEPTOR/APP_GUARD 将公共规范应用到全部业务控制器，PrismaService 通过 ConfigService 读取经过校验的配置。测试夹具仅存在于独立 test 根模块及忽略的 .test-build 中，正式 AppModule 不引用它们。新增模块规范见 `BACKEND_FOUNDATION.md`。
 
-任务 05：AuthModule 提供邮箱认证与全局 AccessTokenGuard，控制器默认需要身份；health/register/login 显式 Public，GET /me 从 CurrentUser 读取守卫已验证的安全账号信息。PrismaModule 导出唯一共享 PrismaService，避免每个业务模块建立独立连接池。全局账号认证与商家权限分开，当前没有开放商家业务接口；后续必须在身份之后实现 tenant/membership/role 守卫。
+任务 05：AuthModule 提供邮箱认证与全局 AccessTokenGuard，控制器默认需要身份；health/register/login 显式 Public，GET /me 从 CurrentUser 读取守卫已验证的安全账号信息。PrismaModule 导出唯一共享 PrismaService，避免每个业务模块建立独立连接池。全局账号认证与商家权限分开；任务 07 已在身份之后加入 tenant/membership/role 守卫，详见下方实现说明。
 
 - 前端只负责表单、扫码、扫码候选展示和请求发出；**不得在前端计算最终库存或写入成本**。
 - API guard 负责认证、商家成员身份和角色；DTO 负责输入验证；业务 service 负责状态机及权限细节；数据库负责最终事务/约束。
@@ -144,4 +144,12 @@ AuthModule 继续复用统一 DTO/响应/错误/日志/限流。每次登录创�
 
 严格轮换不提供旧凭据宽限重试：重放撤销该登录会话的整条凭据链。正常刷新不立即废除同会话尚未到期的旧 Access Token；退出、重放撤销与会话到期会在后续认证请求中拒绝全部关联 Access Token。已经通过认证的在途请求不被强行中断。其他设备会话互相独立。
 
-会话是全局账号身份设施，无商家数据或权限；后续商家路由仍必须独立检查 tenant/membership/role。API 限流仍是进程内存计数，分布式限流及前端安全存储不在本任务范围。
+会话是全局账号身份设施，无商家数据或权限；商家路由独立检查 tenant/membership/role。API 限流仍是进程内存计数，分布式限流及前端安全存储不在本任务范围。
+
+## 任务 07：默认拒绝的商家授权
+
+AuthModule 顺序注册身份、租户与角色三个全局 Guard。TenantGuard 根据 Access Token 认证的 user.id 与唯一 UUID X-Tenant-Id 查询数据库启用成员，生成冻结 TenantContext；RolesGuard 校验显式角色/权限策略，无声明默认拒绝。/me 与 POST /tenants 显式 GlobalAccount，公开认证路由仍显式 Public。该例外不适用于商家业务。
+
+TenantsModule 创建商家时事务写 OWNER、默认仓库及审计；MembersModule 提供分页列表、按已注册邮箱加入、角色/启停修改。TenantContextService 为读操作持有租户 SHARE 锁、写操作持有 UPDATE 锁，取得锁后重新检查授权，再执行 tenantId+目标 id 查询与审计。权限不会写进 Access Token，成员降级/停用无需等待 Token 到期。
+
+集中角色矩阵区分 BUYER 的采购写入与 WAREHOUSE 的收货/出库权限。本任务仅建立授权能力和五个组织接口，采购、库存与出库业务仍未实现。详见 TENANT_AUTHORIZATION.md 与 ADR-014；后续模块必须沿用这一边界，不能只根据资源 UUID 或客户端角色判断。

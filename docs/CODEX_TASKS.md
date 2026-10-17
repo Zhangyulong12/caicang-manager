@@ -10,6 +10,8 @@
 
 用户任务 06 仅增加 Refresh Token、轮换、服务端会话撤销、安全退出与真实数据库并发/重启测试；见 `AUTHENTICATION.md`、`TASK_06_REPORT.md`。不提前实现商家/角色、前端登录页或库存功能。
 
+用户任务 07 增加商家创建/当前商家、成员列表/添加/修改与五角色授权，通过 Guard、Decorator、数据库 Tenant Context 和审计事务实现；见 TENANT_AUTHORIZATION.md 与 TASK_07_REPORT.md。采购、库存及界面仍不在本任务范围。
+
 ## 阶段 00 — 确认环境与初始化 Git
 
 目标：验证 Windows 工具；确定 D: 或其他工作区目录；确认 Node、pnpm、Docker Desktop、HBuilderX 版本；准备 Git 分支与 .gitignore。

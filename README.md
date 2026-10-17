@@ -2,7 +2,7 @@
 
 ## 当前工作区与环境（任务 01）
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。当前已建立 pnpm workspace、NestJS 健康接口、Vue3 管理端欢迎页和 uni-app 手机端首页；未开发登录、采购、库存或出库业务。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 欢迎页与 uni-app 首页；现已完成真实数据库、认证、令牌刷新/退出和任务 07 商家/成员权限。采购、库存、出库业务与客户端登录界面仍待后续任务。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 
@@ -14,12 +14,13 @@
 cd D:\Dev\caicang-manager
 pnpm install --frozen-lockfile
 pnpm db:up
+pnpm prisma:migrate:deploy
 pnpm prisma:generate
 pnpm build:shared
 pnpm dev
 ```
 
-`pnpm db:up` 仅在 `.env` 不存在时创建随机本地数据库密码，已有配置会保留。Compose 使用持久化命名卷和固定镜像 digest；不要执行 `down -v` 或重放 `database/schema.sql`。本阶段数据库没有业务表，也不提供 migrate/seed 命令。
+`pnpm db:up` 仅在 `.env` 不存在时创建随机本地数据库密码，已有配置会保留。Compose 使用持久化命名卷和固定镜像 digest；不要执行 `down -v` 或重放 `database/schema.sql`。首次启动 API 前执行 `pnpm prisma:migrate:deploy` 应用追踪迁移；已有 seed 命令为 `pnpm db:seed`，不会启用原演示账号。
 
 `pnpm dev` 在当前终端启动 API 和管理后台，Ctrl+C 停止开发进程，PostgreSQL 数据和容器保留。API TypeScript 改动由 tsc 监听并触发 Node 重启。也可在独立终端执行 `pnpm dev:api` 和 `pnpm dev:web`。手机 H5 预览使用 `pnpm dev:mobile`。
 
@@ -51,7 +52,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed、用户认证及任务 06 令牌刷新/安全退出已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
+> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed、认证与任务 07 商家成员权限已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
 
 ## 使用顺序
 
@@ -148,13 +149,13 @@ pnpm start:api
 
 已接入全局 DTO 验证、成功/错误包装、业务错误码、requestId、日志脱敏、配置验证、CORS、安全头与限流。开发运行命令仍为 `pnpm db:up`、`pnpm start:api`；健康接口 `/api/v1/health`，开发文档 `/api/docs`。生产必须显式提供 HTTPS WEB_ORIGIN，Swagger 强制关闭；详细变量和新模块用法见 [后端基础说明](docs/BACKEND_FOUNDATION.md)。
 
-`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共、认证和原有冒烟测试；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存。任务 05 已提供账号认证，商家角色权限和库存业务接口仍未实现；任务 04 历史结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。
+`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共、认证、商家权限和原有冒烟测试；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存。任务 07 已提供商家角色权限，库存业务接口仍未实现；任务 04 历史结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。
 
 ## 任务 05：注册、登录与本人资料
 
 运行 `pnpm prisma:migrate:deploy` 应用邮箱规范化唯一索引，再用 `pnpm start:api` 启动。开发缺少 JWT_ACCESS_SECRET 时会创建被忽略的 `.env.auth.local`，保留现有 .env 和密钥文件；生产必须通过进程环境提供签名密钥。Access Token 默认 15 分钟。
 
-在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，历史结果见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；商家/角色与库存业务尚未实现。
+在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，历史结果见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；商家/角色现由任务 07 实现，库存业务尚未实现。
 
 ## 任务 06：令牌刷新与安全退出
 
@@ -169,3 +170,11 @@ pnpm start:api
 登录现在同时返回随机 Refresh Token。调用 `POST /api/v1/auth/refresh` 或 `/api/v1/auth/logout`，JSON 正文均为 `{"refreshToken":"<最近一次返回的 data.refreshToken>"}`；这两个端点无需有效 Access Token。刷新后必须保存新值，旧值重复刷新会撤销整个会话。退出后此会话的 Access Token 和 Refresh Token 均失效，其他设备登录不受影响。
 
 新增迁移只建立 auth_sessions/refresh_tokens，不清空原有数据。Access 默认 15 分钟，会话绝对有效期默认 7 天；生产强制校验进程 JWT_ACCESS_SECRET。客户端存储集成留待前端任务。详见 [认证操作说明](docs/AUTHENTICATION.md)、[API 契约](docs/API_SPEC.md) 和 [任务 06 报告](docs/TASK_06_REPORT.md)。
+
+## 任务 07：商家、成员与角色
+
+登录后 POST `/api/v1/tenants`，正文 `{"name":"我的商家"}`，即可事务创建商家、OWNER 和默认仓库。保存 data.tenant.id，之后 GET `/api/v1/tenants/current`、GET/POST `/api/v1/members`、PATCH `/api/v1/members/{membershipId}` 同时传 Bearer 和 `X-Tenant-Id`。
+
+成员管理只开放给 OWNER/ADMIN；ADMIN 只能管理 BUYER/WAREHOUSE/VIEWER，OWNER 不可通过通用成员接口转让、降级或停用。跨商家或未知 membershipId 为统一 404；没有启用成员身份为 403。权限修改和审计同事务，不依赖客户端角色。
+
+`pnpm test:tenancy` 运行真实 PostgreSQL/HTTP 隔离、角色、审计、并发测试；启动仍使用 `pnpm db:up`、`pnpm prisma:migrate:deploy`、`pnpm start:api`。本次无需新迁移。Swagger 操作与完整角色矩阵见 [商家权限说明](docs/TENANT_AUTHORIZATION.md)，修改与实际测试结果见 [任务 07 报告](docs/TASK_07_REPORT.md)。

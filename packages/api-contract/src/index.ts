@@ -44,6 +44,8 @@ export const API_ERROR_CODES = [
   'INVALID_CREDENTIALS',
   'INVALID_ACCESS_TOKEN',
   'INVALID_REFRESH_TOKEN',
+  'INVALID_TENANT_HEADER',
+  'MEMBER_ALREADY_EXISTS',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -73,4 +75,52 @@ export interface LoginData {
 export type RefreshData = LoginData;
 export interface LogoutData {
   loggedOut: true;
+}
+
+export const TENANT_ROLES = ['OWNER', 'ADMIN', 'BUYER', 'WAREHOUSE', 'VIEWER'] as const;
+export type TenantRole = (typeof TENANT_ROLES)[number];
+export const TENANT_PERMISSIONS = [
+  'tenant:read',
+  'members:read',
+  'members:manage',
+  'purchase:write',
+  'receiving:confirm',
+  'outbound:write',
+] as const;
+export type TenantPermission = (typeof TENANT_PERMISSIONS)[number];
+export interface TenantData {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface MembershipData {
+  id: string;
+  tenantId: string;
+  userId: string;
+  role: TenantRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface MemberData extends MembershipData {
+  user: Pick<PublicUser, 'id' | 'email' | 'displayName' | 'isActive'>;
+}
+export interface CreatedTenantData {
+  tenant: TenantData;
+  membership: MembershipData;
+  defaultWarehouse: {
+    id: string;
+    tenantId: string;
+    code: string;
+    name: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+export interface CurrentTenantData {
+  tenant: TenantData;
+  membership: MembershipData;
+  permissions: TenantPermission[];
 }
