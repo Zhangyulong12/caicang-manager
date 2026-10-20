@@ -29,7 +29,7 @@ pnpm test:db
 2. 请求用 DTO 类。字符串加 IsString 等装饰器；嵌套 DTO 配 Type/ValidateNested；金额保持字符串。关闭隐式转换，分页查询继承 PaginationQueryDto。不要把传入 tenantId 当认证上下文。
 3. 控制器返回原始数据；分页返回 PageResult(items,{page,pageSize,total})。拦截器生成 data/requestId，原 HTTP 状态保留，undefined 数据变为 null。不得手工再套 envelope。
 4. 使用 BusinessException('OUT_OF_STOCK',{available:2}) 等注册错误码；新增码同时维护 api-contract、ERRORS、API 文档和测试。未在注册表中的任意异常统一 INTERNAL_ERROR。仅允许安全业务详情，不传入异常、请求或数据库对象。
-5. Swagger 用 ApiDataResponse(OutputDto,201) 或 ApiPageResponse(RowDto) 描述包装；输出 DTO 仍需 ApiProperty。bootstrap 自动附加公共错误和 requestId 参数；当前 health 保持兼容已有 HealthResponseDto。
+5. Swagger 用 ApiDataResponse(OutputDto,201)、ApiPageResponse(RowDto) 或 ApiArrayResponse(RowDto,maxItems) 描述包装；输出 DTO 仍需 ApiProperty。数组/分页基类只定义 requestId，不把 data 同时约束为 object 与 array。bootstrap 自动附加公共错误和 requestId 参数；当前 health 保持兼容已有 HealthResponseDto。
 6. 登录/注册及任务 06 refresh/logout 已加 SensitiveRateLimit。限流为每路由/IP 规则；账号维度锁定和多实例共享存储仍是后续范围。
 7. 注入 SafeLogger，不用 console 打印业务输入或错误。自由文本和异常默认不记录，请求日志只接受必要元数据字段。错误响应详情支持递归敏感字段遮蔽，但仍不能用任意异常原文作为公共详情。
 

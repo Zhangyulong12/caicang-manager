@@ -134,6 +134,8 @@ model Product {
   name                        String              @db.VarChar(200)
   specification               String?             @db.VarChar(200)
   unit                        String              @default("件") @db.VarChar(20)
+  referencePurchasePrice      Decimal?            @map("reference_purchase_price") @db.Decimal(18, 2)
+  remark                      String?             @db.Text
   isActive                    Boolean             @default(true) @map("is_active")
   createdAt                   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -149,6 +151,7 @@ model Product {
   @@unique([tenantId, sku])
   @@unique([tenantId, barcode])
   @@index([tenantId, name], map: "idx_product_search")
+  @@index([tenantId, isActive, createdAt(sort: Desc), id(sort: Desc)], map: "idx_product_tenant_active_time")
   @@map("products")
 }
 

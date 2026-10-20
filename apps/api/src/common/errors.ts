@@ -26,6 +26,8 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   INVALID_REFRESH_TOKEN: { status: 401, message: '刷新凭证无效或已过期，请重新登录' },
   INVALID_TENANT_HEADER: { status: 400, message: '请提供唯一有效的 X-Tenant-Id 商家标识' },
   MEMBER_ALREADY_EXISTS: { status: 409, message: '此用户已加入当前商家' },
+  PRODUCT_SKU_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同 SKU 编码' },
+  PRODUCT_BARCODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同商品条码' },
 };
 export class BusinessException extends HttpException {
   constructor(

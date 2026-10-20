@@ -95,3 +95,13 @@
 - 当前商家/列表读取事务持有租户根行 SHARE 锁；成员写入事务持有同一行 UPDATE 锁，锁后重查操作者 active membership、用户启用状态及权限。防止 Guard 与实际写入之间发生角色撤销竞态，审计与变更同一事务；重复无变化 PATCH 不重复审计，重复添加由唯一键返回冲突。已通过授权的在途读取不被强行中断。
 - 审计只写 tenant_id、actor_id、动作、目标及角色/启用状态前后值、requestId，不写邮箱、密码、Token、地址或任意客户端 metadata。注册账号和认证会话仍属全局身份，本任务不改变 /me 与 refresh/logout 的语义。
 - OpenAPI 商家安全声明使用同一对象 `{bearer:[],tenant:[]}`，表达两者同时必需，避免两个独立 security 项造成“任选一个”的误读。参考 [PostgreSQL 16 行锁](https://www.postgresql.org/docs/16/explicit-locking.html#LOCKING-ROWS) 与 [OWASP 默认拒绝、逐请求授权](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)。沿用锁定 Nest/Prisma，不新增授权依赖。
+
+## ADR-015：商品主数据、参考进货价与扫码匹配（2026-10-17，任务 08）
+
+- 仅实现商品列表/创建/详情/修改/按码查询。沿用租户复合唯一约束、Guard、TenantContextService 事务与锁后权限复查；增加 products:read（全部五角色）、products:write（OWNER/ADMIN/BUYER）。WAREHOUSE/VIEWER 只读，不开放删除接口。
+- 增量迁移只给 products 新增 nullable reference_purchase_price NUMERIC(18,2) 与 remark TEXT，不回填/修改已有商品和订单。参考价未知为 null，免费为 "0.00"；输入仅接受非负十进制字符串、至多两位小数和十六位整数，不接受 JS number/指数/NaN/自动四舍五入。返回统一两位小数字符串，使用 Prisma.Decimal，不影响采购行 unit_price/discount/landed_unit_cost 或库存成本。
+- SKU 与条码仅 trim，保持大小写、前导零和内部字符；唯一性与现有 PostgreSQL 文本唯一索引一致，区分大小写。条码 null/空白归 null，允许多个无条码商品；非空条码不可在同一商家重复。规格、备注可清空；PATCH 省略字段不修改，非 nullable 字段不接受 null，空 PATCH 为 400。
+- lookup 使用当前商家范围、精确 SKU OR barcode、仅启用商品，返回标准 data 数组，未知为空、同商品匹配两字段只返回一次。不同商品的 SKU 与条码可能同值，返回两个候选而不猜第一个；此决定不增加跨字段唯一限制，不破坏已有编码。列表默认包含启用/停用，可按 isActive、unit、hasBarcode 筛选，并跨 name/sku/barcode/specification 做不区分大小写的字面子串搜索，转义 LIKE 特殊字符。
+- 商品停用及编码/名称/参考价修改仅改主数据，不写历史订单或库存；停用后保留详情和关联外键，停用商品的 SKU/条码仍占用唯一键。创建和实际变更写 PRODUCT_CREATED/PRODUCT_UPDATED 审计，与主数据同事务；无变化 PATCH 不改时间、不重复审计。审计只记安全结构化字段与变更字段名，不复制备注等任意文本。
+- 对唯一冲突使用数据库 P2002 与具体约束映射为 PRODUCT_SKU_ALREADY_EXISTS / PRODUCT_BARCODE_ALREADY_EXISTS；未知约束保持公共安全错误，不通过先查再插代替数据库约束。延续 SQL 参考稿原件，运行结构以 Prisma 追踪迁移为准。
+- 公共分页与数组响应的 OpenAPI 基类只声明 requestId，避免继承 data:object 再用 allOf 声明 data:array 的类型冲突；新增共享 ApiArrayResponse 供 lookup 使用，运行时统一响应结构不变。金额精确性参考 [PostgreSQL 16 NUMERIC](https://www.postgresql.org/docs/16/datatype-numeric.html)，实现沿用本地锁定的 Prisma 7.10.0 API/adapter，不按最新文档升级依赖。

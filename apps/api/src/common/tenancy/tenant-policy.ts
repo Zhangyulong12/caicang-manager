@@ -9,9 +9,19 @@ import { BusinessException } from '../errors.js';
 const ROLE_PERMISSIONS: Readonly<Record<TenantRole, readonly TenantPermission[]>> = Object.freeze({
   OWNER: TENANT_PERMISSIONS,
   ADMIN: TENANT_PERMISSIONS,
-  BUYER: Object.freeze(['tenant:read', 'purchase:write'] as const),
-  WAREHOUSE: Object.freeze(['tenant:read', 'receiving:confirm', 'outbound:write'] as const),
-  VIEWER: Object.freeze(['tenant:read'] as const),
+  BUYER: Object.freeze([
+    'tenant:read',
+    'products:read',
+    'products:write',
+    'purchase:write',
+  ] as const),
+  WAREHOUSE: Object.freeze([
+    'tenant:read',
+    'products:read',
+    'receiving:confirm',
+    'outbound:write',
+  ] as const),
+  VIEWER: Object.freeze(['tenant:read', 'products:read'] as const),
 });
 
 export function tenantRole(role: string): TenantRole {

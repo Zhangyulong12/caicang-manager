@@ -46,6 +46,8 @@ export const API_ERROR_CODES = [
   'INVALID_REFRESH_TOKEN',
   'INVALID_TENANT_HEADER',
   'MEMBER_ALREADY_EXISTS',
+  'PRODUCT_SKU_ALREADY_EXISTS',
+  'PRODUCT_BARCODE_ALREADY_EXISTS',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -81,6 +83,8 @@ export const TENANT_ROLES = ['OWNER', 'ADMIN', 'BUYER', 'WAREHOUSE', 'VIEWER'] a
 export type TenantRole = (typeof TENANT_ROLES)[number];
 export const TENANT_PERMISSIONS = [
   'tenant:read',
+  'products:read',
+  'products:write',
   'members:read',
   'members:manage',
   'purchase:write',
@@ -123,4 +127,19 @@ export interface CurrentTenantData {
   tenant: TenantData;
   membership: MembershipData;
   permissions: TenantPermission[];
+}
+
+export interface ProductData {
+  id: string;
+  tenantId: string;
+  name: string;
+  sku: string;
+  specification: string | null;
+  unit: string;
+  barcode: string | null;
+  referencePurchasePrice: string | null;
+  isActive: boolean;
+  remark: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

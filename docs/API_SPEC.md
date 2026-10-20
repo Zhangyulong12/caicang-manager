@@ -4,7 +4,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 健康接口 `GET /health` 执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。开发 Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。
 
-任务 04 已统一公共基础模块。任务 05–06 提供注册、登录、本人资料、刷新与安全退出。任务 07 已实现商家创建/当前商家及成员列表/添加/修改，建立 Tenant Context 与角色权限 Guard。商品、采购、库存等其余业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
+任务 04 已统一公共基础模块。任务 05–07 提供认证、会话与商家成员权限；任务 08 已实现商品列表/创建/详情/修改/按码查询。采购、库存等其余业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
 
 `auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me` 与 `POST /tenants` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id。其他商家路由同时验证 Token、唯一 UUID `X-Tenant-Id`、active membership 与显式角色/权限策略，禁止相信请求体 tenantId。AccessTokenGuard、TenantGuard、RolesGuard 顺序执行；未声明权限的新控制器默认拒绝。
 
@@ -22,7 +22,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 - CORS 使用精确 origin 白名单，支持 GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS 与 Authorization/Content-Type/X-Tenant-Id/X-Request-Id；暴露追踪及限流响应头。API 自身同源请求（例如 Swagger POST）与无 Origin 的原生客户端可请求；其他非白名单 Origin 返回统一 403。CORS 不替代认证与角色检查，当前不启用跨域 cookie credentials。
 - 全局限流默认每 IP 每路由 120 次/60 秒；未来敏感接口使用 `@SensitiveRateLimit()` 收紧到 5 次/60 秒，超限统一 429，带 Retry-After。采用单进程内存存储，重启计数清零；多实例部署前需共享存储，当前不宣称分布式限流。
 - 默认不信任 X-Forwarded-For。反向代理配置必须明确通过 TRUSTED_PROXIES 指定 IP/CIDR，并由部署限制直连；不接受 true、任意跳数或 0 位前缀范围。基础安全头覆盖成功、错误和预检；生产启用 HSTS，TLS 终止在后续部署阶段配置。
-- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`，公共 OpenAPI 自动追加错误响应与 requestId 参数。任务 07 已实现商家授权：业务控制器必须显式声明 TenantEndpoint/Roles/RequirePermissions，并从 CurrentTenant 获取数据库验证的上下文；商家接口的 OpenAPI 使用同一 security 对象声明 Bearer 和 tenant 两者必需。
+- 新模块沿用 AppModule 导入的 CommonModule，不注册替代异常过滤器，不用 `@Res().json()` 绕过规范。文档成功体使用 `ApiDataResponse`/`ApiPageResponse`/`ApiArrayResponse`，公共 OpenAPI 自动追加错误响应与 requestId 参数。数组和分页响应不继承 data:object 约束。任务 07 已实现商家授权：业务控制器必须显式声明 TenantEndpoint/Roles/RequirePermissions，并从 CurrentTenant 获取数据库验证的上下文；商家接口的 OpenAPI 使用同一 security 对象声明 Bearer 和 tenant 两者必需。
 
 ## 任务 05：注册、登录与本人资料（已实现）
 
@@ -91,6 +91,18 @@ register/login/refresh/logout 均沿用每 IP 每路由 5 次/60 秒限流。认
 - 缺失/非法/重复商家头为 400 INVALID_TENANT_HEADER；未加入、成员停用或权限不足为 403 FORBIDDEN。会员目标始终按 tenantId+membershipId 查询，跨商家与不存在目标均 404 NOT_FOUND。身份来自 Access Token，不能用请求体 tenantId、X-Role、X-User-Id 或 query 参数替代。
 - BUYER 具有采购写入权限且无收货/出库确认权限；WAREHOUSE 具有收货/出库权限且无采购写入权限，VIEWER 只读。集中权限矩阵与 Guard 本次已建立，实际采购/出入库接口仍等待后续任务。
 - 创建商家、添加/修改成员均在数据库事务中写审计；成员写入锁租户并重新验证操作者权限，不信任 Guard 的过时快照。审计记录角色/启用状态前后值及 requestId，不记录密码/Token/地址或任意请求正文。
+
+## 任务 08：商品管理 API
+
+所有商品接口同时要求 Bearer 与 X-Tenant-Id，五种 active 角色可读，OWNER/ADMIN/BUYER 可创建/修改；WAREHOUSE/VIEWER 只读。读写均经 Tenant Context 事务重新验证授权，跨商家 ID 与未知 ID 统一 404。
+
+- POST /products：name、sku 必填；specification、unit（默认件）、barcode、referencePurchasePrice、isActive（默认 true）、remark 可选。参考价只接受非负十进制字符串或 null，最多十六位整数/两位小数，未知为 null；响应为两位小数字符串。例：`{"name":"20W 充电器","sku":"CHARGER-20W","unit":"个","referencePurchasePrice":"18.50"}`，成功 201。
+- GET /products：标准分页 data 数组/pagination/requestId；page/pageSize 默认 1/20，上限 pageSize=100。search 按名称/SKU/条码/规格做字面子串搜索、不区分大小写；isActive 与 hasBarcode 只接受 true/false 字符串；unit 精确筛选。默认包含停用商品，按 createdAt DESC/id DESC 稳定排序。
+- GET /products/{id}：当前商家内商品详情（含停用）。SKU/name/specification/unit/barcode/referencePurchasePrice/isActive/remark 与 id/tenantId/createdAt/updatedAt 均返回，不包含订单或库存数据。
+- PATCH /products/{id}：至少一个合法商品字段，省略不改；nullable 字段可传 null 清空，barcode 空白也归 null；sku/name/unit/isActive 不可 null。成功 200，重复相同值不重复变更/审计，不修改历史采购行价格、折扣、成本或时间。
+- GET /products/lookup?code=：code 去首尾空格、1–128 字符，按精确 SKU OR barcode 查询当前商家的启用商品；保留前导零/大小写/内部字符。data 为 0–2 个商品候选，未知或仅匹配停用商品为空；跨字段匹配不同商品时客户端必须选择，不自动采用第一个。不返回分页。
+
+SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，barcode 最长 128 且可为空。停用商品仍占用编码。重复 SKU 为 409 PRODUCT_SKU_ALREADY_EXISTS，重复非空条码为 409 PRODUCT_BARCODE_ALREADY_EXISTS；并发冲突同样由数据库保证。名称最长 200、规格最长 200、单位最长 20、备注最长 2000；不接受 NUL、多余 tenantId/订单价格字段、无效类型或金额格式，返回标准 400。新迁移保留原数据，只新增参考进货价与备注列；参考 SQL 不叠加执行。
 
 ## 1. 账号/商家
 

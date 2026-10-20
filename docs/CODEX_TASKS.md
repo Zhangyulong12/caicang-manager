@@ -12,6 +12,8 @@
 
 用户任务 07 增加商家创建/当前商家、成员列表/添加/修改与五角色授权，通过 Guard、Decorator、数据库 Tenant Context 和审计事务实现；见 TENANT_AUTHORIZATION.md 与 TASK_07_REPORT.md。采购、库存及界面仍不在本任务范围。
 
+用户任务 08 实现商品 CRUD（无 DELETE）、SKU/条码 lookup、搜索分页筛选、参考进货价/备注增量迁移与集成测试；详见 PRODUCTS.md、TASK_08_REPORT.md。历史采购/成本保持独立，采购、库存、扫码界面仍不在本次范围。
+
 ## 阶段 00 — 确认环境与初始化 Git
 
 目标：验证 Windows 工具；确定 D: 或其他工作区目录；确认 Node、pnpm、Docker Desktop、HBuilderX 版本；准备 Git 分支与 .gitignore。

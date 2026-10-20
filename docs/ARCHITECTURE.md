@@ -153,3 +153,7 @@ AuthModule 顺序注册身份、租户与角色三个全局 Guard。TenantGuard 
 TenantsModule 创建商家时事务写 OWNER、默认仓库及审计；MembersModule 提供分页列表、按已注册邮箱加入、角色/启停修改。TenantContextService 为读操作持有租户 SHARE 锁、写操作持有 UPDATE 锁，取得锁后重新检查授权，再执行 tenantId+目标 id 查询与审计。权限不会写进 Access Token，成员降级/停用无需等待 Token 到期。
 
 集中角色矩阵区分 BUYER 的采购写入与 WAREHOUSE 的收货/出库权限。本任务仅建立授权能力和五个组织接口，采购、库存与出库业务仍未实现。详见 TENANT_AUTHORIZATION.md 与 ADR-014；后续模块必须沿用这一边界，不能只根据资源 UUID 或客户端角色判断。
+
+## 任务 08：商品主数据模块
+
+ProductsModule 提供列表、创建、详情、修改和精确按码查询，统一通过 TenantContextService 事务访问；增加 products:read（全部角色）、products:write（OWNER/ADMIN/BUYER）。数据对象访问始终用 tenantId+id，金额使用 Decimal/字符串，停用不删除。新增参考价/备注的增量迁移保留旧数据，商品变更不触碰历史采购价或库存。SKU/条码跨字段重码时 lookup 返回候选数组，不猜第一项；默认只查启用商品。详见 PRODUCTS.md、API_SPEC.md、ADR-015 与 TASK_08_REPORT.md。

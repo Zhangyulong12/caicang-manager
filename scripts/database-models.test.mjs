@@ -87,7 +87,7 @@ test(
               'SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations',
             )
           ).rows;
-          assert.equal(rows.length, 3);
+          assert.equal(rows.length, 4);
           for (const row of rows) {
             assert.ok(row.finished_at);
             assert.equal(row.rolled_back_at, null);
@@ -149,7 +149,9 @@ test(
               "SELECT conname FROM pg_constraint WHERE contype='c' AND connamespace='public'::regnamespace",
             )
           ).rows;
-          assert.equal(checks.length, 33);
+          assert.equal(checks.length, 35);
+          assert.ok(checks.some((check) => check.conname === 'ck_product_reference_price'));
+          assert.ok(checks.some((check) => check.conname === 'ck_product_remark_length'));
           const triggers = (
             await db.query(
               "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tr_%_updated_at'",
@@ -162,6 +164,7 @@ test(
           for (const name of [
             'idx_membership_user',
             'idx_product_search',
+            'idx_product_tenant_active_time',
             'idx_po_tenant_status_time',
             'idx_po_platform_order',
             'idx_po_item_po',

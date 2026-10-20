@@ -134,6 +134,14 @@ refresh/logout 都在事务内按 session id 执行 SELECT FOR UPDATE，随后�
 
 读商家/成员列表先锁 tenants 根行 FOR SHARE；成员写入 FOR UPDATE，随后重新检查 actor 的用户启用、active membership 与角色。OWNER 不可通过普通成员 API 授予/修改/停用；ADMIN 只能管理普通三类角色。权限 before/after 与 requestId 保存至 audit_logs.metadata，不保存邮箱/Token/密码或请求正文。相同 PATCH 无变化时不更新、不新增审计；不物理删除成员以保留历史操作者外键。
 
+## 任务 08：商品参考价与备注
+
+增量迁移 `20261017093000_product_reference_price_remark` 为 products 新增 nullable reference_purchase_price NUMERIC(18,2)、remark TEXT；不更新原商品、订单或库存记录。新增 ck_product_reference_price 保证非负且有限（含拒绝 NaN），ck_product_remark_length 限制备注 2000 字符；idx_product_tenant_active_time(tenant_id,is_active,created_at DESC,id DESC) 支持启用筛选与稳定分页。旧的 SKU/非空条码唯一索引保持，API 把空条码归 null，不改写已有编码。
+
+参考价未知为 null、免费为 0.00；API 仅接受不超过两位小数的十进制字符串，通过 Prisma.Decimal 保存与固定两位格式返回，防止数据库舍入掩盖输入错误。商品参考价不是真实采购成交价，不更新 purchase_order_items.unit_price/discount_amount/landed_unit_cost，也不写库存成本。停用保留原行和所有历史外键，SKU/条码继续占用，接口不开放删除。
+
+创建和实际修改与 PRODUCT_CREATED/PRODUCT_UPDATED 审计同事务，复用租户根锁与权限复查。SQL 参考稿保留原样、不含本次两列，以 Prisma 迁移为可执行源，不叠加导入参考 SQL。
+
 ## 7. 索引与历史数据
 
 已有联合索引：采购状态时间、包裹运单、库存 SKU、流水 SKU/时间、出库状态、审计时间。未来可扩充分区/归档，但 V1 不需要。禁止物理删除有采购/库存流水的商品和订单；取消单据用状态机表示。

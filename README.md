@@ -2,7 +2,7 @@
 
 ## 当前工作区与环境（任务 01）
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 欢迎页与 uni-app 首页；现已完成真实数据库、认证、令牌刷新/退出和任务 07 商家/成员权限。采购、库存、出库业务与客户端登录界面仍待后续任务。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 欢迎页与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限与任务 08 商品 API。采购、库存、出库业务与客户端业务界面仍待后续任务。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 
@@ -52,7 +52,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed、认证与任务 07 商家成员权限已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
+> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed、认证、商家成员权限和商品 API 已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
 
 ## 使用顺序
 
@@ -178,3 +178,11 @@ pnpm start:api
 成员管理只开放给 OWNER/ADMIN；ADMIN 只能管理 BUYER/WAREHOUSE/VIEWER，OWNER 不可通过通用成员接口转让、降级或停用。跨商家或未知 membershipId 为统一 404；没有启用成员身份为 403。权限修改和审计同事务，不依赖客户端角色。
 
 `pnpm test:tenancy` 运行真实 PostgreSQL/HTTP 隔离、角色、审计、并发测试；启动仍使用 `pnpm db:up`、`pnpm prisma:migrate:deploy`、`pnpm start:api`。本次无需新迁移。Swagger 操作与完整角色矩阵见 [商家权限说明](docs/TENANT_AUTHORIZATION.md)，修改与实际测试结果见 [任务 07 报告](docs/TASK_07_REPORT.md)。
+
+## 任务 08：商品 API
+
+先执行 `pnpm prisma:migrate:deploy` 应用商品参考价/备注增量迁移，再 `pnpm start:api`。所有商品接口需要 Bearer+X-Tenant-Id，OWNER/ADMIN/BUYER 可写，WAREHOUSE/VIEWER 只读。
+
+POST `/api/v1/products` 最小示例：`{"name":"20W 充电器","sku":"CHARGER-20W","referencePurchasePrice":"18.50"}`。同商家再次提交返回 409 PRODUCT_SKU_ALREADY_EXISTS。GET `/products` 支持搜索、分页与启用状态/单位/有无条码筛选；GET `/products/{id}` 和 PATCH `/products/{id}` 读取/修改当前商家商品；GET `/products/lookup?code=` 返回启用商品的精确 SKU/条码候选。停用保留历史记录，参考价修改不更新历史订单价格。
+
+运行 `pnpm test:products` 验证商品集成测试，`pnpm test:models` 验证迁移/seed/约束，`pnpm test` 构建全仓并回归。完整 JSON、字段/金额规则与 Swagger 流程见 [商品 API 说明](docs/PRODUCTS.md)，修改及实际结果见 [任务 08 报告](docs/TASK_08_REPORT.md)。

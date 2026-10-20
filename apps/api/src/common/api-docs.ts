@@ -2,9 +2,11 @@ import { applyDecorators, type Type } from '@nestjs/common';
 import { ApiExtraModels, ApiProperty, ApiResponse, getSchemaPath } from '@nestjs/swagger';
 import { API_ERROR_CODES } from '@caicang/api-contract';
 
-export class ApiEnvelopeDto {
-  @ApiProperty({ nullable: true, type: Object }) data!: unknown;
+export class ApiTraceDto {
   @ApiProperty({ format: 'uuid' }) requestId!: string;
+}
+export class ApiEnvelopeDto extends ApiTraceDto {
+  @ApiProperty({ nullable: true, type: Object }) data!: unknown;
 }
 export class PaginationDto {
   @ApiProperty({ minimum: 1 }) page!: number;
@@ -36,17 +38,41 @@ export function ApiDataResponse(model: Type<unknown>, status = 200) {
 }
 export function ApiPageResponse(model: Type<unknown>) {
   return applyDecorators(
-    ApiExtraModels(ApiEnvelopeDto, PaginationDto, model),
+    ApiExtraModels(ApiTraceDto, PaginationDto, model),
     ApiResponse({
       status: 200,
       schema: {
         allOf: [
-          { $ref: getSchemaPath(ApiEnvelopeDto) },
+          { $ref: getSchemaPath(ApiTraceDto) },
           {
-            required: ['pagination'],
+            required: ['data', 'pagination'],
             properties: {
               data: { type: 'array', items: { $ref: getSchemaPath(model) } },
               pagination: { $ref: getSchemaPath(PaginationDto) },
+            },
+          },
+        ],
+      },
+    }),
+  );
+}
+
+export function ApiArrayResponse(model: Type<unknown>, maxItems?: number) {
+  return applyDecorators(
+    ApiExtraModels(ApiTraceDto, model),
+    ApiResponse({
+      status: 200,
+      schema: {
+        allOf: [
+          { $ref: getSchemaPath(ApiTraceDto) },
+          {
+            required: ['data'],
+            properties: {
+              data: {
+                type: 'array',
+                items: { $ref: getSchemaPath(model) },
+                ...(maxItems === undefined ? {} : { maxItems }),
+              },
             },
           },
         ],
