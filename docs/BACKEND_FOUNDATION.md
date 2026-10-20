@@ -58,3 +58,5 @@ CORS 允许 API 自身同源请求（含 Swagger POST）和原生无 Origin 请�
 限流使用单进程内存，进程重启清零；多 API 实例上线前换共享存储。反向代理必须只允许可信入口并配置准确 TRUSTED_PROXIES；不能直接信任公网传入的 X-Forwarded-For。
 
 响应示例、错误码和日志规则以 `API_SPEC.md` 为准。实际执行与未实现范围见 `TASK_04_REPORT.md`。
+
+任务 09 的 WarehousesModule 沿用公共 DTO 校验、成功分页响应、异常/错误码、requestId、安全日志及 Guard/租户事务。新增 WAREHOUSE_CODE_ALREADY_EXISTS 对应标准 409；不另造仓库专用响应或错误格式。仓库创建原子写审计，名称、备注与完整地址不进入应用日志，详见 WAREHOUSES.md。

@@ -105,3 +105,11 @@
 - 商品停用及编码/名称/参考价修改仅改主数据，不写历史订单或库存；停用后保留详情和关联外键，停用商品的 SKU/条码仍占用唯一键。创建和实际变更写 PRODUCT_CREATED/PRODUCT_UPDATED 审计，与主数据同事务；无变化 PATCH 不改时间、不重复审计。审计只记安全结构化字段与变更字段名，不复制备注等任意文本。
 - 对唯一冲突使用数据库 P2002 与具体约束映射为 PRODUCT_SKU_ALREADY_EXISTS / PRODUCT_BARCODE_ALREADY_EXISTS；未知约束保持公共安全错误，不通过先查再插代替数据库约束。延续 SQL 参考稿原件，运行结构以 Prisma 追踪迁移为准。
 - 公共分页与数组响应的 OpenAPI 基类只声明 requestId，避免继承 data:object 再用 allOf 声明 data:array 的类型冲突；新增共享 ApiArrayResponse 供 lookup 使用，运行时统一响应结构不变。金额精确性参考 [PostgreSQL 16 NUMERIC](https://www.postgresql.org/docs/16/datatype-numeric.html)，实现沿用本地锁定的 Prisma 7.10.0 API/adapter，不按最新文档升级依赖。
+
+## ADR-016：仓库管理与历史关联保护（2026-10-20，任务 09）
+
+- 只增加仓库列表与创建：全部五角色拥有 warehouses:read，OWNER/ADMIN 拥有 warehouses:write。沿用全局 Guard、TenantContextService 租户行锁及锁后权限复查；分页行和总数均带 tenantId。
+- Warehouse 新增 nullable remark TEXT 与 2000 字符 CHECK，通过 Prisma 7 锁定版本的 schema diff 生成第五个追踪迁移，不改旧迁移、参考 SQL、原 address 或任何历史记录。创建输入不接受商家/身份/时间/地址，输出显式选择公开主数据。
+- name/code trim，编码保留大小写/前导零；沿用 (tenant_id,code) 唯一键，停用仍占码。数据库唯一冲突返回 WAREHOUSE_CODE_ALREADY_EXISTS，审计与创建同事务，不以预查询代替约束。重复请求返回冲突，不默认为原操作成功。
+- 新商家继续由 TenantsService 单事务创建 OWNER 与 DEFAULT 默认仓库；既有 POST /tenants 返回保持兼容。历史采购单的非空仓库和同商家复合外键、库存的商家+仓库+SKU 唯一键与 Restrict 删除策略沿用并测试。不开放 DELETE/PATCH/调拨/库存 CRUD，不提前实现采购或库存业务。
+- 真实测试覆盖双商家同码/隔离、五角色、分页、输入、跨进程并发冲突、审计失败回滚、锁后降权/停用及重启。采购/库存关系验证用隔离库 SQL 夹具，不写开发库测试单据。

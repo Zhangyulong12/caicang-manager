@@ -48,6 +48,7 @@ export const API_ERROR_CODES = [
   'MEMBER_ALREADY_EXISTS',
   'PRODUCT_SKU_ALREADY_EXISTS',
   'PRODUCT_BARCODE_ALREADY_EXISTS',
+  'WAREHOUSE_CODE_ALREADY_EXISTS',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -85,6 +86,8 @@ export const TENANT_PERMISSIONS = [
   'tenant:read',
   'products:read',
   'products:write',
+  'warehouses:read',
+  'warehouses:write',
   'members:read',
   'members:manage',
   'purchase:write',
@@ -140,6 +143,17 @@ export interface ProductData {
   referencePurchasePrice: string | null;
   isActive: boolean;
   remark: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarehouseData {
+  id: string;
+  tenantId: string;
+  name: string;
+  code: string;
+  remark: string | null;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

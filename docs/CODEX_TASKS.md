@@ -14,6 +14,8 @@
 
 用户任务 08 实现商品 CRUD（无 DELETE）、SKU/条码 lookup、搜索分页筛选、参考进货价/备注增量迁移与集成测试；详见 PRODUCTS.md、TASK_08_REPORT.md。历史采购/成本保持独立，采购、库存、扫码界面仍不在本次范围。
 
+用户任务 09 实现仓库列表/创建、备注增量迁移与真实数据库测试，复用默认仓库事务、tenant_id 隔离和五角色权限，验证既有采购目标仓库、分仓 SKU 库存与历史 Restrict 外键；详见 WAREHOUSES.md、TASK_09_REPORT.md。不开放删除、调拨或采购/库存业务接口。
+
 ## 阶段 00 — 确认环境与初始化 Git
 
 目标：验证 Windows 工具；确定 D: 或其他工作区目录；确认 Node、pnpm、Docker Desktop、HBuilderX 版本；准备 Git 分支与 .gitignore。

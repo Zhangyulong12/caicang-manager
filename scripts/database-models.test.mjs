@@ -87,7 +87,7 @@ test(
               'SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations',
             )
           ).rows;
-          assert.equal(rows.length, 4);
+          assert.equal(rows.length, 5);
           for (const row of rows) {
             assert.ok(row.finished_at);
             assert.equal(row.rolled_back_at, null);
@@ -149,7 +149,8 @@ test(
               "SELECT conname FROM pg_constraint WHERE contype='c' AND connamespace='public'::regnamespace",
             )
           ).rows;
-          assert.equal(checks.length, 35);
+          assert.equal(checks.length, 36);
+          assert.ok(checks.some((check) => check.conname === 'ck_warehouse_remark_length'));
           assert.ok(checks.some((check) => check.conname === 'ck_product_reference_price'));
           assert.ok(checks.some((check) => check.conname === 'ck_product_remark_length'));
           const triggers = (

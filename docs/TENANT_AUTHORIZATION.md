@@ -29,6 +29,8 @@ Swagger 商家接口同时要求 Bearer 与 tenant 安全凭据；可在 Authori
 |当前商家资料|允许|允许|允许|允许|允许|
 |商品列表/详情/lookup（任务 08）|允许|允许|允许|允许|允许|
 |商品创建/修改（任务 08）|允许|允许|允许|拒绝|拒绝|
+|仓库列表（任务 09）|允许|允许|允许|允许|允许|
+|仓库创建（任务 09）|允许|允许|拒绝|拒绝|拒绝|
 |成员列表|允许|允许|拒绝|拒绝|拒绝|
 |添加或管理普通三类成员|允许|允许|拒绝|拒绝|拒绝|
 |添加或管理 ADMIN|允许|拒绝|拒绝|拒绝|拒绝|
@@ -40,7 +42,7 @@ Swagger 商家接口同时要求 Bearer 与 tenant 安全凭据；可在 Authori
 
 OWNER 只能由创建商家产生，本任务不开放所有权转让。ADMIN 不能编辑自己或其他 ADMIN，不能授予 ADMIN/OWNER。一个账号在不同商家可有不同角色，当前商家权限每次从数据库读取；Access Token 不缓存商家角色。用户在 A 被停用，不影响其全局登录或 B 的独立成员身份。
 
-任务 08 已增加 products:read/products:write 能力及真实商品 API，VIEWER 的当前权限为 tenant:read、products:read；上文采购/收货/出库仍只是权限能力，未开放业务接口。
+任务 08 已增加 products:read/products:write 能力及真实商品 API，任务 09 增加 warehouses:read（全部角色）、warehouses:write（OWNER/ADMIN）及仓库列表/创建。VIEWER 的当前权限为 tenant:read、products:read、warehouses:read；上文采购/收货/出库仍只是权限能力，未开放业务接口。
 
 ## 请求与错误
 

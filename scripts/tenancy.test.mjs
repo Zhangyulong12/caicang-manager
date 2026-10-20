@@ -386,7 +386,11 @@ test(
             assert.equal(results.buyer.permissions.includes('receiving:confirm'), false);
             assert.ok(results.warehouse.permissions.includes('receiving:confirm'));
             assert.equal(results.warehouse.permissions.includes('purchase:write'), false);
-            assert.deepEqual(results.viewer.permissions, ['tenant:read', 'products:read']);
+            assert.deepEqual(results.viewer.permissions, [
+              'tenant:read',
+              'products:read',
+              'warehouses:read',
+            ]);
           },
         );
         await http.test(

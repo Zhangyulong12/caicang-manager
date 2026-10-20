@@ -4,7 +4,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 健康接口 `GET /health` 执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。开发 Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。
 
-任务 04 已统一公共基础模块。任务 05–07 提供认证、会话与商家成员权限；任务 08 已实现商品列表/创建/详情/修改/按码查询。采购、库存等其余业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
+任务 04 已统一公共基础模块。任务 05–07 提供认证、会话与商家成员权限；任务 08 已实现商品列表/创建/详情/修改/按码查询；任务 09 已实现仓库列表和创建。采购、库存等其余业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
 
 `auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me` 与 `POST /tenants` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id。其他商家路由同时验证 Token、唯一 UUID `X-Tenant-Id`、active membership 与显式角色/权限策略，禁止相信请求体 tenantId。AccessTokenGuard、TenantGuard、RolesGuard 顺序执行；未声明权限的新控制器默认拒绝。
 
@@ -105,6 +105,8 @@ register/login/refresh/logout 均沿用每 IP 每路由 5 次/60 秒限流。认
 SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，barcode 最长 128 且可为空。停用商品仍占用编码。重复 SKU 为 409 PRODUCT_SKU_ALREADY_EXISTS，重复非空条码为 409 PRODUCT_BARCODE_ALREADY_EXISTS；并发冲突同样由数据库保证。名称最长 200、规格最长 200、单位最长 20、备注最长 2000；不接受 NUL、多余 tenantId/订单价格字段、无效类型或金额格式，返回标准 400。新迁移保留原数据，只新增参考进货价与备注列；参考 SQL 不叠加执行。
 
 ## 1. 账号/商家
+
+任务 09 仓库接口：GET /warehouses?page=1&pageSize=20 返回当前商家分页列表（含 DEFAULT/停用），所有 active 角色可读；POST /warehouses 仅 OWNER/ADMIN 可创建，输入 `{"name":"深圳二仓","code":"SZ-02","remark":"小件商品存放区"}`，成功 201。name/code 去首尾空格后 1–100/1–40 字符，code 区分大小写并保留前导零；remark 可省略/null/空白，最多 2000 字符。同商家重复 code 返回 409 WAREHOUSE_CODE_ALREADY_EXISTS，其他商家允许同码。响应字段为 id/tenantId/name/code/remark/isActive/createdAt/updatedAt，不含 address。列表及总数都限定 tenantId、按 createdAt DESC/id DESC 排序；拒绝客户端 tenantId 和未知字段。创建与审计同事务，锁后复查权限；不开放删除、修改或调拨。见 WAREHOUSES.md。
 
 |Method|Endpoint|用途|角色|
 |---|---|---|---|

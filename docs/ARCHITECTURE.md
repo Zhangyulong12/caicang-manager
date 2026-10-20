@@ -2,6 +2,8 @@
 
 ## 1. 取舍
 
+任务 09 增加 WarehousesModule，沿用 Guard/Decorator/TenantContextService，GET/POST 仓库分别要求 warehouses:read/write。服务显式选择公开字段、分页与总数限定 tenantId，写事务锁后复查权限并原子审计。仅新增 nullable 仓库备注迁移，继续复用创建商家时的默认仓库与既有采购/分仓库存约束；不实现调拨、删除和库存 CRUD。详见 WAREHOUSES.md 与 ADR-016。
+
 首版采用“模块化单体后端 + 两个客户端”：避免微服务过度设计。电脑后台用 Vue 3/Vite/Element Plus；手机使用 uni-app Vue 3，安卓原生打包优先；后端使用 NestJS TypeScript；PostgreSQL 作为单一事务真相来源。Redis、RabbitMQ、K8s、AI/OCR 不做首版硬性依赖。
 
 Prisma 版本建议选择已明确兼容的 V7（整仓版本锁定，不用 `latest` 浮动）。**V7 关键差异**：`prisma-client` generator 显式输出目录；`prisma.config.ts` 配数据源 URL；PostgreSQL 运行时必须配 `@prisma/adapter-pg` + `new PrismaClient({ adapter })`；Node.js ESM/CLI 版本要求依真实创建时间的官方文档核查。

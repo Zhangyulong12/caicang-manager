@@ -186,3 +186,11 @@ pnpm start:api
 POST `/api/v1/products` 最小示例：`{"name":"20W 充电器","sku":"CHARGER-20W","referencePurchasePrice":"18.50"}`。同商家再次提交返回 409 PRODUCT_SKU_ALREADY_EXISTS。GET `/products` 支持搜索、分页与启用状态/单位/有无条码筛选；GET `/products/{id}` 和 PATCH `/products/{id}` 读取/修改当前商家商品；GET `/products/lookup?code=` 返回启用商品的精确 SKU/条码候选。停用保留历史记录，参考价修改不更新历史订单价格。
 
 运行 `pnpm test:products` 验证商品集成测试，`pnpm test:models` 验证迁移/seed/约束，`pnpm test` 构建全仓并回归。完整 JSON、字段/金额规则与 Swagger 流程见 [商品 API 说明](docs/PRODUCTS.md)，修改及实际结果见 [任务 08 报告](docs/TASK_08_REPORT.md)。
+
+## 任务 09：仓库管理 API
+
+GET /api/v1/warehouses 分页列出当前商家仓库，POST /api/v1/warehouses 供 OWNER/ADMIN 创建；所有成员可查看，编码商家内唯一，支持 nullable 备注。创建商家自动拥有 DEFAULT 默认仓库。无仓库删除或调拨接口。
+
+Windows 终端运行 `cd D:\Dev\caicang-manager`、`pnpm db:up`、`pnpm prisma:migrate:deploy`、`pnpm start:api`；在 http://localhost:3000/api/docs 使用 Bearer 与 X-Tenant-Id，创建示例 `{"name":"深圳二仓","code":"SZ-02","remark":"小件商品存放区"}`。
+
+`pnpm test:warehouses` 运行真实数据库接口测试；`pnpm test:models` 检查迁移和历史约束；`pnpm test` 完整构建与回归。详见 [仓库 API 说明](docs/WAREHOUSES.md) 和 [任务 09 报告](docs/TASK_09_REPORT.md)。

@@ -144,4 +144,6 @@ refresh/logout 都在事务内按 session id 执行 SELECT FOR UPDATE，随后�
 
 ## 7. 索引与历史数据
 
+任务 09 的第五个迁移 `20261020090000_warehouse_remark` 只给 warehouses 新增 nullable remark TEXT 和 ck_warehouse_remark_length（2000 字符），原地址、时间、唯一索引和历史关联均保留。默认仓库继续由创建商家事务写入。仓库编码使用 (tenant_id,code) 唯一键；采购单 warehouse_id 非空并以 (tenant_id,warehouse_id) 关联仓库；库存余额按 (tenant_id,warehouse_id,product_id) 唯一。同商家跨仓同 SKU 可以分别存在，跨商家仓库关联由复合外键拒绝。历史单据和库存对仓库的 Restrict 阻止物理删除，API 不提供删除或调拨。
+
 已有联合索引：采购状态时间、包裹运单、库存 SKU、流水 SKU/时间、出库状态、审计时间。未来可扩充分区/归档，但 V1 不需要。禁止物理删除有采购/库存流水的商品和订单；取消单据用状态机表示。

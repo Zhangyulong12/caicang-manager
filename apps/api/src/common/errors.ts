@@ -28,6 +28,7 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   MEMBER_ALREADY_EXISTS: { status: 409, message: '此用户已加入当前商家' },
   PRODUCT_SKU_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同 SKU 编码' },
   PRODUCT_BARCODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同商品条码' },
+  WAREHOUSE_CODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同仓库编码' },
 };
 export class BusinessException extends HttpException {
   constructor(
