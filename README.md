@@ -1,14 +1,20 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 11：商品与仓库管理页面
+
+启动 API 和 Web 后打开 http://localhost:5173，可注册、创建商家，在“商品管理”搜索分页、添加/编辑、查看详情及启停商品，在“仓库管理”添加仓库、选择当前账号的默认业务仓库。全部资料通过真实 API 保存；写按钮遵守服务端角色权限。
+
+默认业务仓库按账号与商家保存在当前浏览器，刷新恢复时重新验证仓库归属与启用状态，不跨设备同步。运行 `pnpm test:catalog` 检查商品/仓库生产客户端与真实数据库，`pnpm test:web` 覆盖全部 Web 服务层测试，`pnpm test` 完整回归。操作与边界见 [Web 商品仓库说明](docs/WEB_CATALOG.md)，本次结果见 [任务 11 报告](docs/TASK_11_REPORT.md)。
+
 ## 任务 10：Web 登录与管理后台
 
 在项目根目录执行 `pnpm install --frozen-lockfile`、`pnpm db:up`、`pnpm prisma:migrate:deploy`，终端一运行 `pnpm start:api`，终端二运行 `pnpm dev:web`。打开 http://localhost:5173，注册账号后登录，选择/创建商家进入后台；创建商家自动建立默认仓库。
 
-已接入真实注册、登录、/me、刷新与退出，提供商家选择、九个导航入口、用户信息、加载/错误提示及路由权限。后续业务页面明确待开放，无模拟业务数据。`pnpm test:web` 验证生产客户端与真实 API，`pnpm test` 完整回归。详见 [Web 使用说明](docs/WEB_AUTHENTICATION.md) 与 [任务 10 报告](docs/TASK_10_REPORT.md)。
+已接入真实注册、登录、/me、刷新与退出，提供商家选择、用户信息、加载/错误提示及路由权限。任务 11 新增仓库入口，现为十个导航；采购和出入库等后续页面明确待开放，无模拟业务数据。详见 [Web 使用说明](docs/WEB_AUTHENTICATION.md) 与 [任务 10 历史报告](docs/TASK_10_REPORT.md)。
 
 ## 当前工作区与环境（任务 01）
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限、商品/仓库 API 和 Web 登录及主布局。采购、库存、出库业务与对应管理页面仍待后续任务。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限、商品/仓库 API、Web 登录及商品仓库页面。采购、库存、出库业务与对应管理页面仍待后续任务。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 
@@ -30,14 +36,14 @@ pnpm dev
 
 `pnpm dev` 在当前终端启动 API 和管理后台，Ctrl+C 停止开发进程，PostgreSQL 数据和容器保留。API TypeScript 改动由 tsc 监听并触发 Node 重启。也可在独立终端执行 `pnpm dev:api` 和 `pnpm dev:web`。手机 H5 预览使用 `pnpm dev:mobile`。
 
-| 地址 | 用途 |
-| --- | --- |
+| 地址                                  | 用途                           |
+| ------------------------------------- | ------------------------------ |
 | `http://localhost:3000/api/v1/health` | 查询真实 PostgreSQL 的健康接口 |
-| `http://localhost:3000/api/docs` | Swagger UI |
-| `http://localhost:3000/api/docs-json` | OpenAPI JSON |
-| `http://localhost:5173` | 管理后台欢迎页与真实连接检查 |
-| `http://localhost:5174` | 手机 H5 首页预览 |
-| `127.0.0.1:5432` | 仅本机可访问的 PostgreSQL |
+| `http://localhost:3000/api/docs`      | Swagger UI                     |
+| `http://localhost:3000/api/docs-json` | OpenAPI JSON                   |
+| `http://localhost:5173`               | 管理后台欢迎页与真实连接检查   |
+| `http://localhost:5174`               | 手机 H5 首页预览               |
+| `127.0.0.1:5432`                      | 仅本机可访问的 PostgreSQL      |
 
 前端 `.env.example` 分别位于 `apps/admin-web` 和 `apps/mobile`。需要修改时复制为同目录 `.env.local`，使用 `VITE_API_BASE_URL`；前端配置不可含数据库密码。Android 设备使用电脑局域网地址，不能使用手机自身的 localhost。后续 HBuilderX 打开 `apps/mobile` 根目录，CLI 工程的 manifest/pages/App 位于 `src`。
 

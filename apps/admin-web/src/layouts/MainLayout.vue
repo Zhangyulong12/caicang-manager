@@ -67,7 +67,11 @@ function switchTenant() {
           :key="item.path"
           :to="item.path"
           class="nav-link"
-          :class="{ active: route.path === item.path }"
+          :class="{
+            active:
+              route.path === item.path ||
+              (item.path === '/products' && route.path.startsWith('/products/')),
+          }"
           @click="mobileOpen = false"
           ><el-icon><component :is="icons[item.icon as keyof typeof icons]" /></el-icon
           ><span>{{ item.title }}</span

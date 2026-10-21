@@ -469,15 +469,25 @@ test(
           store.clear();
         });
         await http.test(
-          'all nine menu destinations exist and role guards refuse settings without permission',
+          'all ten menu destinations exist and role guards refuse settings without permission',
           () => {
-            assert.equal(navigation.length, 9);
+            assert.equal(navigation.length, 10);
             assert.equal(
               allowed('/settings', ['tenant:read', 'products:read', 'warehouses:read']),
               false,
             );
             assert.equal(allowed('/settings', ['members:read']), true);
             assert.equal(allowed('/products', ['products:read']), true);
+            assert.equal(allowed('/warehouses', ['warehouses:read']), true);
+            assert.equal(allowed('/warehouses', ['products:read']), false);
+            assert.equal(
+              allowed('/products/00000000-0000-4000-8000-000000000001', ['products:read']),
+              true,
+            );
+            assert.equal(
+              allowed('/products/00000000-0000-4000-8000-000000000001', ['tenant:read']),
+              false,
+            );
             assert.equal(allowed('/unregistered', ['tenant:read']), false);
           },
         );
@@ -489,11 +499,17 @@ test(
             '/login',
             '/register',
             '/products?token=secret',
+            '/products/not-a-uuid',
+            '/products/00000000-0000-4000-8000-000000000001?token=secret',
             ['https://evil.example'],
           ])
             assert.equal(safeRedirect(value), '/');
           assert.equal(safeRedirect('/settings'), '/settings');
           assert.equal(safeRedirect('/select-tenant'), '/select-tenant');
+          assert.equal(
+            safeRedirect('/products/00000000-0000-4000-8000-000000000001'),
+            '/products/00000000-0000-4000-8000-000000000001',
+          );
         });
         await http.test(
           'captured API logs omit passwords tokens raw database messages and credential storage',

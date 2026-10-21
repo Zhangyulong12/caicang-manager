@@ -15,16 +15,27 @@ export const router = createRouter({
     {
       path: '/',
       component: () => import('../layouts/MainLayout.vue'),
-      children: navigation.map((item) => ({
-        path: item.path === '/' ? '' : item.path.slice(1),
-        meta: { title: item.title },
-        component:
-          item.path === '/'
-            ? () => import('../views/HomeView.vue')
-            : item.path === '/settings'
-              ? () => import('../views/SettingsView.vue')
-              : () => import('../views/ModuleView.vue'),
-      })),
+      children: [
+        ...navigation.map((item) => ({
+          path: item.path === '/' ? '' : item.path.slice(1),
+          meta: { title: item.title },
+          component:
+            item.path === '/'
+              ? () => import('../views/HomeView.vue')
+              : item.path === '/products'
+                ? () => import('../views/ProductsView.vue')
+                : item.path === '/warehouses'
+                  ? () => import('../views/WarehousesView.vue')
+                  : item.path === '/settings'
+                    ? () => import('../views/SettingsView.vue')
+                    : () => import('../views/ModuleView.vue'),
+        })),
+        {
+          path: 'products/:id',
+          component: () => import('../views/ProductDetailView.vue'),
+          meta: { title: '商品详情' },
+        },
+      ],
     },
     { path: '/:pathMatch(.*)*', component: () => import('../views/NotFoundView.vue') },
   ],
@@ -55,7 +66,7 @@ router.beforeEach(async (to) => {
     return '/connection-error';
   }
   if (
-    navigation.some((item) => item.path === to.path) &&
+    (navigation.some((item) => item.path === to.path) || to.path.startsWith('/products/')) &&
     !allowed(to.path, tenants.current?.permissions ?? [])
   )
     return '/forbidden';

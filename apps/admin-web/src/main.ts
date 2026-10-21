@@ -17,10 +17,17 @@ import {
   ElSkeleton,
   ElTag,
   ElMessage,
+  ElTable,
+  ElTableColumn,
+  ElSelect,
+  ElOption,
+  ElSwitch,
+  ElEmpty,
 } from 'element-plus';
 import 'element-plus/dist/index.css';
 import App from './App.vue';
 import './style.css';
+import './catalog.css';
 import { router } from './router';
 import { useAuthStore } from './stores/auth';
 import { useTenantStore } from './stores/tenant';
@@ -45,6 +52,12 @@ for (const component of [
   ElPagination,
   ElSkeleton,
   ElTag,
+  ElTable,
+  ElTableColumn,
+  ElSelect,
+  ElOption,
+  ElSwitch,
+  ElEmpty,
 ])
   app.component(component.name!, component);
 const auth = useAuthStore();

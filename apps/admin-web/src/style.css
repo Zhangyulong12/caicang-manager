@@ -564,6 +564,8 @@ strong {
 }
 .page-heading > .el-button {
   font-size: 11px;
+}
+.page-heading > .el-button:not(.el-button--primary) {
   background: white;
 }
 .welcome-banner {

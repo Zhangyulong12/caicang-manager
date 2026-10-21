@@ -22,6 +22,13 @@ export const navigation: {
     description: '集中管理 SKU、条码与商品资料',
   },
   {
+    path: '/warehouses',
+    title: '仓库管理',
+    permission: 'warehouses:read',
+    icon: 'OfficeBuilding',
+    description: '管理仓库与默认业务仓库',
+  },
+  {
     path: '/purchases',
     title: '采购管理',
     permission: 'tenant:read',
@@ -85,12 +92,17 @@ export const roleNames = {
   VIEWER: '只读成员',
 };
 export function safeRedirect(value: unknown): string {
+  if (typeof value === 'string' && productDetailPath(value)) return value;
   return typeof value === 'string' &&
     [...navigation.map((item) => item.path), '/select-tenant'].includes(value)
     ? value
     : '/';
 }
 export function allowed(path: string, permissions: readonly TenantPermission[]): boolean {
+  if (path.startsWith('/products/')) return permissions.includes('products:read');
   const item = navigation.find((item) => item.path === path);
   return item ? permissions.includes(item.permission) : false;
+}
+export function productDetailPath(path: string): boolean {
+  return /^\/products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path);
 }

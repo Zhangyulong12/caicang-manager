@@ -170,7 +170,7 @@ onMounted(load);
           <span>02</span>
           <div>
             <strong>建立商品与仓库资料</strong>
-            <p>集中管理商品与仓库，资料管理页面即将开放。</p>
+            <p>维护商品资料，按需添加仓库并设置常用业务仓库。</p>
           </div>
         </div>
         <div class="step-row">

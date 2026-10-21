@@ -140,6 +140,8 @@ caicang-manager/
 
 任务 10：Vue Router/Pinia、统一 api/client.ts、认证与商家 store 管理主布局。localStorage 原子令牌对和 Web Locks 协调同源多标签刷新/退出，storage 事件同步账号变化，sessionKey/generation 拒绝迟到响应。路由通过 /tenants/current 验证当前权限。新增 GET /tenants 只查认证用户本人 active memberships，无数据库迁移。详见 WEB_AUTHENTICATION.md 与 ADR-017。
 
+任务 11：api/catalog-form.ts 集中表单校验及白名单载荷，api/catalog.ts 复用统一客户端，捕获账号会话/商家和权限并拒绝迟到响应；Vue 页面只处理展示与交互。商品/仓库写权限最终由原 API Guard 与事务保证。默认业务仓库偏好以 userId+tenantId 分键存本机，恢复时分页查询真实仓库验证，业务资料仍保存在 PostgreSQL。金额全程字符串，不新增 API、模型或库存操作。详见 WEB_CATALOG.md 与 ADR-018。
+
 任何业务流程改变必须先更新 spec/API/DB 决策，再改实现，最后加测试。`schema.sql` 和 Prisma schema 要一致；后续以 Prisma 迁移为最终运行源，SQL 参考稿需标示是否仍同步。分阶段由 Codex 更新 CHANGELOG。
 
 ## 任务 06：可撤销认证会话
