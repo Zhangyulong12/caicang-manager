@@ -1,0 +1,96 @@
+import type { TenantPermission } from '@caicang/api-contract';
+export const navigation: {
+  path: string;
+  title: string;
+  permission: TenantPermission;
+  soon?: boolean;
+  icon: string;
+  description: string;
+}[] = [
+  {
+    path: '/',
+    title: '首页',
+    permission: 'tenant:read',
+    icon: 'House',
+    description: '查看你的工作空间与服务状态',
+  },
+  {
+    path: '/products',
+    title: '商品管理',
+    permission: 'products:read',
+    icon: 'Goods',
+    description: '集中管理 SKU、条码与商品资料',
+  },
+  {
+    path: '/purchases',
+    title: '采购管理',
+    permission: 'tenant:read',
+    icon: 'ShoppingCart',
+    soon: true,
+    description: '记录采购订单与到仓成本',
+  },
+  {
+    path: '/packages',
+    title: '快递包裹',
+    permission: 'tenant:read',
+    icon: 'Box',
+    soon: true,
+    description: '跟踪采购包裹与运单',
+  },
+  {
+    path: '/receipts',
+    title: '入库记录',
+    permission: 'tenant:read',
+    icon: 'Download',
+    soon: true,
+    description: '追溯每一次验收入库',
+  },
+  {
+    path: '/inventory',
+    title: '库存管理',
+    permission: 'tenant:read',
+    icon: 'OfficeBuilding',
+    soon: true,
+    description: '按仓库与 SKU 查看库存',
+  },
+  {
+    path: '/outbound',
+    title: '出库管理',
+    permission: 'tenant:read',
+    icon: 'Upload',
+    soon: true,
+    description: '管理发货订单与出库',
+  },
+  {
+    path: '/reports',
+    title: '数据统计',
+    permission: 'tenant:read',
+    icon: 'DataAnalysis',
+    soon: true,
+    description: '掌握采购与仓储运营数据',
+  },
+  {
+    path: '/settings',
+    title: '系统设置',
+    permission: 'members:read',
+    icon: 'Setting',
+    description: '查看当前商家、仓库与账号权限',
+  },
+];
+export const roleNames = {
+  OWNER: '商家所有者',
+  ADMIN: '管理员',
+  BUYER: '采购员',
+  WAREHOUSE: '仓库人员',
+  VIEWER: '只读成员',
+};
+export function safeRedirect(value: unknown): string {
+  return typeof value === 'string' &&
+    [...navigation.map((item) => item.path), '/select-tenant'].includes(value)
+    ? value
+    : '/';
+}
+export function allowed(path: string, permissions: readonly TenantPermission[]): boolean {
+  const item = navigation.find((item) => item.path === path);
+  return item ? permissions.includes(item.permission) : false;
+}

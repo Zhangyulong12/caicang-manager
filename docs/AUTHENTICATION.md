@@ -1,5 +1,7 @@
 # 用户认证、令牌刷新与安全退出（任务 05–06）
 
+任务 10 已接入 Web 注册/登录/刷新/退出及主布局，详见 WEB_AUTHENTICATION.md。localStorage 令牌对与 Web Locks 串行轮换，恢复通过 /me 验证，退出需服务端撤销成功；尚未实现生产 HttpOnly Cookie/BFF，不宣称 localStorage 能防 XSS。无认证 API 行为或数据库迁移变更。
+
 ## Windows 启动
 
 ```powershell
@@ -73,4 +75,4 @@ pnpm test:db
 
 认证测试在独立随机空 PostgreSQL 测试库重放真实迁移、通过真实 HTTP 注册/登录/me，验证哈希、错误、输入、并发和令牌；测试结束只清理本轮测试库，不删除开发数据。测试服务器显式信任本机代理，让用例分配不同测试 IP，保持真实限流组件启用，并另验证固定 IP 第六次请求受限；正式默认不信任转发头。
 
-任务 06 已完成 Refresh Token、轮换和 logout；测试包含两个真实 API 进程、事务回滚、重放、过期、停用、并发、隔离、重启、日志与 Swagger。任务 07 已另行实现商家创建与成员/角色管理，见 TENANT_AUTHORIZATION.md；商家角色每次查数据库，不写入 JWT。前端令牌存储、找回密码和邮件验证尚未实现。
+任务 06 已完成 Refresh Token、轮换和 logout；测试包含两个真实 API 进程、事务回滚、重放、过期、停用、并发、隔离、重启、日志与 Swagger。任务 07 已另行实现商家创建与成员/角色管理，见 TENANT_AUTHORIZATION.md；商家角色每次查数据库，不写入 JWT。任务 10 已实现 Web 令牌状态及刷新协调；找回密码和邮件验证尚未实现。

@@ -138,6 +138,8 @@ caicang-manager/
 
 ## 7. 文档更新规则
 
+任务 10：Vue Router/Pinia、统一 api/client.ts、认证与商家 store 管理主布局。localStorage 原子令牌对和 Web Locks 协调同源多标签刷新/退出，storage 事件同步账号变化，sessionKey/generation 拒绝迟到响应。路由通过 /tenants/current 验证当前权限。新增 GET /tenants 只查认证用户本人 active memberships，无数据库迁移。详见 WEB_AUTHENTICATION.md 与 ADR-017。
+
 任何业务流程改变必须先更新 spec/API/DB 决策，再改实现，最后加测试。`schema.sql` 和 Prisma schema 要一致；后续以 Prisma 迁移为最终运行源，SQL 参考稿需标示是否仍同步。分阶段由 Codex 更新 CHANGELOG。
 
 ## 任务 06：可撤销认证会话

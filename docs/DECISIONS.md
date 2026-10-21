@@ -113,3 +113,13 @@
 - name/code trim，编码保留大小写/前导零；沿用 (tenant_id,code) 唯一键，停用仍占码。数据库唯一冲突返回 WAREHOUSE_CODE_ALREADY_EXISTS，审计与创建同事务，不以预查询代替约束。重复请求返回冲突，不默认为原操作成功。
 - 新商家继续由 TenantsService 单事务创建 OWNER 与 DEFAULT 默认仓库；既有 POST /tenants 返回保持兼容。历史采购单的非空仓库和同商家复合外键、库存的商家+仓库+SKU 唯一键与 Restrict 删除策略沿用并测试。不开放 DELETE/PATCH/调拨/库存 CRUD，不提前实现采购或库存业务。
 - 真实测试覆盖双商家同码/隔离、五角色、分页、输入、跨进程并发冲突、审计失败回滚、锁后降权/停用及重启。采购/库存关系验证用隔离库 SQL 夹具，不写开发库测试单据。
+
+## ADR-017：Web 认证、主布局与商家发现（2026-10-21，任务 10）
+
+Web 使用精确锁定的 Vue Router 4.6.4、Pinia 3.0.4、Element Plus icons 2.3.2，兼容已锁 Vue 3.5.44，不升级其他框架。补充 GET /tenants 账号级分页接口，仅返回认证账号自己的 active memberships 与商家基本资料；重复读事务保证分页一致，拒绝 userId/tenantId 注入，无数据库迁移。
+
+认证前端沿用真实 register/login/me/refresh/logout。令牌对与服务端有效期以单个 JSON 存于当前 origin 的 localStorage，不保存密码/用户资料/角色；每次恢复用 /me 校验，商家权限用 /tenants/current 重新校验。此方案允许同源标签页共享轮换状态；Web Locks 在 login/refresh/logout 时跨标签串行化，401 或到期只进行一次刷新、最多一次原请求重试，刷新网络结果不确定时清除该会话并要求重登，不重放旧刷新凭据。退出先完成服务端撤销再清本地；失败提示并保留重试能力，不能虚报退出。存储事件同步退出/换账号，迟到响应不能恢复已退出或替换的会话。
+
+localStorage 不是 HttpOnly 安全边界，XSS 可读取凭据；不宣称浏览器加密能防 XSS。不使用 v-html/动态代码/外部第三方脚本，前端显示内容由 Vue 转义；后续生产部署必须 HTTPS、严格 CSP 和依赖治理。如切换 HttpOnly Cookie/BFF，需单独设计 Cookie/CSRF 与部署接口，当前不伪造 Cookie 隔离。Web Locks 仅用于可信浏览器安全上下文，localhost 开发可用；不支持时明确提示使用新版 Chrome/Edge，不退化到会触发重放的多标签刷新。
+
+商家偏好仅存 UUID，并按用户 ID 分键；每次进入工作区由服务端验证，切换丢弃旧上下文与迟到响应。路由按当前服务端 permission 控制，菜单不能代替 API 授权；系统设置需 members:read，普通成员拒绝。九个菜单齐全，采购等未开发模块保留说明页，不提供模拟单据/库存；首页数量通过真实商品与仓库列表 total 获取。新账号可创建商家与默认仓库作为引导。

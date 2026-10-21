@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { CreatedTenantData, CurrentTenantData } from '@caicang/api-contract';
+import type { CreatedTenantData, CurrentTenantData, TenantChoiceData } from '@caicang/api-contract';
+import type { PaginationQueryDto } from '../../common/pagination.dto.js';
+import { PageResult } from '../../common/response.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { BusinessException } from '../../common/errors.js';
 import { TenantContextService, type TenantContext } from '../../common/tenancy/tenant-context.js';
@@ -12,6 +14,38 @@ export class TenantsService {
     private readonly prisma: PrismaService,
     private readonly contexts: TenantContextService,
   ) {}
+  async list(userId: string, query: PaginationQueryDto): Promise<PageResult<TenantChoiceData>> {
+    const skip = (query.page - 1) * query.pageSize;
+    if (!Number.isSafeInteger(skip) || skip > 2147483647)
+      throw new BusinessException('BAD_REQUEST');
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR SHARE`;
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { isActive: true },
+        });
+        if (!user?.isActive) throw new BusinessException('UNAUTHENTICATED');
+        const where = { userId, isActive: true };
+        const total = await tx.tenantMembership.count({ where });
+        const memberships = await tx.tenantMembership.findMany({
+          where,
+          skip,
+          take: query.pageSize,
+          include: { tenant: true },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        });
+        return new PageResult(
+          memberships.map((membership) => ({
+            tenant: mapTenant(membership.tenant),
+            membership: mapMembership(membership),
+          })),
+          { page: query.page, pageSize: query.pageSize, total },
+        );
+      },
+      { isolationLevel: 'RepeatableRead' },
+    );
+  }
   async create(
     userId: string,
     dto: CreateTenantDto,

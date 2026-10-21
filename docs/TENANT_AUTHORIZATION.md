@@ -1,5 +1,7 @@
 # 多商家与角色权限（任务 07）
 
+任务 10 增加账号级 GET /tenants：Bearer 后分页返回本人 active memberships 与商家，拒绝 userId/tenantId 注入，不要求商家头。Web 选择后仍由 /tenants/current 建立真实权限上下文，菜单和路由不能替代后端 Guard。详见 WEB_AUTHENTICATION.md。
+
 ## 启动与 Swagger
 
 ```powershell

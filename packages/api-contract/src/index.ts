@@ -132,6 +132,11 @@ export interface CurrentTenantData {
   permissions: TenantPermission[];
 }
 
+export interface TenantChoiceData {
+  tenant: TenantData;
+  membership: MembershipData;
+}
+
 export interface ProductData {
   id: string;
   tenantId: string;

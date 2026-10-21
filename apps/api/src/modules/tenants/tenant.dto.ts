@@ -51,3 +51,8 @@ export class CurrentTenantDto {
   @ApiProperty({ type: MembershipDto }) membership!: MembershipDto;
   @ApiProperty({ enum: TENANT_PERMISSIONS, isArray: true }) permissions!: TenantPermission[];
 }
+
+export class TenantChoiceDto {
+  @ApiProperty({ type: TenantDto }) tenant!: TenantDto;
+  @ApiProperty({ type: MembershipDto }) membership!: MembershipDto;
+}

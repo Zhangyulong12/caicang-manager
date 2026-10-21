@@ -6,7 +6,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 
 任务 04 已统一公共基础模块。任务 05–07 提供认证、会话与商家成员权限；任务 08 已实现商品列表/创建/详情/修改/按码查询；任务 09 已实现仓库列表和创建。采购、库存等其余业务接口仍是后续契约。Swagger 仅开发/测试模式可启用，生产强制关闭。
 
-`auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me` 与 `POST /tenants` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id。其他商家路由同时验证 Token、唯一 UUID `X-Tenant-Id`、active membership 与显式角色/权限策略，禁止相信请求体 tenantId。AccessTokenGuard、TenantGuard、RolesGuard 顺序执行；未声明权限的新控制器默认拒绝。
+`auth/register`、`auth/login`、`auth/refresh`、`auth/logout`、`health` 不要求 Access Token；refresh/logout 必须在正文提供 Refresh Token 凭据。`GET /me`、`GET /tenants` 与 `POST /tenants` 为全局账号接口，只需 `Authorization: Bearer <access_token>`，不要求 X-Tenant-Id。其他商家路由同时验证 Token、唯一 UUID `X-Tenant-Id`、active membership 与显式角色/权限策略，禁止相信请求体 tenantId。AccessTokenGuard、TenantGuard、RolesGuard 顺序执行；未声明权限的新控制器默认拒绝。
 
 统一成功体：`{"data": { ... }, "requestId": "..."}`；列表：`{"data": [...], "pagination":{"page":1,"pageSize":20,"total":100},"requestId":"..."}`；失败体：`{"error":{"code":"OUT_OF_STOCK","message":"库存不足","details":{}},"requestId":"..."}`。HTTP: 400 格式错，401 未认证，403 无权，404 对象不存在或跨租户，409 状态/库存/幂等冲突，422 数量业务校验，429 速率限制，500 服务异常。所有金钱数值为字符串。
 
@@ -116,6 +116,7 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 |POST|`/auth/logout`|撤销当前登录会话|Refresh Token 凭据|
 |GET|`/me`|当前用户资料；商家列表留待后续|已登录|
 |POST|`/tenants`|创建商家及默认仓库|登录用户|
+|GET|`/tenants?page=1&pageSize=20`|本人 active 成员关系的商家列表，返回 TenantChoiceData 的标准分页；只接受 page/pageSize，不能查询其他 userId/tenantId|登录用户，无需商家头|
 |GET|`/tenants/current`|当前商家信息|成员|
 |GET|`/members`|成员列表|OWNER/ADMIN|
 |POST|`/members`|添加现有用户与角色|OWNER/ADMIN|

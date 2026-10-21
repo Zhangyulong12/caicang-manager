@@ -1,8 +1,14 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 10：Web 登录与管理后台
+
+在项目根目录执行 `pnpm install --frozen-lockfile`、`pnpm db:up`、`pnpm prisma:migrate:deploy`，终端一运行 `pnpm start:api`，终端二运行 `pnpm dev:web`。打开 http://localhost:5173，注册账号后登录，选择/创建商家进入后台；创建商家自动建立默认仓库。
+
+已接入真实注册、登录、/me、刷新与退出，提供商家选择、九个导航入口、用户信息、加载/错误提示及路由权限。后续业务页面明确待开放，无模拟业务数据。`pnpm test:web` 验证生产客户端与真实 API，`pnpm test` 完整回归。详见 [Web 使用说明](docs/WEB_AUTHENTICATION.md) 与 [任务 10 报告](docs/TASK_10_REPORT.md)。
+
 ## 当前工作区与环境（任务 01）
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 欢迎页与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限与任务 08 商品 API。采购、库存、出库业务与客户端业务界面仍待后续任务。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限、商品/仓库 API 和 Web 登录及主布局。采购、库存、出库业务与对应管理页面仍待后续任务。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 

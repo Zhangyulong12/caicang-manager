@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TENANT_ROLES, type PublicUser } from '@caicang/api-contract';
 import { CurrentUser } from '../auth/access-token.guard.js';
-import { ApiDataResponse } from '../../common/api-docs.js';
+import { ApiDataResponse, ApiPageResponse } from '../../common/api-docs.js';
+import { PaginationQueryDto } from '../../common/pagination.dto.js';
 import { SensitiveRateLimit } from '../../common/rate-limit.js';
 import type { ApiRequest } from '../../common/request-context.js';
 import { CurrentTenant, type TenantContext } from '../../common/tenancy/tenant-context.js';
@@ -11,13 +12,29 @@ import {
   RequirePermissions,
   TenantEndpoint,
 } from '../../common/tenancy/tenant.decorators.js';
-import { CreateTenantDto, CreatedTenantDto, CurrentTenantDto } from './tenant.dto.js';
+import {
+  CreateTenantDto,
+  CreatedTenantDto,
+  CurrentTenantDto,
+  TenantChoiceDto,
+} from './tenant.dto.js';
 import { TenantsService } from './tenants.service.js';
 
 @ApiTags('tenants')
 @Controller('tenants')
 export class TenantsController {
   constructor(private readonly tenants: TenantsService) {}
+  @Get()
+  @GlobalAccount()
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: '分页列出本人具有启用成员关系的商家',
+    description: '仅按认证账号查询，不接受 userId/tenantId；不需要商家头。',
+  })
+  @ApiPageResponse(TenantChoiceDto)
+  list(@CurrentUser() user: PublicUser, @Query() query: PaginationQueryDto) {
+    return this.tenants.list(user.id, query);
+  }
   @Post()
   @GlobalAccount()
   @SensitiveRateLimit()
