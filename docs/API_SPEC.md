@@ -173,6 +173,14 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ## 5. 关键请求示例
 
+任务 12 已实现采购表中六个端点。创建成功 201，其余五个操作成功 200；所有端点需 Bearer+X-Tenant-Id。新增 purchase:read 全角色权限，写入限 OWNER/ADMIN/BUYER。输入 purchaseDate 为必填 YYYY-MM-DD，金额为十进制字符串；recipient 须完整对象，items 1–100 行且商品不可重复。PATCH 仅无后续单据的草稿，items 若提供为完整替换；确认/取消正文为空或 `{}`，禁止通过客户端 status/成本字段强改。
+
+详情及分页行使用共享 PurchaseOrderData：recipient/recipientMasked、原始 items、receivedQuantity、freightAmount/goodsAmount/discountAmount/totalCost（两位字符串），确认后明细含 freightAllocated（两位）/landedUnitCost（四位），草稿为 null。VIEWER 收货三字段为 `[已隐藏]`，备注 null；所有响应 no-store。旧记录新增列不回填、不猜测历史日期/快照，缺失值按文档返回 null。
+
+列表支持 page/pageSize、字面 search（单号/平台单号/店铺/商品 SKU 名称快照）、status、platform、warehouseId，按 createdAt DESC/id DESC 排序并严格隔离总数。重复商家单号 409 PURCHASE_ORDER_NO_ALREADY_EXISTS；折扣大于行金额、金额汇总溢出、停用商品/仓库为 422 BUSINESS_VALIDATION_FAILED；非法状态修改或有收货记录的取消为 409 STATUS_CONFLICT。跨商家引用与未知 ID 均 404。
+
+确认保存运费分摊与商品快照；前 N−1 行按净额比例向下截取到分，最后一行吸收尾差；全部净额为零按件数分配。PLACED 重复确认、CANCELLED 重复取消不重复写审计，其他不合法状态返回 409。条件、完整 Swagger 示例和事务约定见 PURCHASE_ORDERS.md；包裹/收货/出库端点仍是后续设计。
+
 ### 5.1 创建采购单草稿
 
 `POST /purchase-orders`
@@ -183,6 +191,7 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
   "platform":"TAOBAO",
   "platformOrderNo":"T202610140001",
   "supplierName":"示例商家",
+  "purchaseDate":"2026-10-21",
   "recipient":{"name":"仓库收货人","phone":"13800000000","address":"测试地址"},
   "freightAmount":"10.00",
   "items":[

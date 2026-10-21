@@ -7,6 +7,7 @@ import { TenantsModule } from './modules/tenants/tenants.module.js';
 import { MembersModule } from './modules/members/members.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { WarehousesModule } from './modules/warehouses/warehouses.module.js';
+import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module.js';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { WarehousesModule } from './modules/warehouses/warehouses.module.js';
     MembersModule,
     ProductsModule,
     WarehousesModule,
+    PurchaseOrdersModule,
   ],
   controllers: [HealthController],
 })

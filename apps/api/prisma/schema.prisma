@@ -164,6 +164,7 @@ model PurchaseOrder {
   platform                          String              @db.VarChar(20)
   platformOrderNo                   String?             @map("platform_order_no") @db.VarChar(100)
   supplierName                      String?             @map("supplier_name") @db.VarChar(200)
+  purchaseDate                      DateTime?           @map("purchase_date") @db.Date
   status                            String              @default("DRAFT") @db.VarChar(30)
   recipientName                     String?             @map("recipient_name") @db.VarChar(100)
   recipientPhone                    String?             @map("recipient_phone") @db.VarChar(50)
@@ -198,6 +199,11 @@ model PurchaseOrderItem {
   unitPrice                           Decimal               @map("unit_price") @db.Decimal(18, 2)
   discountAmount                      Decimal               @default(0) @map("discount_amount") @db.Decimal(18, 2)
   landedUnitCost                      Decimal?              @map("landed_unit_cost") @db.Decimal(20, 4)
+  freightAllocated                    Decimal?              @map("freight_allocated") @db.Decimal(18, 2)
+  lineNo                              Int?                  @map("line_no")
+  skuSnapshot                         String?               @map("sku_snapshot") @db.VarChar(80)
+  nameSnapshot                        String?               @map("name_snapshot") @db.VarChar(200)
+  unitSnapshot                        String?               @map("unit_snapshot") @db.VarChar(20)
   createdAt                           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   purchaseOrder                       PurchaseOrder         @relation("PurchaseOrderItem_tenantId_purchaseOrderId", fields: [tenantId, purchaseOrderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
@@ -208,6 +214,7 @@ model PurchaseOrderItem {
 
   @@unique([tenantId, id])
   @@unique([tenantId, purchaseOrderId, productId])
+  @@unique([tenantId, purchaseOrderId, lineNo])
   @@unique([tenantId, id, purchaseOrderId])
   @@unique([tenantId, id, purchaseOrderId, productId])
   @@index([tenantId, purchaseOrderId], map: "idx_po_item_po")

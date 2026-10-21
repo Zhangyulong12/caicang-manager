@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 12：采购订单 API
+
+已实现采购草稿、编辑、下单确认、条件取消、详情与搜索分页。所有接口使用真实数据库、租户角色鉴权、Decimal 金额和事务审计；确认后冻结数量、原价、运费分摊与商品快照。10 个商品 × 18.50 元＋10 元运费，采购总成本为 `195.00` 元。
+
+PowerShell 先 `pnpm db:up`、`pnpm prisma:migrate:deploy`，再 `pnpm start:api`，通过 http://localhost:3000/api/docs 使用采购接口。测试为 `pnpm test:purchases`，示例和状态规则见 [采购 API](docs/PURCHASE_ORDERS.md)，执行结果见 [任务 12 报告](docs/TASK_12_REPORT.md)。本任务仅实现 API，采购 Web 页面及包裹/入库/库存业务留待后续。
+
 ## 任务 11：商品与仓库管理页面
 
 启动 API 和 Web 后打开 http://localhost:5173，可注册、创建商家，在“商品管理”搜索分页、添加/编辑、查看详情及启停商品，在“仓库管理”添加仓库、选择当前账号的默认业务仓库。全部资料通过真实 API 保存；写按钮遵守服务端角色权限。
@@ -14,7 +20,7 @@
 
 ## 当前工作区与环境（任务 01）
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限、商品/仓库 API、Web 登录及商品仓库页面。采购、库存、出库业务与对应管理页面仍待后续任务。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限、商品/仓库/采购 API、Web 登录及商品仓库页面。采购管理页面、包裹、入库、库存与出库业务仍待后续任务。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 

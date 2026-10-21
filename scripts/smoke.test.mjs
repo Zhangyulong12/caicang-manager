@@ -33,10 +33,16 @@ test('built NestJS serves real PostgreSQL health, OpenAPI and CORS policy', asyn
     });
     assert.equal(denied.headers.get('access-control-allow-origin'), null);
   });
-  await t.test('unimplemented business routes are absent', async () => {
-    const response = await fetch(`${base}/api/v1/purchase-orders`);
-    assert.equal(response.status, 404);
-  });
+  await t.test(
+    'purchase requires authentication and future business routes are absent',
+    async () => {
+      const response = await fetch(`${base}/api/v1/purchase-orders`);
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error.code, 'UNAUTHENTICATED');
+      for (const route of ['/receipts', '/inventory/balances', '/outbound-orders'])
+        assert.equal((await fetch(`${base}/api/v1${route}`)).status, 404);
+    },
+  );
 });
 
 test('Web and mobile H5 builds contain local production assets', async () => {

@@ -147,3 +147,11 @@ refresh/logout 都在事务内按 session id 执行 SELECT FOR UPDATE，随后�
 任务 09 的第五个迁移 `20261020090000_warehouse_remark` 只给 warehouses 新增 nullable remark TEXT 和 ck_warehouse_remark_length（2000 字符），原地址、时间、唯一索引和历史关联均保留。默认仓库继续由创建商家事务写入。仓库编码使用 (tenant_id,code) 唯一键；采购单 warehouse_id 非空并以 (tenant_id,warehouse_id) 关联仓库；库存余额按 (tenant_id,warehouse_id,product_id) 唯一。同商家跨仓同 SKU 可以分别存在，跨商家仓库关联由复合外键拒绝。历史单据和库存对仓库的 Restrict 阻止物理删除，API 不提供删除或调拨。
 
 已有联合索引：采购状态时间、包裹运单、库存 SKU、流水 SKU/时间、出库状态、审计时间。未来可扩充分区/归档，但 V1 不需要。禁止物理删除有采购/库存流水的商品和订单；取消单据用状态机表示。
+
+## 任务 12：采购流程增量
+
+第六个迁移 `20261021120000_purchase_order_workflow` 新增 purchase_orders.purchase_date DATE；采购行新增 line_no、freight_allocated NUMERIC(18,2)、sku_snapshot/name_snapshot/unit_snapshot。以 (tenant_id,purchase_order_id,line_no) 唯一约束固定行顺序，CHECK 限制非空行号为正、分摊额为非负有限值。新增列允许旧记录 null，迁移不更新既有行、不修改其时间，不伪造历史日期或分摊；参考 SQL 原件保留，以 Prisma 迁移为运行源。
+
+新接口要求日期、完整收货信息、至少一行启用商品，显式保存输入顺序和商品快照。草稿可编辑未被后续单据引用的行；确认时保存每行分摊额和四位单位成本，并冻结数量/原价/费用/商品快照。原价与优惠仍是各自 NUMERIC(18,2) 字段，总价由 Decimal 从原始字段计算返回，不从舍入后的单位成本逆推。
+
+前 N−1 行运费按净额比例向下截到分，最后一行吸收尾差（包括最后行净额为零的情况）；净额全零按件数比例。服务端使用精度 60 的独立 Decimal，将商品原额、折扣和总成本限制在 NUMERIC(18,2) 范围。每次写入先锁租户复核权限，再锁当前商家采购主单；确认、取消、编辑和审计同事务。未来收货须遵守相同主单锁并处理单位成本舍入尾差。

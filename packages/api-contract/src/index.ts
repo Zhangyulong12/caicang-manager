@@ -49,6 +49,7 @@ export const API_ERROR_CODES = [
   'PRODUCT_SKU_ALREADY_EXISTS',
   'PRODUCT_BARCODE_ALREADY_EXISTS',
   'WAREHOUSE_CODE_ALREADY_EXISTS',
+  'PURCHASE_ORDER_NO_ALREADY_EXISTS',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -91,6 +92,7 @@ export const TENANT_PERMISSIONS = [
   'members:read',
   'members:manage',
   'purchase:write',
+  'purchase:read',
   'receiving:confirm',
   'outbound:write',
 ] as const;
@@ -161,4 +163,53 @@ export interface WarehouseData {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export const PURCHASE_PLATFORMS = ['JD', 'TAOBAO', 'PDD', 'OTHER'] as const;
+export const PURCHASE_STATUSES = [
+  'DRAFT',
+  'PLACED',
+  'PARTIAL_RECEIVED',
+  'RECEIVED',
+  'CANCELLED',
+] as const;
+export type PurchasePlatform = (typeof PURCHASE_PLATFORMS)[number];
+export type PurchaseStatus = (typeof PURCHASE_STATUSES)[number];
+export interface PurchaseItemData {
+  id: string;
+  productId: string;
+  lineNo: number | null;
+  sku: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  receivedQuantity: number;
+  unitPrice: string;
+  discountAmount: string;
+  lineNet: string;
+  freightAllocated: string | null;
+  landedUnitCost: string | null;
+}
+export interface PurchaseOrderData {
+  id: string;
+  tenantId: string;
+  orderNo: string;
+  warehouseId: string;
+  platform: PurchasePlatform;
+  platformOrderNo: string | null;
+  supplierName: string | null;
+  purchaseDate: string | null;
+  status: PurchaseStatus;
+  recipient: { name: string | null; phone: string | null; address: string | null };
+  recipientMasked: boolean;
+  freightAmount: string;
+  goodsAmount: string;
+  discountAmount: string;
+  totalCost: string;
+  remark: string | null;
+  createdBy: string;
+  placedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: PurchaseItemData[];
 }

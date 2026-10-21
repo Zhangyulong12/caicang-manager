@@ -390,6 +390,7 @@ test(
               'tenant:read',
               'products:read',
               'warehouses:read',
+              'purchase:read',
             ]);
           },
         );
