@@ -1031,7 +1031,7 @@ test(
           }
         });
         await http.test(
-          'OpenAPI declares all four routes, array candidates and no receipt creation endpoint',
+          'OpenAPI declares all four routes, array candidates and documented receipts',
           async () => {
             const spec = await (await fetch(base + '/api/docs-json')).json();
             for (const [path, method] of [
@@ -1046,10 +1046,11 @@ test(
                 .schema.allOf[1].properties.data.type,
               'array',
             );
-            // Task 16 adds the closure/receivable reads; creating receipts is still out of scope.
+            // Task 16 adds the closure/receivable reads; task 17 adds the receipt write endpoint.
             assert.ok(spec.paths['/api/v1/packages/{id}/complete-receiving'].post);
             assert.ok(spec.paths['/api/v1/packages/{id}/receivable'].get);
-            assert.equal(spec.paths['/api/v1/receipts'], undefined);
+            assert.ok(spec.paths['/api/v1/receipts'].post.responses['201']);
+            assert.ok(spec.paths['/api/v1/receipts'].get);
           },
         );
         await http.test(

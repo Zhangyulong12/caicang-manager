@@ -142,7 +142,7 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ## 3. 包裹/扫码/入库
 
-任务 14 已实现下表前四个包裹端点；任务 15 增加只读分页列表 `GET /packages` 供 Web 包裹页面使用；任务 16 增加可验收明细与人工完成两个端点，`POST /receipts` 仍是后续任务。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md)。
+任务 14 已实现包裹绑定、修改、详情与运单查询；任务 15 增加只读分页列表 `GET /packages`；任务 16 增加可验收明细与人工完成；任务 17 实现下表后三个入库端点（`POST /receipts` 为唯一增加库存的接口）。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md) 与 [RECEIPTS.md](RECEIPTS.md)。
 
 |Method|Endpoint|用途|角色|
 |---|---|---|---|
@@ -310,9 +310,19 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 }
 ```
 
-预期成功 `201` 首次创建，重复完全相同 ID 和请求体返回 `200` 原 receipt；操作 ID 冲突但 payload 不同返回 `409 IDEMPOTENCY_CONFLICT`；已收超过订购数量返回 `409 RECEIPT_QTY_EXCEEDED`；不是本商家的包裹返回 404。
+预期成功 `201` 首次创建，重复完全相同 ID 和请求体返回 `200` 原 receipt；操作 ID 冲突但 payload 不同返回 `409 IDEMPOTENCY_CONFLICT`；已收超过订购数量或本包裹计划剩余返回 `409 RECEIPT_QTY_EXCEEDED`；不是本商家的包裹返回 404；采购单非可收货状态或包裹已关闭返回 `409 STATUS_CONFLICT`。
 
-### 5.7 确认出库
+- 服务端从包裹推导采购单与仓库，忽略并拒绝客户端提交的 `warehouseId`、库存余额、单位成本等字段（400 `VALIDATION_ERROR`）。
+- 单一事务内按 商家 → 采购单 → 包裹 → 库存余额（按 product_id 排序）加锁；写收货单、收货明细、库存余额、移动加权成本、不可变流水、采购单/包裹状态与审计，任一步失败全部回滚。
+- 客户端只需提交验收事实，库存与成本不退让给前端计算；字段、幂等、锁序与成本公式见 [RECEIPTS.md](RECEIPTS.md)。
+
+### 5.7 入库单列表与详情（任务 17）
+
+`GET /receipts?page=1&pageSize=20&packageId=&purchaseOrderId=&search=`（全角色，`packages:read`）
+
+返回 `ReceiptData` 分页，按 `receivedAt DESC, id DESC` 排序；`search` 命中入库单号、采购单号、运单号的字面子串。`GET /receipts/{id}` 返回逐行 SKU/名称/单位/数量/到岸成本快照。查询强制商家隔离，VIEWER 的 `remark` 固定为 `null`。
+
+### 5.8 确认出库
 
 `POST /outbound-orders/{id}/ship`
 

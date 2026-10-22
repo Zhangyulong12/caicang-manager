@@ -166,6 +166,14 @@ TenantsModule 创建商家时事务写 OWNER、默认仓库及审计；MembersMo
 
 /purchases 列表与 /purchases/new、/purchases/:id、/purchases/:id/edit 接入既有采购 API；共享响应、认证刷新和 X-Tenant-Id，前端路由/按钮/服务执行 purchase:read/write，服务端事务仍最终授权。purchase-form.ts 集中表单校验、序列化及 BigInt 整数分预估；purchases.ts 捕获会话/租户，拒绝迟到响应，分页查询仓库。商品选择器查询真实启用商品；旧单沿用保存的原始价格。收货信息仅保留当前页面内存，离开有未保存提醒；无新表或依赖。ADR-020 记录金额与写入重试决策。
 
+## 任务 17：验收入库事务
+
+新增 ReceiptsModule（`receipts.controller/service/dto`），复用 TenantContext、Guard、统一响应与 `receiving:confirm`（OWNER/ADMIN/WAREHOUSE）；读接口用 `packages:read`。请求只含包裹、`clientOperationId`、逐采购行实收数量与备注，仓库/成本/库存由服务端从包裹与采购单推导，白名单拒绝客户端提交余额字段。
+
+写事务沿用商家 → 采购单 → 包裹锁序，再按 `product_id` 排序锁定库存余额：先 `INSERT ... ON CONFLICT DO NOTHING` 再 `SELECT FOR UPDATE`，避免并发首次入库的插入竞争。校验采购单 `PLACED`/`PARTIAL_RECEIVED`、包裹未关闭、采购行属于该单，并同时限制整单剩余与本包裹计划剩余；任一失败整笔回滚。成功后写 `receipts`/`receipt_items`（成本快照 `landed_unit_cost`）、累加 `stock_balances.total_cost`（移动加权平均的成本池）、写 `stock_movements`（sourceType=RECEIPT，sourceItemId=明细 ID，数据库 CHECK 保证 before+delta=after）、更新采购单 `PARTIAL_RECEIVED`/`RECEIVED` 与包裹状态（有预计明细且收满则自动关闭），最后原子审计。
+
+幂等由 `(tenant_id, client_operation_id)` 唯一键 + `request_hash` 保证：进入事务先查、取得采购单锁后再查、唯一键兜底；同摘要返回 200 原结果，不同摘要 409 `IDEMPOTENCY_CONFLICT`。`GET /receipts` 与 `/{id}` 提供分页与逐行成本快照，VIEWER 隐藏备注。无新迁移、无新依赖。详见 RECEIPTS.md、ADR-024。
+
 ## 任务 16：扫码查询与待收数量
 
 `GET /packages/lookup` 保持精确匹配与候选数组语义，只补充 `hasReceipts`/`receivedQuantity`，多候选仍由人工选择。新增 `GET /packages/{id}/receivable`：以 `receipt_items` 按 `purchase_order_id` 聚合出全单累计实收（跨包裹），再与本包裹计划对比，输出 ordered/received/orderRemaining/expected/packageReceived/packageRemaining/maxReceivable。有预计明细只列计划行，无预计明细列采购单剩余 SKU 供人工选择；超收向下夹到 0，接口只读不写库存。

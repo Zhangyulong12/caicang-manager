@@ -308,3 +308,38 @@ export interface PackageReceivableData {
   receivedQuantity: number;
   lines: PackageReceivableLineData[];
 }
+export interface ReceiptItemData {
+  id: string;
+  purchaseOrderItemId: string;
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  /** Purchase line landed unit cost snapshot, four decimals. */
+  landedUnitCost: string;
+  lineCost: string;
+}
+export interface ReceiptData {
+  id: string;
+  tenantId: string;
+  receiptNo: string;
+  purchaseOrderId: string;
+  purchaseOrderNo: string;
+  packageId: string;
+  trackingNo: string | null;
+  carrierCode: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  status: 'CONFIRMED';
+  clientOperationId: string;
+  receivedBy: string;
+  receivedByName: string;
+  remark: string | null;
+  receivedAt: string;
+  createdAt: string;
+  totalQuantity: number;
+  /** Sum of quantity x landed unit cost, four decimals. */
+  totalCost: string;
+  items: ReceiptItemData[];
+}

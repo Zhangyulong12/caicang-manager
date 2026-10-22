@@ -175,3 +175,17 @@ localStorage 不是 HttpOnly 安全边界，XSS 可读取凭据；不宣称浏�
 `POST /packages/{id}/complete-receiving` 只处理无预计明细的包裹：有计划的包裹按预计数量自动完成，允许手工关闭等于绕过数量校验，因此返回 409 STATUS_CONFLICT。关闭写入 `receivingClosedAt` 与 `status=RECEIVED`，不创建收货单、不写库存、不改采购单状态——入库仍必须由后续 `POST /receipts` 承担。已关闭的包裹重复调用返回 200 且不更新时间、不重复审计，使客户端重试安全（两个并发请求经商家行锁串行化，只留一条审计）。`receivingStatus` 改为优先看关闭标记：即使零收货，显式关闭也代表"验收完成（空包/破损无货）"，此前该情形会被误判为未收货。
 
 两个端点的权限都用 `receiving:confirm`（OWNER/ADMIN/WAREHOUSE），与 API_SPEC 的角色表一致：BUYER 负责下单和运单，VIEWER 只读，都不应看到或触发验收动作。`GET /packages/lookup` 仅补充 `hasReceipts`/`receivedQuantity` 两个字段，向后兼容，方便多候选页面直接显示进度，仍然不自动选择第一个候选。本任务不新增表、迁移或依赖。
+
+## ADR-024：验收入库事务、幂等键与库存成本口径（2026-10-22，任务 17）
+
+`POST /receipts` 是 V1 唯一增加库存的入口，因此请求体只承载**验收事实**：包裹、操作 ID、逐采购行的实收数量、备注。仓库、采购单、到岸成本、库存余额与总额全部由服务端从 `packages → purchase_orders → purchase_order_items` 推导；DTO 白名单之外的多余字段（`warehouseId`、`quantityOnHand`、`totalCost` 等）由全局 `forbidNonWhitelisted` 直接拒绝为 400，而不是静默忽略——静默忽略会让调用方误以为提交生效。这同时满足"禁止前端提交最终库存余额"：服务端根本没有接收它的字段。
+
+幂等用 `receipts.(tenant_id, client_operation_id)` 唯一键 + `request_hash` 实现。摘要只覆盖验收事实（`packageId`、按采购行 ID 排序的 `items`、去空格后的 `remark`），不包括服务端派生字段、时间戳或操作者，否则重试必然被判为"不同请求"。判断分三层：进入事务先查一次（绝大多数重试走这里，代价最低）；取得采购单锁后再查一次（覆盖并发提交在等待锁期间已提交的情况）；最后靠唯一键兜底并转成同一套重放逻辑。相同摘要返回 200 与原入库单（未新增任何行），不同摘要返回 409 `IDEMPOTENCY_CONFLICT`；把备注也纳入摘要，是因为备注属于本次验收陈述，"改备注重发"不应被当作重试吞掉。
+
+锁顺序固定为 商家 → 采购单 → 包裹 → 库存余额（按 `product_id` 字典序），与任务 14/16 的包裹写入层级一致。采购单锁使同一订单的收货串行化，数量校验因此不会读到旧快照；余额行采用 `INSERT ... ON CONFLICT DO NOTHING` 后 `SELECT ... FOR UPDATE`，解决"首次入库时余额行尚不存在、两个订单同时插入"的竞争，而不是依赖先查后插。余额按商品排序加锁，避免两笔多商品入库交叉等待。唯一键 `(tenant_id, warehouse_id, product_id)` 与 `(tenant_id, source_type, source_item_id)` 是最终防线。
+
+成本采用移动加权平均，但数据库只保存**成本池**：`total_cost` 累加 `数量 × landed_unit_cost`，平均单价在查询时用 `total_cost / quantity_on_hand` 推导。这样避免每次入库对已存平均价二次四舍五入造成累计偏差；`NUMERIC(20,4)` 与十进制运算保证 `before + delta = after` 精确成立，迁移里的 CHECK 约束会拒绝任何破坏该等式的写入。金额不使用 JS Number，超过 `NUMERIC(20,4)` 上限时整笔失败而不是截断。流水行的 `source_item_id` 指向 `receipt_items.id`，所以必须先建明细再写流水；`quantity_delta <> 0` 的数据库约束意味着零数量行不允许存在，DTO 也限制 `receivedQty >= 1`。
+
+状态更新只做两件有依据的事：采购单按全部采购行的累计实收判定 `PARTIAL_RECEIVED`/`RECEIVED`；有预计明细的包裹在计划收满时自动写 `receivingClosedAt` 与 `RECEIVED`（任务 16 已声明"按预计数量自动完成"）。没有预计明细的包裹本次只标 `PARTIAL_RECEIVED`，仍由人工调用 `complete-receiving` 结束——服务端无法判断"这箱该有多少"，自动关闭等于替验收员猜测。审计只记录单号、包裹、采购单、状态与逐行数量/成本，不复制运单、收件地址或备注，避免把个人信息写进审计。
+
+未新增表、迁移、依赖：`receipts`、`receipt_items`、`stock_balances`、`stock_movements` 及所需唯一键/CHECK 在任务 03 的初始迁移中已存在。出库扣减、库存调整、报表与手机端页面不在本任务范围。

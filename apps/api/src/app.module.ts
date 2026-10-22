@@ -9,6 +9,7 @@ import { ProductsModule } from './modules/products/products.module.js';
 import { WarehousesModule } from './modules/warehouses/warehouses.module.js';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module.js';
 import { PackagesModule } from './modules/packages/packages.module.js';
+import { ReceiptsModule } from './modules/receipts/receipts.module.js';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PackagesModule } from './modules/packages/packages.module.js';
     WarehousesModule,
     PurchaseOrdersModule,
     PackagesModule,
+    ReceiptsModule,
   ],
   controllers: [HealthController],
 })

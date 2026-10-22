@@ -22,6 +22,9 @@ pnpm start:api
 | GET /packages/lookup?trackingNo= | 200，候选数组 | OWNER/ADMIN/BUYER/WAREHOUSE，packages:lookup |
 | GET /packages/{id}/receivable | 200，PackageReceivableData | OWNER/ADMIN/WAREHOUSE，receiving:confirm |
 | POST /packages/{id}/complete-receiving | 200，PackageData | OWNER/ADMIN/WAREHOUSE，receiving:confirm |
+| POST /receipts | 201 首次 / 200 幂等重放，ReceiptData | OWNER/ADMIN/WAREHOUSE，receiving:confirm |
+
+`POST /receipts` 是唯一增加库存的入口，接收包裹维度的验收事实并在单事务内写收货单、库存与流水；字段、幂等与锁序见 [RECEIPTS.md](RECEIPTS.md)。
 
 `GET /packages` 由任务 15 补充，供 Web 包裹页面使用：`page`/`pageSize`、`search`（运单号、快递公司、采购单号、本包裹预计明细 SKU/名称，字面子串）、`purchaseOrderId`、`carrierCode`（转大写精确匹配）、`status`（物流状态）、`hasReceipts`（true/false）。返回与详情相同的 PackageData，按 `createdAt DESC, id DESC` 排序，总数与列表均限定 `tenant_id`；`receivingStatus` 由真实收货推导，不作为检索条件。页面说明见 [WEB_PACKAGES.md](WEB_PACKAGES.md)。
 

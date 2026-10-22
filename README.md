@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 17：核心验收入库事务
+
+新增 `POST /api/v1/receipts`（首次 201，幂等重放 200）、`GET /api/v1/receipts`、`GET /api/v1/receipts/{id}`。一次确认在单个 PostgreSQL 事务内完成：校验商家与仓管权限、包裹/采购单/采购行归属、采购单可收货状态与包裹关闭状态，按整单剩余和本包裹计划剩余双重限制数量，然后写收货单与明细、按移动加权平均更新库存余额、写不可变流水、更新采购单与包裹状态、写审计；任一步失败全部回滚。
+
+`clientOperationId` 幂等：同 ID 同请求返回原入库单且不重复加库存，同 ID 不同请求返回 409 `IDEMPOTENCY_CONFLICT`。仓库、成本、库存余额均由服务端从采购数据推导，客户端提交 `warehouseId`/`quantityOnHand`/`totalCost` 会被 400 拒绝。无新迁移、无新依赖。使用 Bearer + X-Tenant-Id 在 http://localhost:3000/api/docs 验证；`pnpm test:receipts` 连接真实 PostgreSQL 覆盖首次入库、重发 10 次、并发重试、超收、跨商家、角色、移动加权成本与全链路流水一致性。字段与锁序见 [入库说明](docs/RECEIPTS.md)，结果见 [任务 17 报告](docs/TASK_17_REPORT.md)。
+
 ## 任务 16：扫码查询与待收数量
 
 `GET /api/v1/packages/lookup` 按运单号返回全部候选（含本包裹是否已收、已收数量），未知单号返回空数组，多候选不自动选择。新增 `GET /api/v1/packages/{id}/receivable`：返回逐 SKU 的采购数量、**整单**累计已收、采购剩余、本包裹预计与已收、本包裹剩余，以及本次最大可收（= min 全单剩余、本包裹剩余）；无预计明细时列出采购单剩余 SKU 供人工选择。新增 `POST /api/v1/packages/{id}/complete-receiving`：仅无预计明细的包裹可人工标记验收完成。

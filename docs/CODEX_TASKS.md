@@ -2,7 +2,9 @@
 
 **重要原则：一次只给 Codex 一个阶段。** 每完成一个阶段，要让 Codex 运行脚本/测试、检查差异、提交 Git；不能凭“已生成文件”宣布完成。任务不能跨阶段跳过后端业务逻辑直接做页面。
 
-当前用户任务 16：扫码查询与待收数量计算。完善 `GET /packages/lookup` 候选（附带已收进度），新增 `GET /packages/{id}/receivable`（整单累计已收、采购剩余、本包裹剩余、本次最大可收；无预计明细时返回采购单剩余 SKU 供人工选择）与 `POST /packages/{id}/complete-receiving`（仅无预计明细的包裹可人工标记验收完成）。真实收货数据来自 receipt_items，多包裹共享采购数量，超收夹到 0；两个新端点只读/只改包裹状态，均不写库存。详见 PACKAGES.md、TASK_16_REPORT.md。不实现 `POST /receipts`、库存、出库或手机端页面。
+当前用户任务 17：核心验收入库事务。实现 `POST /receipts`（单事务：权限/归属/状态/数量校验 → 收货单与明细 → 库存余额与移动加权平均成本 → 不可变流水 → 采购单与包裹状态 → 审计，任一步失败全回滚；`clientOperationId` 幂等，同 ID 同请求返回原结果、不同请求 409；拒绝客户端提交库存余额/仓库/成本）、`GET /receipts` 与 `GET /receipts/{id}`。真实 PostgreSQL 专项测试覆盖首次 6 件入库、重发 10 次库存不变、并发重试、超收、回滚、跨商家与角色。详见 RECEIPTS.md、TASK_17_REPORT.md。不实现出库扣减、库存调整、报表或手机端页面。
+
+用户任务 16 已完成扫码查询与待收数量：`GET /packages/lookup` 候选附带已收进度，新增 `GET /packages/{id}/receivable`（整单累计已收、采购剩余、本包裹剩余、本次最大可收；无预计明细时返回采购单剩余 SKU 供人工选择）与 `POST /packages/{id}/complete-receiving`（仅无预计明细的包裹可人工标记验收完成）。两个新端点只读/只改包裹状态，均不写库存。详见 PACKAGES.md、TASK_16_REPORT.md。
 
 用户任务 15 已完成快递包裹 Web 页面。新增只读 `GET /packages` 分页列表，实现真实列表、搜索/筛选/分页与详情弹窗，展示采购来源、运单、SKU 采购/预计/已收数量、物流状态与收货进度；复用认证、商家上下文、权限与错误处理，无新迁移、无模拟数据。详见 WEB_PACKAGES.md、TASK_15_REPORT.md。
 
