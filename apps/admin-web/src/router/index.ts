@@ -24,12 +24,29 @@ export const router = createRouter({
               ? () => import('../views/HomeView.vue')
               : item.path === '/products'
                 ? () => import('../views/ProductsView.vue')
-                : item.path === '/warehouses'
-                  ? () => import('../views/WarehousesView.vue')
-                  : item.path === '/settings'
-                    ? () => import('../views/SettingsView.vue')
-                    : () => import('../views/ModuleView.vue'),
+                : item.path === '/purchases'
+                  ? () => import('../views/PurchasesView.vue')
+                  : item.path === '/warehouses'
+                    ? () => import('../views/WarehousesView.vue')
+                    : item.path === '/settings'
+                      ? () => import('../views/SettingsView.vue')
+                      : () => import('../views/ModuleView.vue'),
         })),
+        {
+          path: 'purchases/new',
+          component: () => import('../views/PurchaseFormView.vue'),
+          meta: { title: '新建采购单' },
+        },
+        {
+          path: 'purchases/:id/edit',
+          component: () => import('../views/PurchaseFormView.vue'),
+          meta: { title: '修改采购草稿' },
+        },
+        {
+          path: 'purchases/:id',
+          component: () => import('../views/PurchaseDetailView.vue'),
+          meta: { title: '采购单详情' },
+        },
         {
           path: 'products/:id',
           component: () => import('../views/ProductDetailView.vue'),
@@ -66,7 +83,9 @@ router.beforeEach(async (to) => {
     return '/connection-error';
   }
   if (
-    (navigation.some((item) => item.path === to.path) || to.path.startsWith('/products/')) &&
+    (navigation.some((item) => item.path === to.path) ||
+      to.path.startsWith('/products/') ||
+      to.path.startsWith('/purchases/')) &&
     !allowed(to.path, tenants.current?.permissions ?? [])
   )
     return '/forbidden';

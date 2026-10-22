@@ -176,8 +176,8 @@ onMounted(load);
         <div class="step-row">
           <span>03</span>
           <div>
-            <strong>衔接采购与出入库</strong>
-            <p>后续逐步开放，保持每一步真实、可追溯。</p>
+            <strong>录入平台采购记录</strong>
+            <p>在采购管理录入多 SKU 订单、核对成本并确认下单。</p>
           </div>
         </div>
       </section>

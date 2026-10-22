@@ -31,9 +31,8 @@ export const navigation: {
   {
     path: '/purchases',
     title: '采购管理',
-    permission: 'tenant:read',
+    permission: 'purchase:read',
     icon: 'ShoppingCart',
-    soon: true,
     description: '记录采购订单与到仓成本',
   },
   {
@@ -92,17 +91,29 @@ export const roleNames = {
   VIEWER: '只读成员',
 };
 export function safeRedirect(value: unknown): string {
-  if (typeof value === 'string' && productDetailPath(value)) return value;
+  if (typeof value === 'string' && (productDetailPath(value) || purchasePath(value))) return value;
   return typeof value === 'string' &&
     [...navigation.map((item) => item.path), '/select-tenant'].includes(value)
     ? value
     : '/';
 }
 export function allowed(path: string, permissions: readonly TenantPermission[]): boolean {
+  if (path === '/purchases/new' || (purchasePath(path) && path.endsWith('/edit')))
+    return permissions.includes('purchase:write');
+  if (purchasePath(path)) return permissions.includes('purchase:read');
   if (path.startsWith('/products/')) return permissions.includes('products:read');
   const item = navigation.find((item) => item.path === path);
   return item ? permissions.includes(item.permission) : false;
 }
 export function productDetailPath(path: string): boolean {
   return /^\/products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path);
+}
+
+export function purchasePath(path: string): boolean {
+  return (
+    path === '/purchases/new' ||
+    /^\/purchases\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/edit)?$/i.test(
+      path,
+    )
+  );
 }

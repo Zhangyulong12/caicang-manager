@@ -1,0 +1,233 @@
+.purchase-filters {
+  flex-wrap: wrap;
+}
+.purchase-card {
+  padding: 24px;
+  margin-bottom: 22px;
+}
+.purchase-card h3 {
+  margin: 0 0 22px;
+  font-size: 15px;
+}
+.purchase-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 22px;
+}
+.purchase-form-grid .el-select {
+  width: 100%;
+}
+.purchase-full-width {
+  grid-column: 1/-1;
+}
+.purchase-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+}
+.purchase-section-heading h3 {
+  margin: 0;
+}
+.purchase-card .purchase-section-heading {
+  padding: 0 0 22px;
+}
+.purchase-section-heading small {
+  display: block;
+  margin-top: 8px;
+}
+.picker-search {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.picker-pages {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.purchase-lines-scroll {
+  overflow-x: auto;
+}
+.purchase-input-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 860px;
+  text-align: left;
+}
+.purchase-input-table th {
+  font-size: 11px;
+  color: #7c8997;
+  font-weight: 500;
+  padding: 15px 12px;
+  background: #f8fafb;
+}
+.purchase-input-table td {
+  padding: 18px 12px;
+  border-bottom: 1px solid #edf0f3;
+  vertical-align: top;
+  font-size: 12px;
+}
+.purchase-input-table td:first-child {
+  width: 25%;
+  overflow-wrap: anywhere;
+}
+.purchase-input-table td:first-child small {
+  display: block;
+  color: #82928b;
+  margin-top: 8px;
+}
+.purchase-input-table td:nth-child(2) {
+  width: 13%;
+}
+.purchase-input-table td:nth-child(3),
+.purchase-input-table td:nth-child(4) {
+  width: 18%;
+}
+.purchase-input-table .el-form-item {
+  margin-bottom: 22px;
+}
+.purchase-field-error {
+  color: var(--el-color-danger);
+  display: block;
+  font-size: 11px;
+}
+.purchase-fees {
+  margin-top: 26px;
+}
+.purchase-estimate {
+  padding: 24px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  background: #edf6f2;
+  border-color: #d7e8df;
+}
+.purchase-estimate h3 {
+  margin: 10px 0;
+  font-size: 18px;
+}
+.purchase-estimate p {
+  font-size: 11px;
+}
+.purchase-estimate > div:last-child {
+  min-width: 250px;
+  display: grid;
+  gap: 12px;
+}
+.purchase-estimate span,
+.purchase-estimate strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 12px;
+}
+.purchase-estimate em,
+.purchase-totals em {
+  font-style: normal;
+  font-size: 25px;
+  color: #19765f;
+  font-weight: 650;
+}
+.purchase-save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 0;
+}
+.purchase-save-bar > .muted {
+  font-size: 11px;
+}
+.purchase-detail-header {
+  padding: 25px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.purchase-detail-header h2 {
+  font-size: 19px;
+  overflow-wrap: anywhere;
+  margin: 10px 0;
+}
+.purchase-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.purchase-actions .el-button + .el-button {
+  margin-left: 0;
+}
+.purchase-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+.purchase-detail-grid .el-descriptions__cell {
+  overflow-wrap: anywhere;
+}
+.purchase-totals {
+  padding: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+.purchase-totals span {
+  font-size: 12px;
+  color: #7c8997;
+}
+.purchase-totals span b {
+  display: block;
+  color: #344f44;
+  margin-top: 9px;
+}
+.purchase-totals > strong {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 12px;
+}
+.field-hint {
+  font-size: 11px;
+  color: #a16c2c;
+  line-height: 1.6;
+}
+@media (max-width: 850px) {
+  .purchase-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .purchase-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .purchase-detail-header,
+  .purchase-save-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (max-width: 550px) {
+  .purchase-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .purchase-card {
+    padding: 18px;
+  }
+  .purchase-estimate {
+    flex-direction: column;
+  }
+  .purchase-estimate > div:last-child {
+    min-width: 0;
+  }
+  .purchase-save-bar > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .purchase-save-bar .el-button + .el-button {
+    margin-left: 0;
+  }
+}

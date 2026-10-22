@@ -1,5 +1,23 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 13：采购管理 Web
+
+已提供真实采购列表、新建多 SKU 采购单、详情、草稿编辑、确认下单、合法取消，以及状态/平台/单号筛选。表单实时以整数分预估，最终金额取服务器；确认冻结数量和原价。OWNER/ADMIN/BUYER 可维护，WAREHOUSE/VIEWER 只读。
+
+先启动 Docker Desktop，再在 PowerShell 运行：
+
+```powershell
+cd D:\Dev\caicang-manager
+pnpm install --frozen-lockfile
+pnpm db:up
+pnpm prisma:migrate:deploy
+pnpm start:api
+```
+
+第二个终端运行 `cd D:\Dev\caicang-manager`、`pnpm dev:web`，打开 http://localhost:5173/purchases，登录并选择商家后即可录入平台采购记录。沿用现有数据库卷、迁移和环境文件。
+
+`pnpm test:web-purchases` 运行真实 PostgreSQL/API 与生产采购表单/服务测试；`pnpm test:web` 执行 Web 集成测试；`pnpm test` 包含全项目构建和回归。操作及失败重试见 [采购页面说明](docs/WEB_PURCHASES.md)，实际结果见 [任务 13 报告](docs/TASK_13_REPORT.md)。
+
 ## 任务 12：采购订单 API
 
 已实现采购草稿、编辑、下单确认、条件取消、详情与搜索分页。所有接口使用真实数据库、租户角色鉴权、Decimal 金额和事务审计；确认后冻结数量、原价、运费分摊与商品快照。10 个商品 × 18.50 元＋10 元运费，采购总成本为 `195.00` 元。

@@ -70,7 +70,8 @@ function switchTenant() {
           :class="{
             active:
               route.path === item.path ||
-              (item.path === '/products' && route.path.startsWith('/products/')),
+              (['/products', '/purchases'].includes(item.path) &&
+                route.path.startsWith(item.path + '/')),
           }"
           @click="mobileOpen = false"
           ><el-icon><component :is="icons[item.icon as keyof typeof icons]" /></el-icon

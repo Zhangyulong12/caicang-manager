@@ -17,7 +17,10 @@ export default tseslint.config(
   ...vue.configs['flat/recommended'],
   {
     files: ['**/*.vue'],
-    languageOptions: { parserOptions: { parser: tseslint.parser } },
+    languageOptions: {
+      parserOptions: { parser: tseslint.parser },
+      globals: { window: 'readonly', BeforeUnloadEvent: 'readonly' },
+    },
     rules: {
       'vue/multi-word-component-names': 'off',
       'vue/html-self-closing': 'off',

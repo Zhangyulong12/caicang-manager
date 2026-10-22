@@ -488,6 +488,21 @@ test(
               allowed('/products/00000000-0000-4000-8000-000000000001', ['tenant:read']),
               false,
             );
+            assert.equal(allowed('/purchases', ['purchase:read']), true);
+            assert.equal(allowed('/purchases/new', ['purchase:read']), false);
+            assert.equal(allowed('/purchases/new', ['purchase:write']), true);
+            assert.equal(
+              allowed('/purchases/00000000-0000-4000-8000-000000000001/edit', ['purchase:read']),
+              false,
+            );
+            assert.equal(
+              allowed('/purchases/00000000-0000-4000-8000-000000000001/edit', ['purchase:write']),
+              true,
+            );
+            assert.equal(
+              allowed('/purchases/00000000-0000-4000-8000-000000000001', ['purchase:read']),
+              true,
+            );
             assert.equal(allowed('/unregistered', ['tenant:read']), false);
           },
         );
