@@ -199,4 +199,45 @@ export class PackageLookupResultDto {
   @ApiProperty() purchaseOrderNo!: string;
   @ApiProperty({ enum: PACKAGE_STATUSES }) packageStatus!: string;
   @ApiProperty({ enum: PACKAGE_RECEIVING_STATUSES }) receivingStatus!: string;
+  @ApiProperty() hasReceipts!: boolean;
+  @ApiProperty() receivedQuantity!: number;
+}
+export class PackageReceivableLineDto {
+  @ApiProperty({ format: 'uuid' }) purchaseOrderItemId!: string;
+  @ApiProperty({ format: 'uuid' }) productId!: string;
+  @ApiProperty() sku!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() unit!: string;
+  @ApiProperty({ description: '采购数量' }) orderedQuantity!: number;
+  @ApiProperty({ description: '同一采购单全部包裹的累计实收数量' }) receivedQuantity!: number;
+  @ApiProperty({ description: '采购数量减去全单累计实收，最小为 0' })
+  orderRemainingQuantity!: number;
+  @ApiProperty({ description: 'true 表示该采购行属于本包裹预计明细' }) inPackagePlan!: boolean;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: '本包裹预计数量；无预计明细时为 null，可人工选择',
+  })
+  expectedQuantity!: number | null;
+  @ApiProperty() packageReceivedQuantity!: number;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description: '本包裹预计余量；无预计明细时为 null',
+  })
+  packageRemainingQuantity!: number | null;
+  @ApiProperty({ description: '本次最大可收 = min(全单剩余, 本包裹剩余)；已关闭为 0' })
+  maxReceivableQuantity!: number;
+}
+export class PackageReceivableResultDto {
+  @ApiProperty({ format: 'uuid' }) packageId!: string;
+  @ApiProperty({ format: 'uuid' }) purchaseOrderId!: string;
+  @ApiProperty() purchaseOrderNo!: string;
+  @ApiProperty({ enum: PURCHASE_STATUSES }) purchaseStatus!: string;
+  @ApiProperty({ enum: PACKAGE_STATUSES }) packageStatus!: string;
+  @ApiProperty({ enum: PACKAGE_RECEIVING_STATUSES }) receivingStatus!: string;
+  @ApiProperty({ description: 'false 时 lines 为采购单剩余 SKU，供人工选择' }) hasPlan!: boolean;
+  @ApiProperty({ description: 'true 时全部 maxReceivableQuantity 为 0' }) receivingClosed!: boolean;
+  @ApiProperty({ description: '本包裹累计实收' }) receivedQuantity!: number;
+  @ApiProperty({ type: [PackageReceivableLineDto] }) lines!: PackageReceivableLineDto[];
 }

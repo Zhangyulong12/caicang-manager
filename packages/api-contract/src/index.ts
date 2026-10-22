@@ -275,4 +275,36 @@ export interface PackageLookupData {
   purchaseOrderNo: string;
   packageStatus: PackageStatus;
   receivingStatus: PackageReceivingStatus;
+  hasReceipts: boolean;
+  receivedQuantity: number;
+}
+export interface PackageReceivableLineData {
+  purchaseOrderItemId: string;
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  orderedQuantity: number;
+  /** Sum of confirmed receipts for this purchase line across every package. */
+  receivedQuantity: number;
+  orderRemainingQuantity: number;
+  /** True when this line belongs to the package plan; false for manual selection. */
+  inPackagePlan: boolean;
+  expectedQuantity: number | null;
+  packageReceivedQuantity: number;
+  packageRemainingQuantity: number | null;
+  /** Remaining quantity that may be received in this package right now. */
+  maxReceivableQuantity: number;
+}
+export interface PackageReceivableData {
+  packageId: string;
+  purchaseOrderId: string;
+  purchaseOrderNo: string;
+  purchaseStatus: PurchaseStatus;
+  packageStatus: PackageStatus;
+  receivingStatus: PackageReceivingStatus;
+  hasPlan: boolean;
+  receivingClosed: boolean;
+  receivedQuantity: number;
+  lines: PackageReceivableLineData[];
 }

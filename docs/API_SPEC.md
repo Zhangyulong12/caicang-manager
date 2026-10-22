@@ -142,7 +142,7 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ## 3. 包裹/扫码/入库
 
-任务 14 已实现下表前四个包裹端点；任务 15 增加只读分页列表 `GET /packages` 供 Web 包裹页面使用。其余可验收明细、完成收货、receipts 等仍是后续设计。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md)。
+任务 14 已实现下表前四个包裹端点；任务 15 增加只读分页列表 `GET /packages` 供 Web 包裹页面使用；任务 16 增加可验收明细与人工完成两个端点，`POST /receipts` 仍是后续任务。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md)。
 
 |Method|Endpoint|用途|角色|
 |---|---|---|---|
@@ -244,31 +244,57 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
   "data": [{
     "packageId":"package-uuid", "trackingNo":"783456123000", "carrierCode":"ZTO",
     "purchaseOrderId":"po-uuid", "purchaseOrderNo":"PO-20261014-0001",
-    "packageStatus":"CREATED", "receivingStatus":"NOT_RECEIVED"
+    "packageStatus":"CREATED", "receivingStatus":"NOT_RECEIVED",
+    "hasReceipts":false, "receivedQuantity":0
   }],
   "requestId":"request-uuid"
 }
 ```
 
-空数组＝未知快递；多个结果＝必须由用户选择承运商、包裹归属，不可自动猜第一个。
+空数组＝未知快递；多个结果＝必须由用户选择承运商、包裹归属，不可自动猜第一个。候选附带本包裹是否已有收货与已收数量，便于多候选页面直接显示进度；查询不创建包裹、不写收货、不动库存。
 
-### 5.4 查询包裹可验收明细
+### 5.4 查询包裹可验收明细（任务 16）
 
-`GET /packages/{id}/receivable`
+`GET /packages/{id}/receivable`（OWNER/ADMIN/WAREHOUSE，`receiving:confirm`）
 
 ```json
 {
   "data": {
-    "packageId":"package-uuid", "purchaseOrderId":"po-uuid",
+    "packageId":"package-uuid", "purchaseOrderId":"po-uuid", "purchaseOrderNo":"PO-20261014-0001",
+    "purchaseStatus":"PLACED", "packageStatus":"CREATED",
+    "receivingStatus":"NOT_RECEIVED", "hasPlan":true, "receivingClosed":false,
+    "receivedQuantity":0,
     "lines":[
-      {"purchaseOrderItemId":"poitem-a-uuid","sku":"CHARGER-20W","orderedQty":10,"receivedQty":4,"orderRemainingQty":6,"packageRemainingQty":6},
-      {"purchaseOrderItemId":"poitem-b-uuid","sku":"CABLE-1M","orderedQty":5,"receivedQty":0,"orderRemainingQty":5,"packageRemainingQty":5}
+      {"purchaseOrderItemId":"poitem-a-uuid","productId":"product-uuid","sku":"CHARGER-20W",
+       "name":"20W 充电器","unit":"件","orderedQuantity":10,"receivedQuantity":4,
+       "orderRemainingQuantity":6,"inPackagePlan":true,"expectedQuantity":6,
+       "packageReceivedQuantity":0,"packageRemainingQuantity":6,"maxReceivableQuantity":6},
+      {"purchaseOrderItemId":"poitem-b-uuid","productId":"product-uuid","sku":"CABLE-1M",
+       "name":"1 米数据线","unit":"条","orderedQuantity":5,"receivedQuantity":0,
+       "orderRemainingQuantity":5,"inPackagePlan":false,"expectedQuantity":null,
+       "packageReceivedQuantity":0,"packageRemainingQuantity":null,"maxReceivableQuantity":5}
     ]
   }
 }
 ```
 
-### 5.5 提交一次验收入库（写操作必须幂等）
+- `receivedQuantity` 与 `orderRemainingQuantity` 按**整张采购单**统计，包含其他包裹的收货，避免同单两个包裹各收一次满量。
+- 有预计明细时 `hasPlan=true`，`lines` 只含本包裹计划行；`maxReceivableQuantity = min(全单剩余, 本包裹剩余)`。
+- 无预计明细时 `hasPlan=false`，`lines` 为采购单仍有剩余的 SKU（`inPackagePlan=false`、`expectedQuantity=null`），供人工选择实际到货商品。
+- 包裹已人工关闭时 `receivingClosed=true`，全部 `maxReceivableQuantity=0`；历史超收数据向下夹到 0，不返回负数。
+- 只读接口，不写收货单、不改库存；跨商家包裹 404，角色不符 403。
+
+### 5.5 人工标记包裹验收完成（任务 16）
+
+`POST /packages/{id}/complete-receiving`（OWNER/ADMIN/WAREHOUSE，`receiving:confirm`，正文为空）
+
+用于**没有预计明细**的包裹：验收员人工核对后显式结束本包裹，返回 PackageData。
+
+- 成功 200，写入 `receivingClosedAt` 与 `status=RECEIVED`，`receivingStatus` 变为 `RECEIVED`；不创建收货单、不增加库存、不改采购单状态。
+- 有预计明细的包裹返回 409 `STATUS_CONFLICT`（应按预计数量自动完成，不能手工绕过数量校验）。
+- 采购单已取消返回 409 `STATUS_CONFLICT`；已经关闭的包裹重复调用返回 200 且不改变时间、不重复审计。
+
+### 5.6 提交一次验收入库（写操作必须幂等）
 
 `POST /receipts`
 
@@ -286,7 +312,7 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 
 预期成功 `201` 首次创建，重复完全相同 ID 和请求体返回 `200` 原 receipt；操作 ID 冲突但 payload 不同返回 `409 IDEMPOTENCY_CONFLICT`；已收超过订购数量返回 `409 RECEIPT_QTY_EXCEEDED`；不是本商家的包裹返回 404。
 
-### 5.6 确认出库
+### 5.7 确认出库
 
 `POST /outbound-orders/{id}/ship`
 

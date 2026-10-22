@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type {
   PackageData,
   PackageLookupData,
+  PackageReceivableData,
+  PackageReceivableLineData,
   PackageStatus,
   PackageReceivingStatus,
   PurchaseStatus,
@@ -65,13 +67,11 @@ function mapPackage(row: Package, role: TenantContext['role']): PackageData {
   const receivedQuantity = [...received.values()].reduce((sum, value) => sum + value, 0);
   const plan = row.packageExpectedItem_purchaseOrderId;
   let receivingStatus: PackageReceivingStatus = 'NOT_RECEIVED';
-  if (receivedQuantity > 0)
+  if (row.receivingClosedAt) receivingStatus = 'RECEIVED';
+  else if (receivedQuantity > 0)
     receivingStatus =
-      row.receivingClosedAt ||
-      (plan.length > 0 &&
-        plan.every(
-          (line) => (received.get(line.purchaseOrderItemId) ?? 0) >= line.expectedQuantity,
-        ))
+      plan.length > 0 &&
+      plan.every((line) => (received.get(line.purchaseOrderItemId) ?? 0) >= line.expectedQuantity)
         ? 'RECEIVED'
         : 'PARTIAL_RECEIVED';
   return {
@@ -296,8 +296,130 @@ export class PackagesService {
           purchaseOrderNo: result.purchaseOrderNo,
           packageStatus: result.status,
           receivingStatus: result.receivingStatus,
+          hasReceipts: result.hasReceipts,
+          receivedQuantity: result.receivedQuantity,
         };
       });
+    });
+  }
+  async receivable(context: TenantContext, id: string): Promise<PackageReceivableData> {
+    return this.contexts.run(context, 'receiving:confirm', false, async (tx, current) => {
+      const row = await this.find(tx, current.tenantId, id);
+      const result = mapPackage(row, current.role);
+      // Order-wide receipts include every package, so a sibling box cannot be received twice.
+      const totals = await tx.$queryRaw<{ id: string; quantity: string }[]>(Prisma.sql`
+        SELECT purchase_order_item_id AS id, SUM(quantity)::text AS quantity
+        FROM receipt_items
+        WHERE tenant_id=${current.tenantId}::uuid AND purchase_order_id=${row.purchaseOrderId}::uuid
+        GROUP BY purchase_order_item_id`);
+      const orderReceived = new Map(totals.map((line) => [line.id, BigInt(line.quantity)]));
+      const packageReceived = new Map<string, number>();
+      for (const receipt of row.receipt_purchaseOrderId)
+        for (const item of receipt.receiptItem_purchaseOrderId)
+          packageReceived.set(
+            item.purchaseOrderItemId,
+            (packageReceived.get(item.purchaseOrderItemId) ?? 0) + item.quantity,
+          );
+      const closed = row.receivingClosedAt !== null;
+      const plan = row.packageExpectedItem_purchaseOrderId;
+      const hasPlan = plan.length > 0;
+      const clamp = (value: bigint) => {
+        const parsed = Number(value);
+        return Number.isSafeInteger(parsed) ? Math.max(0, parsed) : 0;
+      };
+      const withRemaining = (orderedQuantity: number, received: bigint) => {
+        const orderRemainingQuantity = clamp(BigInt(orderedQuantity) - received);
+        return {
+          orderedQuantity,
+          receivedQuantity: clamp(received),
+          orderRemainingQuantity,
+        };
+      };
+      const lines: PackageReceivableLineData[] = hasPlan
+        ? plan.map((line) => {
+            const orderedQuantity = line.purchaseOrderItem.quantity;
+            const received = orderReceived.get(line.purchaseOrderItemId) ?? 0n;
+            const inPackage = packageReceived.get(line.purchaseOrderItemId) ?? 0;
+            const packageRemaining = Math.max(0, line.expectedQuantity - inPackage);
+            const totals = withRemaining(orderedQuantity, received);
+            return {
+              purchaseOrderItemId: line.purchaseOrderItemId,
+              productId: line.purchaseOrderItem.productId,
+              sku: line.purchaseOrderItem.skuSnapshot ?? line.purchaseOrderItem.product.sku,
+              name: line.purchaseOrderItem.nameSnapshot ?? line.purchaseOrderItem.product.name,
+              unit: line.purchaseOrderItem.unitSnapshot ?? line.purchaseOrderItem.product.unit,
+              ...totals,
+              inPackagePlan: true,
+              expectedQuantity: line.expectedQuantity,
+              packageReceivedQuantity: inPackage,
+              packageRemainingQuantity: packageRemaining,
+              maxReceivableQuantity: closed
+                ? 0
+                : Math.min(packageRemaining, totals.orderRemainingQuantity),
+            };
+          })
+        : (await this.orderLines(tx, current.tenantId, row.purchaseOrderId))
+            .filter((line) => (orderReceived.get(line.id) ?? 0n) < BigInt(line.quantity))
+            .map((line) => {
+              const totals = withRemaining(line.quantity, orderReceived.get(line.id) ?? 0n);
+              return {
+                purchaseOrderItemId: line.id,
+                productId: line.productId,
+                sku: line.skuSnapshot ?? line.product.sku,
+                name: line.nameSnapshot ?? line.product.name,
+                unit: line.unitSnapshot ?? line.product.unit,
+                ...totals,
+                inPackagePlan: false,
+                expectedQuantity: null,
+                packageReceivedQuantity: packageReceived.get(line.id) ?? 0,
+                packageRemainingQuantity: null,
+                maxReceivableQuantity: closed ? 0 : totals.orderRemainingQuantity,
+              };
+            });
+      return {
+        packageId: result.id,
+        purchaseOrderId: result.purchaseOrderId,
+        purchaseOrderNo: result.purchaseOrderNo,
+        purchaseStatus: result.purchaseStatus,
+        packageStatus: result.status,
+        receivingStatus: result.receivingStatus,
+        hasPlan,
+        receivingClosed: closed,
+        receivedQuantity: result.receivedQuantity,
+        lines,
+      };
+    });
+  }
+  async completeReceiving(context: TenantContext, id: string, requestId: string) {
+    return this.contexts.run(context, 'receiving:confirm', true, async (tx, current) => {
+      const initial = await this.find(tx, current.tenantId, id);
+      // Same hierarchy as create/update: tenant, purchase order, then package.
+      const order = await this.lockOrder(tx, current.tenantId, initial.purchaseOrderId);
+      await tx.$queryRaw`SELECT id FROM packages WHERE tenant_id=${current.tenantId}::uuid AND id=${id}::uuid FOR UPDATE`;
+      const row = await this.find(tx, current.tenantId, id),
+        before = mapPackage(row, current.role);
+      // Repeating the same close is a no-op so clients can retry safely.
+      if (row.receivingClosedAt) return before;
+      if (row.packageExpectedItem_purchaseOrderId.length)
+        throw new BusinessException('STATUS_CONFLICT');
+      if (order.status === 'CANCELLED') throw new BusinessException('STATUS_CONFLICT');
+      await tx.package.update({
+        where: { tenantId_id: { tenantId: current.tenantId, id } },
+        data: { receivingClosedAt: new Date(), status: 'RECEIVED' },
+      });
+      const result = mapPackage(await this.find(tx, current.tenantId, id), current.role);
+      await this.audit(tx, current, 'PACKAGE_RECEIVING_CLOSED', result, requestId, before, [
+        'receivingClosedAt',
+        'status',
+      ]);
+      return result;
+    });
+  }
+  private orderLines(tx: Prisma.TransactionClient, tenantId: string, purchaseOrderId: string) {
+    return tx.purchaseOrderItem.findMany({
+      where: { tenantId, purchaseOrderId },
+      orderBy: [{ lineNo: 'asc' }, { id: 'asc' }],
+      include: { product: { select: { sku: true, name: true, unit: true } } },
     });
   }
   async create(

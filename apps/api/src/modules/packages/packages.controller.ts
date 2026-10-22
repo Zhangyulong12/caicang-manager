@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TENANT_ROLES } from '@caicang/api-contract';
 import { ApiArrayResponse, ApiDataResponse, ApiPageResponse } from '../../common/api-docs.js';
@@ -18,6 +29,7 @@ import {
   PackageLookupQueryDto,
   PackageResultDto,
   PackageLookupResultDto,
+  PackageReceivableResultDto,
 } from './package.dto.js';
 
 @ApiTags('packages')
@@ -64,6 +76,34 @@ export class PackagesController {
   @ApiArrayResponse(PackageLookupResultDto)
   lookup(@CurrentTenant() context: TenantContext, @Query() query: PackageLookupQueryDto) {
     return this.packages.lookup(context, query.trackingNo);
+  }
+  @Get(':id/receivable')
+  @Header('Cache-Control', 'no-store')
+  @Roles('OWNER', 'ADMIN', 'WAREHOUSE')
+  @RequirePermissions('receiving:confirm')
+  @ApiOperation({
+    summary:
+      '本包裹可验收明细：全单累计已收、采购剩余、本包裹剩余与本次最大可收；无预计明细时返回采购单剩余 SKU',
+  })
+  @ApiDataResponse(PackageReceivableResultDto)
+  receivable(@CurrentTenant() context: TenantContext, @Param() params: PackageIdDto) {
+    return this.packages.receivable(context, params.id);
+  }
+  @Post(':id/complete-receiving')
+  @HttpCode(200)
+  @Header('Cache-Control', 'no-store')
+  @Roles('OWNER', 'ADMIN', 'WAREHOUSE')
+  @RequirePermissions('receiving:confirm')
+  @ApiOperation({
+    summary: '仅无预计明细的包裹可人工标记验收完成；只改包裹状态，不写收货单、不增加库存',
+  })
+  @ApiDataResponse(PackageResultDto)
+  completeReceiving(
+    @CurrentTenant() context: TenantContext,
+    @Param() params: PackageIdDto,
+    @Req() request: ApiRequest,
+  ) {
+    return this.packages.completeReceiving(context, params.id, request.requestId);
   }
   @Get(':id')
   @Header('Cache-Control', 'no-store')

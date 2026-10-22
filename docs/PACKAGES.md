@@ -20,6 +20,8 @@ pnpm start:api
 | PATCH /packages/{id} | 200，PackageData | OWNER/ADMIN/BUYER，packages:write |
 | GET /packages/{id} | 200，PackageData | 全角色，packages:read |
 | GET /packages/lookup?trackingNo= | 200，候选数组 | OWNER/ADMIN/BUYER/WAREHOUSE，packages:lookup |
+| GET /packages/{id}/receivable | 200，PackageReceivableData | OWNER/ADMIN/WAREHOUSE，receiving:confirm |
+| POST /packages/{id}/complete-receiving | 200，PackageData | OWNER/ADMIN/WAREHOUSE，receiving:confirm |
 
 `GET /packages` 由任务 15 补充，供 Web 包裹页面使用：`page`/`pageSize`、`search`（运单号、快递公司、采购单号、本包裹预计明细 SKU/名称，字面子串）、`purchaseOrderId`、`carrierCode`（转大写精确匹配）、`status`（物流状态）、`hasReceipts`（true/false）。返回与详情相同的 PackageData，按 `createdAt DESC, id DESC` 排序，总数与列表均限定 `tenant_id`；`receivingStatus` 由真实收货推导，不作为检索条件。页面说明见 [WEB_PACKAGES.md](WEB_PACKAGES.md)。
 
@@ -55,7 +57,35 @@ GET `/packages/{id}` 返回采购单 ID/单号/状态、目标仓库、快递公
 
 `status` 沿用现有包裹状态字段；`receivingStatus` 为 NOT_RECEIVED/PARTIAL_RECEIVED/RECEIVED，依据真实收货明细与明确完成标记计算。物流 ARRIVED、甚至历史记录中的 RECEIVED 字样都不能凭空增加实际已收数量。没有预计明细时，有实际收货仍为 PARTIAL_RECEIVED，直到未来收货流程显式关闭。预计计划不是当前实际可验收数量承诺，未来收货接口仍须校验全单及本包裹剩余量。
 
-GET `/packages/lookup?trackingNo=000PACKAGE-01` 精确匹配，未知返回空数组。相同号码分属多家快递公司时，返回全部候选，按公司/UUID 排序，不猜第一项；各候选只含 packageId、carrierCode、trackingNo、purchaseOrderId、purchaseOrderNo、packageStatus、receivingStatus。扫描内容必须 URL 编码；不是 SKU 或订单 ID。
+GET `/packages/lookup?trackingNo=000PACKAGE-01` 精确匹配，未知返回空数组。相同号码分属多家快递公司时，返回全部候选，按公司/UUID 排序，不猜第一项；各候选含 packageId、carrierCode、trackingNo、purchaseOrderId、purchaseOrderNo、packageStatus、receivingStatus、hasReceipts、receivedQuantity。扫描内容必须 URL 编码；不是 SKU 或订单 ID。未知单号只返回空数组，不创建包裹、不写收货、不动库存。
+
+## 可验收明细与人工完成（任务 16）
+
+`GET /packages/{id}/receivable` 返回该包裹当前可验收的逐 SKU 明细，只读，不写收货单、不改库存。
+
+| 字段 | 含义 |
+| --- | --- |
+| orderedQuantity | 采购行数量 |
+| receivedQuantity | **整张采购单**全部包裹的累计实收 |
+| orderRemainingQuantity | 采购数量 − 全单实收，最小 0 |
+| inPackagePlan / expectedQuantity | 该行是否属于本包裹预计明细及其预计数量 |
+| packageReceivedQuantity | 本包裹该行累计实收 |
+| packageRemainingQuantity | 预计数量 − 本包裹实收，最小 0；无预计时为 null |
+| maxReceivableQuantity | 本次最大可收 = min(全单剩余, 本包裹剩余)；包裹已关闭为 0 |
+
+- **有预计明细**：`hasPlan=true`，`lines` 只含本包裹计划行（含已收满的行，便于显示进度），最大可收同时受本包裹剩余和全单剩余限制。
+- **无预计明细**：`hasPlan=false`，`lines` 为整张采购单仍有剩余的 SKU（`inPackagePlan=false`、`expectedQuantity=null`、`maxReceivableQuantity` 取全单剩余），由验收员人工选择实际到货 SKU。
+- 全单累计实收包含其他包裹的收货，因此同一采购行的两个包裹不会各收一次满量。历史超收数据只向下夹到 0，不出现负数。
+- 采购单为空或无剩余时 `lines` 为空数组；包裹、采购单均限当前商家，跨商家返回 404。
+
+验收口径示例：采购 10 件、其中另一包裹已收 4 件时，本包裹（预计 6）返回 `orderedQuantity=10`、`receivedQuantity=4`、`orderRemainingQuantity=6`、`packageRemainingQuantity=6`、`maxReceivableQuantity=6`。
+
+`POST /packages/{id}/complete-receiving` 供**没有预计明细**的包裹人工标记验收完成：
+
+- 仅接受 OWNER/ADMIN/WAREHOUSE（`receiving:confirm`）。写入 `receivingClosedAt` 与包裹 `status=RECEIVED`，不创建收货单、不增加库存、不改采购单状态。
+- 有预计明细的包裹返回 409 STATUS_CONFLICT：这类包裹按预计数量自动完成，不能绕开数量校验手工关闭。
+- 采购单已取消返回 409 STATUS_CONFLICT；已关闭的包裹重复调用返回 200 且不修改时间、不重复写审计，可安全重试。
+- 关闭后 `receivable` 返回 `receivingClosed=true`，全部 `maxReceivableQuantity` 为 0；`receivingStatus` 由关闭标记直接推导为 RECEIVED，即使该包裹一条收货记录也没有（空包/破损无货也需明确关闭）。
 
 ## 修改与状态限制
 

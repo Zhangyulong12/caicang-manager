@@ -1,5 +1,13 @@
 # 更新记录
 
+## 2026-10-22 — 用户任务 16：扫码查询与待收数量计算
+
+- 新增 `GET /packages/{id}/receivable`：按整张采购单聚合 `receipt_items` 计算累计已收与采购剩余，再与本包裹预计明细求交，返回本次最大可收；无预计明细时返回采购单剩余 SKU 供人工选择，超收数据向下夹到 0。
+- 新增 `POST /packages/{id}/complete-receiving`：仅无预计明细的包裹可人工标记验收完成，写关闭标记与 `RECEIVED` 状态并原子审计；重复调用幂等，不创建收货单、不写库存。
+- `GET /packages/lookup` 候选补充 `hasReceipts`/`receivedQuantity`，未知单号仍返回空数组、多候选不自动选择。
+- `receivingStatus` 改为关闭标记优先，零收货的显式关闭也算验收完成；两个新端点限 OWNER/ADMIN/WAREHOUSE（`receiving:confirm`）。
+- 新增真实 PostgreSQL 专项测试（17 项）：部分收货口径「购买 10、已入库 4、还可入库 6」、跨包裹累计、无计划回退、跨商家 404、角色 403、并发关闭只留一条审计，并验证全程不产生库存行或收货单。
+
 ## 2026-10-22 — 用户任务 15：快递包裹 Web 页面
 
 - 新增只读分页接口 `GET /packages`，支持运单号/采购单号/本包裹 SKU 字面搜索、采购单、快递公司、物流状态与有无收货记录筛选。

@@ -163,3 +163,15 @@ localStorage 不是 HttpOnly 安全边界，XSS 可读取凭据；不宣称浏�
 预计明细排序由 `purchaseOrderItemId`（UUID）改为采购行号 `lineNo` 再按 ID 兜底：UUID 顺序随环境变化导致列表/详情顺序不可复现，测试首次运行即暴露该缺陷。此改动只影响展示顺序，不修改任务 14 的事务、状态机或数量校验，任务 14 的 32 项专项测试回归通过。
 
 前端 `/packages` 导航权限由 `tenant:read` 收紧为 `packages:read`，页面复用统一客户端、商家范围校验与迟到响应拒绝；VIEWER 可浏览但服务端继续隐藏备注，`packages:lookup` 仍限 OWNER/ADMIN/BUYER/WAREHOUSE 且本页面未使用。包裹创建表单、Web 扫码、正式收货与库存保持未实现，等待后续任务。
+
+## ADR-023：可验收数量口径与人工完成包裹（2026-10-22，任务 16）
+
+验收场景的核心问题是"这个包裹这次最多能收多少"，而它同时受两个上限约束：整张采购单还剩多少、这个包裹计划还剩多少。因此 `GET /packages/{id}/receivable` 把口径拆开返回，而不是合成一个数字：`receivedQuantity`/`orderRemainingQuantity` 按**整张采购单**统计（含其他包裹的收货），`packageReceivedQuantity`/`packageRemainingQuantity` 按**本包裹**统计，`maxReceivableQuantity = min(全单剩余, 本包裹剩余)`。只返回一个"已收"会让前端无法解释 5 件为什么只能收 2 件；把两个口径都暴露，验收员能直接看到"购买 10 件、已入库 4 件、还可入库 6 件"。
+
+没有预计明细的包裹，`lines` 改为整张采购单仍有剩余的 SKU（`inPackagePlan=false`、`expectedQuantity=null`），这是要求"人工选择"的直接实现：服务端不猜箱内货品，只提供合法候选与各自剩余量。有预计明细的包裹反过来只列本包裹计划行，避免误收同单其他箱的商品。
+
+采购单累计已收一律以 `receipt_items` 聚合，不信任包裹 `status`：物流 ARRIVED 或历史 `RECEIVED` 字样都不能增加可收数量。历史脏数据可能让实收超过采购数量，`orderRemainingQuantity` 向下夹到 0，API 永不返回负数，也不在读取时修改数据。
+
+`POST /packages/{id}/complete-receiving` 只处理无预计明细的包裹：有计划的包裹按预计数量自动完成，允许手工关闭等于绕过数量校验，因此返回 409 STATUS_CONFLICT。关闭写入 `receivingClosedAt` 与 `status=RECEIVED`，不创建收货单、不写库存、不改采购单状态——入库仍必须由后续 `POST /receipts` 承担。已关闭的包裹重复调用返回 200 且不更新时间、不重复审计，使客户端重试安全（两个并发请求经商家行锁串行化，只留一条审计）。`receivingStatus` 改为优先看关闭标记：即使零收货，显式关闭也代表"验收完成（空包/破损无货）"，此前该情形会被误判为未收货。
+
+两个端点的权限都用 `receiving:confirm`（OWNER/ADMIN/WAREHOUSE），与 API_SPEC 的角色表一致：BUYER 负责下单和运单，VIEWER 只读，都不应看到或触发验收动作。`GET /packages/lookup` 仅补充 `hasReceipts`/`receivedQuantity` 两个字段，向后兼容，方便多候选页面直接显示进度，仍然不自动选择第一个候选。本任务不新增表、迁移或依赖。

@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 16：扫码查询与待收数量
+
+`GET /api/v1/packages/lookup` 按运单号返回全部候选（含本包裹是否已收、已收数量），未知单号返回空数组，多候选不自动选择。新增 `GET /api/v1/packages/{id}/receivable`：返回逐 SKU 的采购数量、**整单**累计已收、采购剩余、本包裹预计与已收、本包裹剩余，以及本次最大可收（= min 全单剩余、本包裹剩余）；无预计明细时列出采购单剩余 SKU 供人工选择。新增 `POST /api/v1/packages/{id}/complete-receiving`：仅无预计明细的包裹可人工标记验收完成。
+
+两个新端点限 OWNER/ADMIN/WAREHOUSE（`receiving:confirm`），只读可收明细不写库存、不写收货单；人工完成只改包裹关闭标记与状态，不增加库存。无新迁移、无新依赖。在 http://localhost:3000/api/docs 使用 Bearer 与 X-Tenant-Id 验证，`pnpm test:receivables` 连接真实 PostgreSQL 覆盖部分收货、跨包裹累计、无计划人工选择、权限与幂等。字段与口径见 [包裹说明](docs/PACKAGES.md)，结果见 [任务 16 报告](docs/TASK_16_REPORT.md)。
+
 ## 任务 15：快递包裹 Web 页面
 
 已提供真实包裹列表（搜索运单号/采购单号/商品 SKU、物流状态、有无收货记录筛选、分页）、包裹详情弹窗（采购来源、运单、逐 SKU 采购/预计/已收数量、物流状态与收货进度）。数据来自新增的只读 `GET /api/v1/packages` 与既有 `GET /api/v1/packages/{id}`，无模拟数据；VIEWER 可浏览但服务端隐藏备注，扫码 lookup 仍限 OWNER/ADMIN/BUYER/WAREHOUSE。

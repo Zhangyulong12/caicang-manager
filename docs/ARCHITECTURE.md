@@ -166,6 +166,12 @@ TenantsModule 创建商家时事务写 OWNER、默认仓库及审计；MembersMo
 
 /purchases 列表与 /purchases/new、/purchases/:id、/purchases/:id/edit 接入既有采购 API；共享响应、认证刷新和 X-Tenant-Id，前端路由/按钮/服务执行 purchase:read/write，服务端事务仍最终授权。purchase-form.ts 集中表单校验、序列化及 BigInt 整数分预估；purchases.ts 捕获会话/租户，拒绝迟到响应，分页查询仓库。商品选择器查询真实启用商品；旧单沿用保存的原始价格。收货信息仅保留当前页面内存，离开有未保存提醒；无新表或依赖。ADR-020 记录金额与写入重试决策。
 
+## 任务 16：扫码查询与待收数量
+
+`GET /packages/lookup` 保持精确匹配与候选数组语义，只补充 `hasReceipts`/`receivedQuantity`，多候选仍由人工选择。新增 `GET /packages/{id}/receivable`：以 `receipt_items` 按 `purchase_order_id` 聚合出全单累计实收（跨包裹），再与本包裹计划对比，输出 ordered/received/orderRemaining/expected/packageReceived/packageRemaining/maxReceivable。有预计明细只列计划行，无预计明细列采购单剩余 SKU 供人工选择；超收向下夹到 0，接口只读不写库存。
+
+`POST /packages/{id}/complete-receiving` 只接受无预计明细的包裹，沿用商家行锁 → 采购单锁 → 包裹锁的顺序，写 `receivingClosedAt` 与 `status=RECEIVED` 并原子审计，不创建收货单、不改库存或采购单状态；重复调用返回 200 且无副作用。`receivingStatus` 改为关闭标记优先，零收货的显式关闭也算验收完成。两个端点统一使用 `receiving:confirm`（OWNER/ADMIN/WAREHOUSE）。无新迁移、无新依赖。详见 PACKAGES.md、ADR-023。
+
 ## 任务 15：包裹 Web 页面
 
 新增只读 `GET /packages` 分页接口，复用 PackagesModule、DTO、共用响应与 `packages:read` 权限，不新增表、迁移或依赖。列表返回与详情一致的 PackageData，搜索命中运单号、快递公司、采购单号及本包裹预计明细的 SKU/名称；筛选限采购单、快递公司、物流状态与有无收货记录，收货进度仍按真实明细推导，不提供检索以免与存储状态混淆。

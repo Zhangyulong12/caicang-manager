@@ -99,3 +99,15 @@ async function confirmReceipt(ctx, input) {
 ## 7. 最小 Android 验收
 
 使用真实 APK 安装到两种不同品牌/型号 Android 手机，至少测试 CODE128、二维码、中文提示、弱网、相机授权/拒绝、连续扫描、手输模式、重复确认和服务器更新实时性。不能将电脑模拟器上的扫码成功替代真机验收。
+
+## 8. 任务 16 已实现的服务端步骤
+
+| 扫码流程节点 | 已实现接口 | 说明 |
+| --- | --- | --- |
+| 按 trackingNo 查包裹 | `GET /packages/lookup?trackingNo=` | 未知返回空数组；多候选数组按公司/UUID 排序，不自动选第一个；候选带 `hasReceipts`/`receivedQuantity` |
+| 展示采购单和可验收明细 | `GET /packages/{id}/receivable` | 逐 SKU 返回采购数量、整单累计已收、采购剩余、本包裹预计/已收/剩余与 `maxReceivableQuantity` |
+| 无预计明细时人工选择 SKU | 同上，`hasPlan=false` | `lines` 为采购单仍有剩余的 SKU，`expectedQuantity=null`，由验收员勾选实际到货行 |
+| 人工标记包裹验收完成 | `POST /packages/{id}/complete-receiving` | 仅无预计明细包裹；只写关闭标记与状态，不写库存；重复调用幂等 |
+| 提交入库 | `POST /receipts` | **尚未实现**（后续任务）：届时按 receivable 的 `maxReceivableQuantity` 做服务端二次校验 |
+
+`GET /packages/{id}/receivable` 与 `POST /packages/{id}/complete-receiving` 限 OWNER/ADMIN/WAREHOUSE（`receiving:confirm`）。扫码页仍只做 lookup → receivable → 数量核对，真正的库存写入必须等 `POST /receipts`，不要在客户端本地加库存。
