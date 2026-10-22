@@ -38,9 +38,8 @@ export const navigation: {
   {
     path: '/packages',
     title: '快递包裹',
-    permission: 'tenant:read',
+    permission: 'packages:read',
     icon: 'Box',
-    soon: true,
     description: '跟踪采购包裹与运单',
   },
   {

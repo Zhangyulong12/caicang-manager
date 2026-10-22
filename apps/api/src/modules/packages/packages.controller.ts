@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TENANT_ROLES } from '@caicang/api-contract';
-import { ApiArrayResponse, ApiDataResponse } from '../../common/api-docs.js';
+import { ApiArrayResponse, ApiDataResponse, ApiPageResponse } from '../../common/api-docs.js';
 import type { ApiRequest } from '../../common/request-context.js';
 import { CurrentTenant, type TenantContext } from '../../common/tenancy/tenant-context.js';
 import {
@@ -14,6 +14,7 @@ import {
   CreatePackageDto,
   UpdatePackageDto,
   PackageIdDto,
+  PackageListQueryDto,
   PackageLookupQueryDto,
   PackageResultDto,
   PackageLookupResultDto,
@@ -43,6 +44,16 @@ export class PurchasePackagesController {
 @TenantEndpoint(...TENANT_ROLES)
 export class PackagesController {
   constructor(private readonly packages: PackagesService) {}
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  @RequirePermissions('packages:read')
+  @ApiOperation({
+    summary: '当前商家包裹搜索、分页及采购单/承运商/物流状态/有无收货筛选，不改变库存',
+  })
+  @ApiPageResponse(PackageResultDto)
+  list(@CurrentTenant() context: TenantContext, @Query() query: PackageListQueryDto) {
+    return this.packages.list(context, query);
+  }
   @Get('lookup')
   @Header('Cache-Control', 'no-store')
   @Roles('OWNER', 'ADMIN', 'BUYER', 'WAREHOUSE')

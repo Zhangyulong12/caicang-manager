@@ -142,10 +142,11 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ## 3. 包裹/扫码/入库
 
-任务 14 已实现下表前四个包裹端点；其余可验收明细、完成收货、receipts 等仍是后续设计。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md)。
+任务 14 已实现下表前四个包裹端点；任务 15 增加只读分页列表 `GET /packages` 供 Web 包裹页面使用。其余可验收明细、完成收货、receipts 等仍是后续设计。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md)。
 
 |Method|Endpoint|用途|角色|
 |---|---|---|---|
+|GET|`/packages`|包裹搜索/分页/筛选，只读|所有成员|
 |POST|`/purchase-orders/{id}/packages`|为订单创建包裹、填写运单/预计包裹明细|OWNER/ADMIN/BUYER|
 |PATCH|`/packages/{id}`|改运单/物流备注（已入库后受限）|OWNER/ADMIN/BUYER|
 |GET|`/packages/lookup?trackingNo=`|按码值查包裹候选（可能多个承运商）|OWNER/ADMIN/BUYER/WAREHOUSE|
@@ -205,6 +206,15 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 订单一旦 `/place` 成功：不可修改商品/数量/原价格；重新编辑必须取消且无已入库，或以后另做采购更正业务。
 
+### 5.1.1 包裹列表（任务 15）
+
+`GET /packages?page=1&pageSize=20&search=000PACKAGE-01&status=CREATED&hasReceipts=false`
+
+- 权限 `packages:read`，五角色可读；响应为 `PackageData` 的标准分页数组，字段与 `GET /packages/{id}` 完全一致，包含采购单号/状态、运单、预估与实际收货、预计明细。
+- `search` 为字面子串（`%`/`_` 不生效），匹配运单号、快递公司编码、采购单号，以及**本包裹预计明细**中的 SKU/名称；不会因为同采购单的其他包裹含该 SKU 而误命中。
+- `purchaseOrderId`、`carrierCode`（转大写后精确匹配）、`status`（物流状态）、`hasReceipts`（true=已有收货记录）为可选筛选；`receivingStatus` 由真实收货推导，不提供检索以避免与存储状态混淆。
+- 按 `createdAt DESC, id DESC` 稳定排序；总数与列表均限定 `tenant_id`。非法分页/枚举/UUID 返回 400，跨商家 ID 不会泄漏数据。
+
 ### 5.2 创建包裹
 
 `POST /purchase-orders/{id}/packages`
@@ -229,7 +239,6 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 ### 5.3 根据扫描结果查包裹
 
 `GET /packages/lookup?trackingNo=783456123000`
-
 ```json
 {
   "data": [{

@@ -8,13 +8,23 @@ import type {
 } from '@caicang/api-contract';
 import { Prisma } from '../../generated/prisma/client.js';
 import { BusinessException } from '../../common/errors.js';
+import { PageResult } from '../../common/response.js';
 import { TenantContextService, type TenantContext } from '../../common/tenancy/tenant-context.js';
-import type { CreatePackageDto, UpdatePackageDto, ExpectedItemInputDto } from './package.dto.js';
+import type {
+  CreatePackageDto,
+  UpdatePackageDto,
+  ExpectedItemInputDto,
+  PackageListQueryDto,
+} from './package.dto.js';
+
+// LIKE wildcards must stay literal so user input cannot broaden the search.
+const literal = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 const include = {
   purchaseOrder: { select: { id: true, orderNo: true, status: true, warehouseId: true } },
   packageExpectedItem_purchaseOrderId: {
-    orderBy: { purchaseOrderItemId: 'asc' },
+    // Follow the purchase order line order so list/detail output is stable for clients.
+    orderBy: [{ purchaseOrderItem: { lineNo: 'asc' } }, { purchaseOrderItemId: 'asc' }],
     include: {
       purchaseOrderItem: {
         include: { product: { select: { sku: true, name: true, unit: true } } },
@@ -219,6 +229,55 @@ export class PackagesService {
     return this.contexts.run(context, 'packages:read', false, async (tx, current) =>
       mapPackage(await this.find(tx, current.tenantId, id), current.role),
     );
+  }
+  async list(context: TenantContext, query: PackageListQueryDto) {
+    const skip = (query.page - 1) * query.pageSize;
+    if (!Number.isSafeInteger(skip) || skip > 2147483647)
+      throw new BusinessException('BAD_REQUEST');
+    return this.contexts.run(context, 'packages:read', false, async (tx, current) => {
+      const where: Prisma.PackageWhereInput = { tenantId: current.tenantId };
+      if (query.purchaseOrderId) where.purchaseOrderId = query.purchaseOrderId;
+      // Legacy rows may still hold lower-case carrier codes; compare case-insensitively.
+      if (query.carrierCode) where.carrierCode = { equals: query.carrierCode, mode: 'insensitive' };
+      if (query.status) where.status = query.status;
+      if (query.hasReceipts !== undefined)
+        where.receipt_purchaseOrderId = query.hasReceipts ? { some: {} } : { none: {} };
+      if (query.search) {
+        const search = { contains: literal(query.search), mode: 'insensitive' as const };
+        // SKU/name match the package's own plan, so an unrelated box of the same order is not listed.
+        where.OR = [
+          { trackingNo: search },
+          { carrierCode: search },
+          { purchaseOrder: { orderNo: search } },
+          {
+            packageExpectedItem_purchaseOrderId: {
+              some: {
+                purchaseOrderItem: {
+                  OR: [
+                    { skuSnapshot: search },
+                    { nameSnapshot: search },
+                    { product: { sku: search } },
+                    { product: { name: search } },
+                  ],
+                },
+              },
+            },
+          },
+        ];
+      }
+      const total = await tx.package.count({ where });
+      const rows = await tx.package.findMany({
+        where,
+        include,
+        skip,
+        take: query.pageSize,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+      return new PageResult(
+        rows.map((row) => mapPackage(row, current.role)),
+        { page: query.page, pageSize: query.pageSize, total },
+      );
+    });
   }
   async lookup(context: TenantContext, trackingNo: string): Promise<PackageLookupData[]> {
     return this.contexts.run(context, 'packages:lookup', false, async (tx, current) => {

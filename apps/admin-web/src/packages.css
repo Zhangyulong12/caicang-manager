@@ -1,0 +1,31 @@
+.package-filters {
+  flex-wrap: wrap;
+}
+
+.package-tracking {
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  letter-spacing: 0.02em;
+}
+
+.package-detail-title {
+  margin: 22px 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.package-detail-title small {
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.package-detail-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .package-filters > .el-input {
+    max-width: none;
+    flex: 1 1 100%;
+  }
+}

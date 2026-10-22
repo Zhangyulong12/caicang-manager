@@ -26,11 +26,13 @@ export const router = createRouter({
                 ? () => import('../views/ProductsView.vue')
                 : item.path === '/purchases'
                   ? () => import('../views/PurchasesView.vue')
-                  : item.path === '/warehouses'
-                    ? () => import('../views/WarehousesView.vue')
-                    : item.path === '/settings'
-                      ? () => import('../views/SettingsView.vue')
-                      : () => import('../views/ModuleView.vue'),
+                  : item.path === '/packages'
+                    ? () => import('../views/PackagesView.vue')
+                    : item.path === '/warehouses'
+                      ? () => import('../views/WarehousesView.vue')
+                      : item.path === '/settings'
+                        ? () => import('../views/SettingsView.vue')
+                        : () => import('../views/ModuleView.vue'),
         })),
         {
           path: 'purchases/new',

@@ -29,6 +29,7 @@ import App from './App.vue';
 import './style.css';
 import './catalog.css';
 import './purchases.css';
+import './packages.css';
 import { router } from './router';
 import { useAuthStore } from './stores/auth';
 import { useTenantStore } from './stores/tenant';

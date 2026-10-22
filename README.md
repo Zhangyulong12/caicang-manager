@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 15：快递包裹 Web 页面
+
+已提供真实包裹列表（搜索运单号/采购单号/商品 SKU、物流状态、有无收货记录筛选、分页）、包裹详情弹窗（采购来源、运单、逐 SKU 采购/预计/已收数量、物流状态与收货进度）。数据来自新增的只读 `GET /api/v1/packages` 与既有 `GET /api/v1/packages/{id}`，无模拟数据；VIEWER 可浏览但服务端隐藏备注，扫码 lookup 仍限 OWNER/ADMIN/BUYER/WAREHOUSE。
+
+在 PowerShell 运行 `cd D:\Dev\caicang-manager`、`pnpm db:up`、`pnpm prisma:migrate:deploy`、`pnpm start:api`，另开终端 `pnpm dev:web`，打开 http://localhost:5173/packages。无新迁移或依赖。`pnpm test:web-packages` 编译生产前端服务并连接真实 PostgreSQL/API 验证；操作与边界见 [包裹页面说明](docs/WEB_PACKAGES.md)，结果见 [任务 15 报告](docs/TASK_15_REPORT.md)。
+
 ## 任务 14：采购包裹 API
 
 已提供采购单绑定多个包裹、修改未收货计划/运单/归属、包裹独立详情和按运单精确查询候选四接口。预计明细可空或多 SKU，跨包裹预计总量受采购数量和事务锁约束；运单保留前导零，同公司同号防重复，不同公司同号返回候选。已有收货锁定核心字段，物流到达不会生成收货或库存。

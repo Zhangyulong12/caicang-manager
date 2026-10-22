@@ -15,10 +15,13 @@ pnpm start:api
 
 | 方法与路径（统一前缀 /api/v1） | 成功 | 权限 |
 | --- | --- | --- |
+| GET /packages | 200，PackageData 分页 | 全角色，packages:read |
 | POST /purchase-orders/{id}/packages | 201，PackageData | OWNER/ADMIN/BUYER，packages:write |
 | PATCH /packages/{id} | 200，PackageData | OWNER/ADMIN/BUYER，packages:write |
 | GET /packages/{id} | 200，PackageData | 全角色，packages:read |
 | GET /packages/lookup?trackingNo= | 200，候选数组 | OWNER/ADMIN/BUYER/WAREHOUSE，packages:lookup |
+
+`GET /packages` 由任务 15 补充，供 Web 包裹页面使用：`page`/`pageSize`、`search`（运单号、快递公司、采购单号、本包裹预计明细 SKU/名称，字面子串）、`purchaseOrderId`、`carrierCode`（转大写精确匹配）、`status`（物流状态）、`hasReceipts`（true/false）。返回与详情相同的 PackageData，按 `createdAt DESC, id DESC` 排序，总数与列表均限定 `tenant_id`；`receivingStatus` 由真实收货推导，不作为检索条件。页面说明见 [WEB_PACKAGES.md](WEB_PACKAGES.md)。
 
 所有响应遵循统一 `{data,requestId}`，含 `Cache-Control: no-store`；错误使用公共错误体。VIEWER 可查看单个包裹，但备注返回 null，不开放扫码 lookup。接口不返回收货地址、电话或密码。
 

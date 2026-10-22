@@ -166,6 +166,12 @@ TenantsModule 创建商家时事务写 OWNER、默认仓库及审计；MembersMo
 
 /purchases 列表与 /purchases/new、/purchases/:id、/purchases/:id/edit 接入既有采购 API；共享响应、认证刷新和 X-Tenant-Id，前端路由/按钮/服务执行 purchase:read/write，服务端事务仍最终授权。purchase-form.ts 集中表单校验、序列化及 BigInt 整数分预估；purchases.ts 捕获会话/租户，拒绝迟到响应，分页查询仓库。商品选择器查询真实启用商品；旧单沿用保存的原始价格。收货信息仅保留当前页面内存，离开有未保存提醒；无新表或依赖。ADR-020 记录金额与写入重试决策。
 
+## 任务 15：包裹 Web 页面
+
+新增只读 `GET /packages` 分页接口，复用 PackagesModule、DTO、共用响应与 `packages:read` 权限，不新增表、迁移或依赖。列表返回与详情一致的 PackageData，搜索命中运单号、快递公司、采购单号及本包裹预计明细的 SKU/名称；筛选限采购单、快递公司、物流状态与有无收货记录，收货进度仍按真实明细推导，不提供检索以免与存储状态混淆。
+
+前端 `api/packages.ts` 复用统一客户端与商家范围校验，拒绝迟到响应；`package-status.ts` 集中状态文案、比例与时间格式化。`/packages` 导航改为 `packages:read`，页面只读，不提供创建/修改/收货入口。预计明细由 UUID 排序改为按采购行号排序，保证列表与详情稳定可复现。详见 WEB_PACKAGES.md 与 ADR-022。
+
 ## 任务 14：采购包裹模块
 
 PackagesModule 使用现有 packages、package_expected_items 及复合外键，不新增表或迁移；提供包裹绑定、修改、独立详情及精确运单查询。DTO、公共响应/错误、Guard 和 TenantContext 共享，packages:read/write/lookup 按角色授权。静态 lookup 路由先于 :id。

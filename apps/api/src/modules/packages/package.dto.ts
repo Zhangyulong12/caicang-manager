@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsString,
@@ -17,12 +18,14 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { PaginationQueryDto } from '../../common/pagination.dto.js';
 import {
   PACKAGE_STATUSES,
   PACKAGE_LOGISTICS_STATUSES,
   PACKAGE_RECEIVING_STATUSES,
   PURCHASE_STATUSES,
   type PackageLogisticsStatus,
+  type PackageStatus,
 } from '@caicang/api-contract';
 
 const present = (_: unknown, value: unknown) => value !== undefined;
@@ -31,6 +34,10 @@ const Trim = () =>
 const Carrier = () =>
   Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim().toUpperCase() : value,
+  );
+const QueryBoolean = () =>
+  Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
   );
 
 export class ExpectedItemInputDto {
@@ -104,6 +111,41 @@ export class UpdatePackageDto extends PartialType(CreatePackageDto, { skipNullPr
 }
 export class PackageIdDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID() id!: string;
+}
+export class PackageListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    maxLength: 200,
+    description: '运单号、快递公司、采购单号、商品 SKU 或名称的字面子串（不区分大小写）',
+  })
+  @Trim()
+  @ValidateIf(present)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  @NotContains('\u0000')
+  search?: string;
+  @ApiPropertyOptional({ format: 'uuid', description: '仅列出该采购单下的包裹' })
+  @ValidateIf(present)
+  @IsUUID()
+  purchaseOrderId?: string;
+  @ApiPropertyOptional({ maxLength: 40, example: 'ZTO', description: '快递公司编码，精确匹配' })
+  @Carrier()
+  @ValidateIf(present)
+  @IsString()
+  @Matches(/^[A-Z0-9][A-Z0-9_-]{0,39}$/)
+  carrierCode?: string;
+  @ApiPropertyOptional({ enum: PACKAGE_STATUSES, description: '包裹物流状态' })
+  @ValidateIf(present)
+  @IsIn(PACKAGE_STATUSES)
+  status?: PackageStatus;
+  @ApiPropertyOptional({
+    type: Boolean,
+    description: 'true 仅看已有收货记录的包裹，false 仅看尚无收货记录的包裹',
+  })
+  @QueryBoolean()
+  @ValidateIf(present)
+  @IsBoolean()
+  hasReceipts?: boolean;
 }
 export class PackageLookupQueryDto {
   @ApiProperty({ type: String, maxLength: 128, example: '000783456123' })
