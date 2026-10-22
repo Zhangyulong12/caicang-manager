@@ -50,6 +50,8 @@ export const API_ERROR_CODES = [
   'PRODUCT_BARCODE_ALREADY_EXISTS',
   'WAREHOUSE_CODE_ALREADY_EXISTS',
   'PURCHASE_ORDER_NO_ALREADY_EXISTS',
+  'PACKAGE_TRACKING_ALREADY_EXISTS',
+  'PACKAGE_EXPECTED_QTY_EXCEEDED',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -93,6 +95,9 @@ export const TENANT_PERMISSIONS = [
   'members:manage',
   'purchase:write',
   'purchase:read',
+  'packages:read',
+  'packages:write',
+  'packages:lookup',
   'receiving:confirm',
   'outbound:write',
 ] as const;
@@ -212,4 +217,62 @@ export interface PurchaseOrderData {
   createdAt: string;
   updatedAt: string;
   items: PurchaseItemData[];
+}
+
+export const PACKAGE_STATUSES = [
+  'CREATED',
+  'IN_TRANSIT',
+  'ARRIVED',
+  'PARTIAL_RECEIVED',
+  'RECEIVED',
+  'EXCEPTION',
+] as const;
+export const PACKAGE_LOGISTICS_STATUSES = [
+  'CREATED',
+  'IN_TRANSIT',
+  'ARRIVED',
+  'EXCEPTION',
+] as const;
+export const PACKAGE_RECEIVING_STATUSES = ['NOT_RECEIVED', 'PARTIAL_RECEIVED', 'RECEIVED'] as const;
+export type PackageStatus = (typeof PACKAGE_STATUSES)[number];
+export type PackageLogisticsStatus = (typeof PACKAGE_LOGISTICS_STATUSES)[number];
+export type PackageReceivingStatus = (typeof PACKAGE_RECEIVING_STATUSES)[number];
+export interface PackageExpectedItemData {
+  id: string;
+  purchaseOrderItemId: string;
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  orderedQuantity: number;
+  expectedQuantity: number;
+  receivedQuantity: number;
+}
+export interface PackageData {
+  id: string;
+  tenantId: string;
+  purchaseOrderId: string;
+  purchaseOrderNo: string;
+  purchaseStatus: PurchaseStatus;
+  warehouseId: string;
+  carrierCode: string | null;
+  trackingNo: string | null;
+  status: PackageStatus;
+  receivingStatus: PackageReceivingStatus;
+  hasReceipts: boolean;
+  receivedQuantity: number;
+  receivingClosedAt: string | null;
+  remark: string | null;
+  createdAt: string;
+  updatedAt: string;
+  expectedItems: PackageExpectedItemData[];
+}
+export interface PackageLookupData {
+  packageId: string;
+  carrierCode: string | null;
+  trackingNo: string | null;
+  purchaseOrderId: string;
+  purchaseOrderNo: string;
+  packageStatus: PackageStatus;
+  receivingStatus: PackageReceivingStatus;
 }

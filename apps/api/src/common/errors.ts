@@ -30,6 +30,8 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   PRODUCT_BARCODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同商品条码' },
   WAREHOUSE_CODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同仓库编码' },
   PURCHASE_ORDER_NO_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同采购单号' },
+  PACKAGE_TRACKING_ALREADY_EXISTS: { status: 409, message: '当前商家此快递公司和运单号已绑定包裹' },
+  PACKAGE_EXPECTED_QTY_EXCEEDED: { status: 409, message: '全部包裹预计数量超过采购明细数量' },
 };
 export class BusinessException extends HttpException {
   constructor(

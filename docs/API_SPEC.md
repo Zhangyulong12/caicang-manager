@@ -142,6 +142,8 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ## 3. 包裹/扫码/入库
 
+任务 14 已实现下表前四个包裹端点；其余可验收明细、完成收货、receipts 等仍是后续设计。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md)。
+
 |Method|Endpoint|用途|角色|
 |---|---|---|---|
 |POST|`/purchase-orders/{id}/packages`|为订单创建包裹、填写运单/预计包裹明细|OWNER/ADMIN/BUYER|
@@ -179,7 +181,7 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 列表支持 page/pageSize、字面 search（单号/平台单号/店铺/商品 SKU 名称快照）、status、platform、warehouseId，按 createdAt DESC/id DESC 排序并严格隔离总数。重复商家单号 409 PURCHASE_ORDER_NO_ALREADY_EXISTS；折扣大于行金额、金额汇总溢出、停用商品/仓库为 422 BUSINESS_VALIDATION_FAILED；非法状态修改或有收货记录的取消为 409 STATUS_CONFLICT。跨商家引用与未知 ID 均 404。
 
-确认保存运费分摊与商品快照；前 N−1 行按净额比例向下截取到分，最后一行吸收尾差；全部净额为零按件数分配。PLACED 重复确认、CANCELLED 重复取消不重复写审计，其他不合法状态返回 409。条件、完整 Swagger 示例和事务约定见 PURCHASE_ORDERS.md；包裹/收货/出库端点仍是后续设计。
+确认保存运费分摊与商品快照；前 N−1 行按净额比例向下截取到分，最后一行吸收尾差；全部净额为零按件数分配。PLACED 重复确认、CANCELLED 重复取消不重复写审计，其他不合法状态返回 409。条件、完整 Swagger 示例和事务约定见 PURCHASE_ORDERS.md；任务 14 开放包裹绑定、修改、详情和 lookup，收货/出库仍是后续设计。
 
 ### 5.1 创建采购单草稿
 
@@ -218,7 +220,11 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 }
 ```
 
-可传 `expectedItems: []`，则收货员从本采购单尚未收货的明细中手动选要入库的 SKU。一个包裹多次收货允许；仅有配送信息不等于入库。若该包裹没有预计明细，操作员需在最后一次实际验收后调用“完成包裹收货”，否则仅为部分入库状态。
+当前创建要求订单 PLACED/PARTIAL_RECEIVED；expectedItems 可省略或为空数组，同一采购行不能重复，全部包裹预计总量不得超过采购行数量。carrierCode 转大写，trackingNo 必须为字符串并保留前导零。同商家+公司+运单重复为 409 PACKAGE_TRACKING_ALREADY_EXISTS，超预计总量为 409 PACKAGE_EXPECTED_QTY_EXCEEDED。PackageData 显式区分包裹 status 与依据真实收货计算的 receivingStatus，不记录库存。
+
+PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明细、未收货改绑 purchaseOrderId 与物流 status；改绑须同时传目标单 expectedItems（可空）。已有任意收货记录/明确关闭标记/收货状态，或采购单终态，只允许补充备注；相同 PATCH 不改变时间和审计。输入禁止手动设置 PARTIAL_RECEIVED/RECEIVED、receivedQuantity、receivingClosedAt。只允许文档状态转换，错误统一返回公共结构。
+
+未来收货时，预计为空的包裹由收货员手动选择实际 SKU，并在最后一次实际验收后明确完成包裹收货；本任务不开放这些后续接口。
 
 ### 5.3 根据扫描结果查包裹
 
@@ -229,8 +235,9 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
   "data": [{
     "packageId":"package-uuid", "trackingNo":"783456123000", "carrierCode":"ZTO",
     "purchaseOrderId":"po-uuid", "purchaseOrderNo":"PO-20261014-0001",
-    "packageStatus":"CREATED"
-  }]
+    "packageStatus":"CREATED", "receivingStatus":"NOT_RECEIVED"
+  }],
+  "requestId":"request-uuid"
 }
 ```
 

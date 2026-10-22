@@ -166,6 +166,12 @@ TenantsModule 创建商家时事务写 OWNER、默认仓库及审计；MembersMo
 
 /purchases 列表与 /purchases/new、/purchases/:id、/purchases/:id/edit 接入既有采购 API；共享响应、认证刷新和 X-Tenant-Id，前端路由/按钮/服务执行 purchase:read/write，服务端事务仍最终授权。purchase-form.ts 集中表单校验、序列化及 BigInt 整数分预估；purchases.ts 捕获会话/租户，拒绝迟到响应，分页查询仓库。商品选择器查询真实启用商品；旧单沿用保存的原始价格。收货信息仅保留当前页面内存，离开有未保存提醒；无新表或依赖。ADR-020 记录金额与写入重试决策。
 
+## 任务 14：采购包裹模块
+
+PackagesModule 使用现有 packages、package_expected_items 及复合外键，不新增表或迁移；提供包裹绑定、修改、独立详情及精确运单查询。DTO、公共响应/错误、Guard 和 TenantContext 共享，packages:read/write/lookup 按角色授权。静态 lookup 路由先于 :id。
+
+写事务锁商家并复查权限，再按 UUID 顺序锁相关采购主单、最后锁包裹并重读。改绑显式替换新单计划；删除明确移除的未收货计划行、更新归属、upsert 其余行和审计同事务。SUM(expected_quantity) 用整数文本/BigInt 对比采购数量，跨进程不能超分配。同值 PATCH 无时间/审计副作用。任意收货记录、关闭标记、收货状态或采购终态都会限制核心字段修改；物流不触发库存。receivingStatus 独立来自实际收货，VIEWER 隐藏备注，审计不存运单或备注原文。见 PACKAGES.md、ADR-021。
+
 ## 任务 08：商品主数据模块
 
 ProductsModule 提供列表、创建、详情、修改和精确按码查询，统一通过 TenantContextService 事务访问；增加 products:read（全部角色）、products:write（OWNER/ADMIN/BUYER）。数据对象访问始终用 tenantId+id，金额使用 Decimal/字符串，停用不删除。新增参考价/备注的增量迁移保留旧数据，商品变更不触碰历史采购价或库存。SKU/条码跨字段重码时 lookup 返回候选数组，不猜第一项；默认只查启用商品。详见 PRODUCTS.md、API_SPEC.md、ADR-015 与 TASK_08_REPORT.md。

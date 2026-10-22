@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 14：采购包裹 API
+
+已提供采购单绑定多个包裹、修改未收货计划/运单/归属、包裹独立详情和按运单精确查询候选四接口。预计明细可空或多 SKU，跨包裹预计总量受采购数量和事务锁约束；运单保留前导零，同公司同号防重复，不同公司同号返回候选。已有收货锁定核心字段，物流到达不会生成收货或库存。
+
+启动现有 Docker Desktop 后，在 PowerShell 运行 `cd D:\Dev\caicang-manager`、`pnpm db:up`、`pnpm prisma:migrate:deploy`、`pnpm start:api`；在 http://localhost:3000/api/docs 使用 Bearer 与 X-Tenant-Id 操作，无新迁移或依赖。`pnpm test:packages` 运行真实 PostgreSQL/双 API 进程测试。100 件拆三个包裹示例见 [包裹说明](docs/PACKAGES.md)，结果见 [任务 14 报告](docs/TASK_14_REPORT.md)。本任务不增加包裹 Web 页面或收货接口。
+
 ## 任务 13：采购管理 Web
 
 已提供真实采购列表、新建多 SKU 采购单、详情、草稿编辑、确认下单、合法取消，以及状态/平台/单号筛选。表单实时以整数分预估，最终金额取服务器；确认冻结数量和原价。OWNER/ADMIN/BUYER 可维护，WAREHOUSE/VIEWER 只读。

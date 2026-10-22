@@ -8,6 +8,7 @@ import { MembersModule } from './modules/members/members.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { WarehousesModule } from './modules/warehouses/warehouses.module.js';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module.js';
+import { PackagesModule } from './modules/packages/packages.module.js';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.
     ProductsModule,
     WarehousesModule,
     PurchaseOrdersModule,
+    PackagesModule,
   ],
   controllers: [HealthController],
 })

@@ -39,13 +39,16 @@ Swagger 商家接口同时要求 Bearer 与 tenant 安全凭据；可在 Authori
 |授予、转让、降级、停用 OWNER|拒绝|拒绝|拒绝|拒绝|拒绝|
 |purchase:write 权限|允许|允许|允许|拒绝|拒绝|
 |purchase:read（任务 12）|允许|允许|允许|允许|允许|
+|packages:read（任务 14）|允许|允许|允许|允许|允许|
+|packages:write（任务 14）|允许|允许|允许|拒绝|拒绝|
+|packages:lookup（任务 14）|允许|允许|允许|允许|拒绝|
 |receiving:confirm / outbound:write 权限|允许|允许|拒绝|允许|拒绝|
 
 已登录用户创建新商家时自动成为新商家 OWNER，不取决于其在其他商家的角色。任务 07 当时只建立采购/收货/出库能力；任务 12 已实现采购 API，收货/出库仍待后续。Guard 测试通过独立测试根模块验证权限装饰器，测试路径不会编入生产 API；真实采购服务同时执行对象范围与事务权限检查，不能只靠前端隐藏按钮或 permissions 数组。
 
 OWNER 只能由创建商家产生，本任务不开放所有权转让。ADMIN 不能编辑自己或其他 ADMIN，不能授予 ADMIN/OWNER。一个账号在不同商家可有不同角色，当前商家权限每次从数据库读取；Access Token 不缓存商家角色。用户在 A 被停用，不影响其全局登录或 B 的独立成员身份。
 
-任务 08 已增加 products:read/products:write 能力及真实商品 API，任务 09 增加 warehouses:read（全部角色）、warehouses:write（OWNER/ADMIN）及仓库列表/创建。任务 12 已开放六个采购 API，purchase:read 全角色，purchase:write 限 OWNER/ADMIN/BUYER。VIEWER 的当前权限为 tenant:read、products:read、warehouses:read、purchase:read；采购收货人/电话/地址由服务端隐藏，备注不返回。收货/出库仍仅为后续权限能力。
+任务 08 已增加 products:read/products:write 能力及真实商品 API，任务 09 增加 warehouses:read（全部角色）、warehouses:write（OWNER/ADMIN）及仓库列表/创建。任务 12 已开放六个采购 API，purchase:read 全角色，purchase:write 限 OWNER/ADMIN/BUYER。任务 14 增加包裹读写及运单查询权限，VIEWER 的当前权限为 tenant:read、products:read、warehouses:read、purchase:read、packages:read；采购收货人/电话/地址由服务端隐藏，采购及包裹备注不返回。收货/出库仍仅为后续权限能力。
 
 ## 请求与错误
 

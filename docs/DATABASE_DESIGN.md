@@ -1,5 +1,7 @@
 # 数据库设计（PostgreSQL）
 
+任务 14 沿用现有 packages、package_expected_items、receipts 及复合外键，无迁移/回填。包裹绑定和计划变更在商家→采购主单→包裹锁内计算所有包裹预计量，不能超过对应采购行数量；跨单改绑按 UUID 顺序锁两张主单并显式替换新计划。存在任何收货头记录即限制核心修改，取消和物流状态不删除历史计划。物流 ARRIVED 不写 receipts、stock_balances 或 stock_movements；API 另按真实明细计算 receivingStatus。接口限制及事务细节见 PACKAGES.md。
+
 可执行建表参考：`../database/schema.sql`。本文件解释表之间的关系、业务约束、成本计算和事务实现要求。schema 是初稿，编码时以 Prisma Migrate 产生可追踪 migration；不能在已有真实数据库直接重放 SQL。
 
 任务 03 已建立 `apps/api/prisma/schema.prisma` 与 `20261015012323_initial_business_models` 初始迁移；以下实施补充以迁移为准，参考 SQL 原件保留。启动与验证见 `TASK_03_REPORT.md`。

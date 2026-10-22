@@ -16,6 +16,9 @@ const ROLE_PERMISSIONS: Readonly<Record<TenantRole, readonly TenantPermission[]>
     'warehouses:read',
     'purchase:write',
     'purchase:read',
+    'packages:read',
+    'packages:write',
+    'packages:lookup',
   ] as const),
   WAREHOUSE: Object.freeze([
     'tenant:read',
@@ -24,12 +27,15 @@ const ROLE_PERMISSIONS: Readonly<Record<TenantRole, readonly TenantPermission[]>
     'warehouses:read',
     'outbound:write',
     'purchase:read',
+    'packages:read',
+    'packages:lookup',
   ] as const),
   VIEWER: Object.freeze([
     'tenant:read',
     'products:read',
     'warehouses:read',
     'purchase:read',
+    'packages:read',
   ] as const),
 });
 

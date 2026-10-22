@@ -391,6 +391,7 @@ test(
               'products:read',
               'warehouses:read',
               'purchase:read',
+              'packages:read',
             ]);
           },
         );
