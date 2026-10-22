@@ -66,6 +66,17 @@
 
 代码无未解决的测试失败。界面只能根据状态/已收数量提示取消能力，空收货记录或关联包裹等隐藏条件仍由服务器最终判定；并发变更失败时提示刷新。默认仓库偏好仅本浏览器保存。包裹、收货、库存及出库仍待后续任务；移动端本次只验证已有 H5 构建，不涉及 APK。
 
-用户稍后继续任务时（同日约 16:06）再次检查，原开发服务及 Docker 已停止。启动已有 Docker Desktop 后，后端日志报 Secrets Engine 的 `engine.sock` 重命名为 `.stale` 时“文件无法访问”，Docker Engine 未就绪，5432 连接拒绝；这属于当前运行阻塞。因此没有声称这一轮末尾数据库复核成功，也没有重新运行依赖数据库的测试。上述 390/66 项测试、浏览器订单与 SQL 核验均在此前服务正常时实际完成。没有删除 socket、用户数据、数据库卷或重装软件。Web 5173 已重新启动；需先通过 Docker Desktop 正常退出/重新启动（若仍有文件占用可重启 Windows）恢复 Engine，再按 WEB_PURCHASES.md 运行 `pnpm db:up`、`pnpm start:api`。启动恢复后的数据复核仍应再执行。
+同日约 16:06 复核时，Docker 曾因 Secrets Engine 的 `engine.sock` 文件访问错误启动失败，5432 连接拒绝。当时明确记录为运行阻塞，没有声称数据库复核成功，也没有删除 socket、用户数据、数据库卷或重装软件。该阻塞已在下述恢复复核中解除。
+
+## Docker 恢复后补验（2026-10-22，约 16:14）
+
+用户恢复 Docker 后实际复核 Docker Engine **29.8.2**、`caicang-postgres` 容器 **healthy**、本机 5432 正常监听。启动现有 API 至 3000，`pnpm api:check` 返回 `status=ok`、`database=reachable`；通过 Web 的 `http://localhost:5173/api/v1/health` 也获得相同健康结果，确认 Vite 代理连通。
+
+- 重新执行 `pnpm test:web-purchases`：API/共享包/Web 实际构建成功，Vue 类型检查通过，采购专项 **17 项全部通过，0 失败/取消/跳过**。没有重复运行此前已通过的全量 390 项或 Web 66 项。
+- 重新读取真实 PostgreSQL：双 SKU 采购单仍为 PLACED，数量/原价/优惠、8.22/1.78 运费分摊、19.3220/8.3560 单位成本均一致，主单与两条明细复算总成本 **235.00**；取消单仍为 CANCELLED 且一条明细保留，审计记录一致。
+- 原有业务行、环境文件和六个迁移的指纹复核通过；保留此前说明的正常 refresh_tokens 元数据变化。开发库为 10 用户、6 商家、2 采购单，**0 遗留随机测试库**。没有重复创建验收单或更改原订单。
+- 真实浏览器刷新 5173 采购入口，旧会话失效后正确跳转 `/login?redirect=/purchases`，可用自己的账号重新登录；没有重置密码或代替用户创建新账号。本次补验未重复执行先前已完成的整套浏览器写入流程。
+
+恢复证据位于忽略的 `test-results/task-13-restored-tests.log`、`task-13-database-restored.json`。本轮仅更新本报告，业务代码保持此前已验证版本。当前 Docker、数据库与 API 运行阻塞已解除，任务 13 验收完成，无未解决阻塞。
 
 启动及测试命令见 WEB_PURCHASES.md。本次为本地任务提交，未推送 GitHub。
