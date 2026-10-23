@@ -29,7 +29,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 ### POST /auth/register（公开，成功 201）
 
 ```json
-{"email":"new-user@example.com","password":"CaicangDemo!2026","displayName":"新用户"}
+{ "email": "new-user@example.com", "password": "CaicangDemo!2026", "displayName": "新用户" }
 ```
 
 - email 去首尾空格并转小写，验证邮箱格式及最长 320 字符。数据库 `lower(btrim(email))` 唯一索引防止大小写/空格差异及并发重复注册；冲突返回 409 `EMAIL_ALREADY_EXISTS`。
@@ -41,7 +41,7 @@ Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 I
 ### POST /auth/login（公开，成功 200）
 
 ```json
-{"email":"new-user@example.com","password":"CaicangDemo!2026"}
+{ "email": "new-user@example.com", "password": "CaicangDemo!2026" }
 ```
 
 - 成功 data 为 `{accessToken:"<JWT>",refreshToken:"<43字符随机凭据>",tokenType:"Bearer",expiresIn:900,refreshExpiresIn:<会话剩余秒数>,user:<同上安全用户信息>}`。每次登录建立独立会话，默认绝对有效期 7 天。
@@ -63,7 +63,7 @@ Swagger 操作：先执行 register，再执行 login，复制 data.accessToken 
 ### POST /auth/refresh（Refresh Token 凭据，成功 200）
 
 ```json
-{"refreshToken":"<粘贴最近一次 login 或 refresh 返回的 data.refreshToken>"}
+{ "refreshToken": "<粘贴最近一次 login 或 refresh 返回的 data.refreshToken>" }
 ```
 
 - 不需要 Access Token，过期 Access Token 不阻止刷新。refreshToken 必须是 32 随机字节的规范 base64url 字符串，43 字符，无 padding、空格或 Bearer 前缀。不接收 URL/query、cookie 或隐式身份。
@@ -108,75 +108,75 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 任务 09 仓库接口：GET /warehouses?page=1&pageSize=20 返回当前商家分页列表（含 DEFAULT/停用），所有 active 角色可读；POST /warehouses 仅 OWNER/ADMIN 可创建，输入 `{"name":"深圳二仓","code":"SZ-02","remark":"小件商品存放区"}`，成功 201。name/code 去首尾空格后 1–100/1–40 字符，code 区分大小写并保留前导零；remark 可省略/null/空白，最多 2000 字符。同商家重复 code 返回 409 WAREHOUSE_CODE_ALREADY_EXISTS，其他商家允许同码。响应字段为 id/tenantId/name/code/remark/isActive/createdAt/updatedAt，不含 address。列表及总数都限定 tenantId、按 createdAt DESC/id DESC 排序；拒绝客户端 tenantId 和未知字段。创建与审计同事务，锁后复查权限；不开放删除、修改或调拨。见 WAREHOUSES.md。
 
-|Method|Endpoint|用途|角色|
-|---|---|---|---|
-|POST|`/auth/register`|注册账号|公开|
-|POST|`/auth/login`|登录，获得短期 Access Token 与独立会话 Refresh Token|公开|
-|POST|`/auth/refresh`|刷新短期令牌|已登录/有效 refresh|
-|POST|`/auth/logout`|撤销当前登录会话|Refresh Token 凭据|
-|GET|`/me`|当前用户资料；商家列表留待后续|已登录|
-|POST|`/tenants`|创建商家及默认仓库|登录用户|
-|GET|`/tenants?page=1&pageSize=20`|本人 active 成员关系的商家列表，返回 TenantChoiceData 的标准分页；只接受 page/pageSize，不能查询其他 userId/tenantId|登录用户，无需商家头|
-|GET|`/tenants/current`|当前商家信息|成员|
-|GET|`/members`|成员列表|OWNER/ADMIN|
-|POST|`/members`|添加现有用户与角色|OWNER/ADMIN|
-|PATCH|`/members/{membershipId}`|修改角色/停用|OWNER/ADMIN；OWNER 专有约束|
+| Method | Endpoint                      | 用途                                                                                                                 | 角色                        |
+| ------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| POST   | `/auth/register`              | 注册账号                                                                                                             | 公开                        |
+| POST   | `/auth/login`                 | 登录，获得短期 Access Token 与独立会话 Refresh Token                                                                 | 公开                        |
+| POST   | `/auth/refresh`               | 刷新短期令牌                                                                                                         | 已登录/有效 refresh         |
+| POST   | `/auth/logout`                | 撤销当前登录会话                                                                                                     | Refresh Token 凭据          |
+| GET    | `/me`                         | 当前用户资料；商家列表留待后续                                                                                       | 已登录                      |
+| POST   | `/tenants`                    | 创建商家及默认仓库                                                                                                   | 登录用户                    |
+| GET    | `/tenants?page=1&pageSize=20` | 本人 active 成员关系的商家列表，返回 TenantChoiceData 的标准分页；只接受 page/pageSize，不能查询其他 userId/tenantId | 登录用户，无需商家头        |
+| GET    | `/tenants/current`            | 当前商家信息                                                                                                         | 成员                        |
+| GET    | `/members`                    | 成员列表                                                                                                             | OWNER/ADMIN                 |
+| POST   | `/members`                    | 添加现有用户与角色                                                                                                   | OWNER/ADMIN                 |
+| PATCH  | `/members/{membershipId}`     | 修改角色/停用                                                                                                        | OWNER/ADMIN；OWNER 专有约束 |
 
 ## 2. 基础资料、采购
 
-|Method|Endpoint|用途|角色|
-|---|---|---|---|
-|GET|`/warehouses`|仓库列表|所有成员|
-|POST|`/warehouses`|创建仓库|OWNER/ADMIN|
-|GET|`/products`|分页查询 SKU|所有成员|
-|POST|`/products`|创建 SKU|OWNER/ADMIN/BUYER|
-|GET|`/products/{id}`|SKU 详情|所有成员|
-|PATCH|`/products/{id}`|修改 SKU/禁用|OWNER/ADMIN/BUYER|
-|GET|`/products/lookup?code=`|条码或 SKU 查产品|所有成员|
-|GET|`/purchase-orders`|采购单搜索/分页|所有成员|
-|POST|`/purchase-orders`|新建 DRAFT 主单及 items|OWNER/ADMIN/BUYER|
-|GET|`/purchase-orders/{id}`|采购单详情、明细、收货汇总|所有成员|
-|PATCH|`/purchase-orders/{id}`|仅修改草稿|OWNER/ADMIN/BUYER|
-|POST|`/purchase-orders/{id}/place`|确认下单、冻结价格、分摊运费|OWNER/ADMIN/BUYER|
-|POST|`/purchase-orders/{id}/cancel`|取消未收货采购单|OWNER/ADMIN/BUYER|
-|GET|`/purchase-accounts`|采购账号分页查询（任务 27）|所有成员|
-|POST|`/purchase-accounts`|创建平台采购账号（不存密码）|OWNER/ADMIN/BUYER|
-|PATCH|`/purchase-accounts/{id}`|改别名/备注/启停用；有关联后禁改平台|OWNER/ADMIN/BUYER|
-|DELETE|`/purchase-accounts/{id}`|仅删从未被采购单引用的账号|OWNER/ADMIN/BUYER|
+| Method | Endpoint                       | 用途                                 | 角色              |
+| ------ | ------------------------------ | ------------------------------------ | ----------------- |
+| GET    | `/warehouses`                  | 仓库列表                             | 所有成员          |
+| POST   | `/warehouses`                  | 创建仓库                             | OWNER/ADMIN       |
+| GET    | `/products`                    | 分页查询 SKU                         | 所有成员          |
+| POST   | `/products`                    | 创建 SKU                             | OWNER/ADMIN/BUYER |
+| GET    | `/products/{id}`               | SKU 详情                             | 所有成员          |
+| PATCH  | `/products/{id}`               | 修改 SKU/禁用                        | OWNER/ADMIN/BUYER |
+| GET    | `/products/lookup?code=`       | 条码或 SKU 查产品                    | 所有成员          |
+| GET    | `/purchase-orders`             | 采购单搜索/分页                      | 所有成员          |
+| POST   | `/purchase-orders`             | 新建 DRAFT 主单及 items              | OWNER/ADMIN/BUYER |
+| GET    | `/purchase-orders/{id}`        | 采购单详情、明细、收货汇总           | 所有成员          |
+| PATCH  | `/purchase-orders/{id}`        | 仅修改草稿                           | OWNER/ADMIN/BUYER |
+| POST   | `/purchase-orders/{id}/place`  | 确认下单、冻结价格、分摊运费         | OWNER/ADMIN/BUYER |
+| POST   | `/purchase-orders/{id}/cancel` | 取消未收货采购单                     | OWNER/ADMIN/BUYER |
+| GET    | `/purchase-accounts`           | 采购账号分页查询（任务 27）          | 所有成员          |
+| POST   | `/purchase-accounts`           | 创建平台采购账号（不存密码）         | OWNER/ADMIN/BUYER |
+| PATCH  | `/purchase-accounts/{id}`      | 改别名/备注/启停用；有关联后禁改平台 | OWNER/ADMIN/BUYER |
+| DELETE | `/purchase-accounts/{id}`      | 仅删从未被采购单引用的账号           | OWNER/ADMIN/BUYER |
 
 ## 3. 包裹/扫码/入库
 
 任务 14 已实现包裹绑定、修改、详情与运单查询；任务 15 增加只读分页列表 `GET /packages`；任务 16 增加可验收明细与人工完成；任务 17 实现下表后三个入库端点（`POST /receipts` 为唯一增加库存的接口）。完整字段、状态图、并发与示例见 [PACKAGES.md](PACKAGES.md) 与 [RECEIPTS.md](RECEIPTS.md)。
 
-|Method|Endpoint|用途|角色|
-|---|---|---|---|
-|GET|`/packages`|包裹搜索/分页/筛选，只读|所有成员|
-|POST|`/purchase-orders/{id}/packages`|为订单创建包裹、填写运单/预计包裹明细|OWNER/ADMIN/BUYER|
-|PATCH|`/packages/{id}`|改运单/物流备注（已入库后受限）|OWNER/ADMIN/BUYER|
-|GET|`/packages/lookup?trackingNo=`|按码值查包裹候选（可能多个承运商）|OWNER/ADMIN/BUYER/WAREHOUSE|
-|GET|`/packages/{id}`|包裹信息和所在采购单|所有成员|
-|POST|`/packages/{id}/complete-receiving`|包裹无预计明细时人工标记包裹验收完成；只改包裹状态，不增加库存|OWNER/ADMIN/WAREHOUSE|
-|GET|`/packages/{id}/receivable`|当前剩余可验收 SKU 明细|OWNER/ADMIN/WAREHOUSE|
-|POST|`/receipts`|确认一次部分/全部验收入库|OWNER/ADMIN/WAREHOUSE|
-|GET|`/receipts`|收货单列表|所有成员|
-|GET|`/receipts/{id}`|收货单详情|所有成员|
+| Method | Endpoint                            | 用途                                                           | 角色                        |
+| ------ | ----------------------------------- | -------------------------------------------------------------- | --------------------------- |
+| GET    | `/packages`                         | 包裹搜索/分页/筛选，只读                                       | 所有成员                    |
+| POST   | `/purchase-orders/{id}/packages`    | 为订单创建包裹、填写运单/预计包裹明细                          | OWNER/ADMIN/BUYER           |
+| PATCH  | `/packages/{id}`                    | 改运单/物流备注（已入库后受限）                                | OWNER/ADMIN/BUYER           |
+| GET    | `/packages/lookup?trackingNo=`      | 按码值查包裹候选（可能多个承运商）                             | OWNER/ADMIN/BUYER/WAREHOUSE |
+| GET    | `/packages/{id}`                    | 包裹信息和所在采购单                                           | 所有成员                    |
+| POST   | `/packages/{id}/complete-receiving` | 包裹无预计明细时人工标记包裹验收完成；只改包裹状态，不增加库存 | OWNER/ADMIN/WAREHOUSE       |
+| GET    | `/packages/{id}/receivable`         | 当前剩余可验收 SKU 明细                                        | OWNER/ADMIN/WAREHOUSE       |
+| POST   | `/receipts`                         | 确认一次部分/全部验收入库                                      | OWNER/ADMIN/WAREHOUSE       |
+| GET    | `/receipts`                         | 收货单列表                                                     | 所有成员                    |
+| GET    | `/receipts/{id}`                    | 收货单详情                                                     | 所有成员                    |
 
 ## 4. 库存/出库/报表
 
-|Method|Endpoint|用途|角色|
-|---|---|---|---|
-|GET|`/inventory/balances`|按仓库、SKU 搜现存和成本|所有成员|
-|GET|`/inventory/movements`|库存流水、分页/筛选|所有成员|
-|POST|`/inventory/adjustments`|管理员盘点差异调整，审计必需|OWNER/ADMIN|
-|GET|`/outbound-orders`|出库单列表|所有成员|
-|POST|`/outbound-orders`|创建待发货草稿|OWNER/ADMIN/WAREHOUSE|
-|GET|`/outbound-orders/{id}`|出库单详情|所有成员|
-|PATCH|`/outbound-orders/{id}`|修改未确认草稿|OWNER/ADMIN/WAREHOUSE|
-|POST|`/outbound-orders/{id}/ship`|确认发货并扣库存，幂等|OWNER/ADMIN/WAREHOUSE|
-|POST|`/outbound-orders/{id}/cancel`|仅取消未确认草稿|OWNER/ADMIN/WAREHOUSE|
-|GET|`/reports/overview?from=&to=&warehouseId=`|采购额、库存价值、已收统计|OWNER/ADMIN/BUYER/VIEWER|
-|GET|`/reports/export/stock-movements.csv`|导出库存流水|OWNER/ADMIN|
-|GET|`/health`|存活检查，生产避免暴露秘钥|公开|
+| Method | Endpoint                                   | 用途                         | 角色                     |
+| ------ | ------------------------------------------ | ---------------------------- | ------------------------ |
+| GET    | `/inventory/balances`                      | 按仓库、SKU 搜现存和成本     | 所有成员                 |
+| GET    | `/inventory/movements`                     | 库存流水、分页/筛选          | 所有成员                 |
+| POST   | `/inventory/adjustments`                   | 管理员盘点差异调整，审计必需 | OWNER/ADMIN              |
+| GET    | `/outbound-orders`                         | 出库单列表                   | 所有成员                 |
+| POST   | `/outbound-orders`                         | 创建待发货草稿               | OWNER/ADMIN/WAREHOUSE    |
+| GET    | `/outbound-orders/{id}`                    | 出库单详情                   | 所有成员                 |
+| PATCH  | `/outbound-orders/{id}`                    | 修改未确认草稿               | OWNER/ADMIN/WAREHOUSE    |
+| POST   | `/outbound-orders/{id}/ship`               | 确认发货并扣库存，幂等       | OWNER/ADMIN/WAREHOUSE    |
+| POST   | `/outbound-orders/{id}/cancel`             | 仅取消未确认草稿             | OWNER/ADMIN/WAREHOUSE    |
+| GET    | `/reports/overview?from=&to=&warehouseId=` | 采购额、库存价值、已收统计   | OWNER/ADMIN/BUYER/VIEWER |
+| GET    | `/reports/export/stock-movements.csv`      | 导出库存流水                 | OWNER/ADMIN              |
+| GET    | `/health`                                  | 存活检查，生产避免暴露秘钥   | 公开                     |
 
 任务 24 已实现表中 6 个出库端点（`GET/POST /outbound-orders`、`GET/PATCH /outbound-orders/{id}`、`POST /outbound-orders/{id}/ship`、`POST /outbound-orders/{id}/cancel`），字段、事务顺序、成本口径、错误码与核对 SQL 见 `docs/OUTBOUND.md`。`POST /inventory/adjustments`（盘点差异）仍是计划项。
 
@@ -198,16 +198,21 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ```json
 {
-  "warehouseId":"w-uuid",
-  "platform":"TAOBAO",
-  "platformOrderNo":"T202610140001",
-  "supplierName":"示例商家",
-  "purchaseDate":"2026-10-21",
-  "recipient":{"name":"仓库收货人","phone":"13800000000","address":"测试地址"},
-  "freightAmount":"10.00",
-  "items":[
-    {"productId":"product-a-uuid","quantity":10,"unitPrice":"18.50","discountAmount":"0.00"},
-    {"productId":"product-b-uuid","quantity":5,"unitPrice":"9.00","discountAmount":"5.00"}
+  "warehouseId": "w-uuid",
+  "platform": "TAOBAO",
+  "platformOrderNo": "T202610140001",
+  "supplierName": "示例商家",
+  "purchaseDate": "2026-10-21",
+  "recipient": { "name": "仓库收货人", "phone": "13800000000", "address": "测试地址" },
+  "freightAmount": "10.00",
+  "items": [
+    {
+      "productId": "product-a-uuid",
+      "quantity": 10,
+      "unitPrice": "18.50",
+      "discountAmount": "0.00"
+    },
+    { "productId": "product-b-uuid", "quantity": 5, "unitPrice": "9.00", "discountAmount": "5.00" }
   ]
 }
 ```
@@ -229,11 +234,11 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ```json
 {
-  "carrierCode":"ZTO",
-  "trackingNo":"783456123000",
-  "expectedItems":[
-    {"purchaseOrderItemId":"poitem-a-uuid","expectedQuantity":10},
-    {"purchaseOrderItemId":"poitem-b-uuid","expectedQuantity":5}
+  "carrierCode": "ZTO",
+  "trackingNo": "783456123000",
+  "expectedItems": [
+    { "purchaseOrderItemId": "poitem-a-uuid", "expectedQuantity": 10 },
+    { "purchaseOrderItemId": "poitem-b-uuid", "expectedQuantity": 5 }
   ]
 }
 ```
@@ -247,15 +252,23 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 ### 5.3 根据扫描结果查包裹
 
 `GET /packages/lookup?trackingNo=783456123000`
+
 ```json
 {
-  "data": [{
-    "packageId":"package-uuid", "trackingNo":"783456123000", "carrierCode":"ZTO",
-    "purchaseOrderId":"po-uuid", "purchaseOrderNo":"PO-20261014-0001",
-    "packageStatus":"CREATED", "receivingStatus":"NOT_RECEIVED",
-    "hasReceipts":false, "receivedQuantity":0
-  }],
-  "requestId":"request-uuid"
+  "data": [
+    {
+      "packageId": "package-uuid",
+      "trackingNo": "783456123000",
+      "carrierCode": "ZTO",
+      "purchaseOrderId": "po-uuid",
+      "purchaseOrderNo": "PO-20261014-0001",
+      "packageStatus": "CREATED",
+      "receivingStatus": "NOT_RECEIVED",
+      "hasReceipts": false,
+      "receivedQuantity": 0
+    }
+  ],
+  "requestId": "request-uuid"
 }
 ```
 
@@ -268,19 +281,46 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 ```json
 {
   "data": {
-    "packageId":"package-uuid", "purchaseOrderId":"po-uuid", "purchaseOrderNo":"PO-20261014-0001",
-    "purchaseStatus":"PLACED", "packageStatus":"CREATED",
-    "receivingStatus":"NOT_RECEIVED", "hasPlan":true, "receivingClosed":false,
-    "receivedQuantity":0,
-    "lines":[
-      {"purchaseOrderItemId":"poitem-a-uuid","productId":"product-uuid","sku":"CHARGER-20W",
-       "name":"20W 充电器","unit":"件","orderedQuantity":10,"receivedQuantity":4,
-       "orderRemainingQuantity":6,"inPackagePlan":true,"expectedQuantity":6,
-       "packageReceivedQuantity":0,"packageRemainingQuantity":6,"maxReceivableQuantity":6},
-      {"purchaseOrderItemId":"poitem-b-uuid","productId":"product-uuid","sku":"CABLE-1M",
-       "name":"1 米数据线","unit":"条","orderedQuantity":5,"receivedQuantity":0,
-       "orderRemainingQuantity":5,"inPackagePlan":false,"expectedQuantity":null,
-       "packageReceivedQuantity":0,"packageRemainingQuantity":null,"maxReceivableQuantity":5}
+    "packageId": "package-uuid",
+    "purchaseOrderId": "po-uuid",
+    "purchaseOrderNo": "PO-20261014-0001",
+    "purchaseStatus": "PLACED",
+    "packageStatus": "CREATED",
+    "receivingStatus": "NOT_RECEIVED",
+    "hasPlan": true,
+    "receivingClosed": false,
+    "receivedQuantity": 0,
+    "lines": [
+      {
+        "purchaseOrderItemId": "poitem-a-uuid",
+        "productId": "product-uuid",
+        "sku": "CHARGER-20W",
+        "name": "20W 充电器",
+        "unit": "件",
+        "orderedQuantity": 10,
+        "receivedQuantity": 4,
+        "orderRemainingQuantity": 6,
+        "inPackagePlan": true,
+        "expectedQuantity": 6,
+        "packageReceivedQuantity": 0,
+        "packageRemainingQuantity": 6,
+        "maxReceivableQuantity": 6
+      },
+      {
+        "purchaseOrderItemId": "poitem-b-uuid",
+        "productId": "product-uuid",
+        "sku": "CABLE-1M",
+        "name": "1 米数据线",
+        "unit": "条",
+        "orderedQuantity": 5,
+        "receivedQuantity": 0,
+        "orderRemainingQuantity": 5,
+        "inPackagePlan": false,
+        "expectedQuantity": null,
+        "packageReceivedQuantity": 0,
+        "packageRemainingQuantity": null,
+        "maxReceivableQuantity": 5
+      }
     ]
   }
 }
@@ -308,13 +348,13 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 
 ```json
 {
-  "packageId":"package-uuid",
-  "clientOperationId":"c0f21ff9-b97c-4cea-b5d5-e99861c08c63",
-  "items":[
-    {"purchaseOrderItemId":"poitem-a-uuid","receivedQty":6},
-    {"purchaseOrderItemId":"poitem-b-uuid","receivedQty":5}
+  "packageId": "package-uuid",
+  "clientOperationId": "c0f21ff9-b97c-4cea-b5d5-e99861c08c63",
+  "items": [
+    { "purchaseOrderItemId": "poitem-a-uuid", "receivedQty": 6 },
+    { "purchaseOrderItemId": "poitem-b-uuid", "receivedQty": 5 }
   ],
-  "remark":"外箱完好，人工核对无误"
+  "remark": "外箱完好，人工核对无误"
 }
 ```
 
@@ -335,7 +375,11 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 `POST /outbound-orders/{id}/ship`
 
 ```json
-{"clientOperationId":"2d174cc7-75f7-4fc4-893e-5a16909c005b","carrierCode":"YTO","trackingNo":"YT00123456789"}
+{
+  "clientOperationId": "2d174cc7-75f7-4fc4-893e-5a16909c005b",
+  "carrierCode": "YTO",
+  "trackingNo": "YT00123456789"
+}
 ```
 
 成功后扣库存并写 `OUTBOUND` 流水与审计；重复同样确认 ID 返回原结果（200）、不再扣减，换新的确认 ID 再确认已 SHIPPED 的出库单返回 `409 STATUS_CONFLICT`；存量不足返回 `409 OUT_OF_STOCK`，`details.shortages` 逐 SKU 给出 `requestedQuantity` 与 `availableQuantity`。`carrierCode` / `trackingNo` / `remark` 可选，给了就覆盖草稿里的值，并计入 `confirm_request_hash`。
@@ -345,7 +389,7 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 `GET/POST /purchase-accounts`、`PATCH/DELETE /purchase-accounts/{id}`，完整字段、错误码与核对 SQL 见 [PURCHASE_ACCOUNTS.md](PURCHASE_ACCOUNTS.md)。
 
 ```json
-{"platform":"JD","alias":"京东采购号","remark":"3C 类目"}
+{ "platform": "JD", "alias": "京东采购号", "remark": "3C 类目" }
 ```
 
 只存平台、别名、备注、启停用；平台限 `TAOBAO/JD/PDD/OTHER`，同商家同平台别名唯一。请求体里的未知字段（例如 `password`）被白名单拒绝为 400。采购单可选 `purchaseAccountId`，草稿显示账号当前别名，确认下单时冻结 `purchaseAccountAliasSnapshot`；已有采购记录的账号不能改平台、不能删除（409），停用后不能用于新采购或确认下单，但历史仍可查询。

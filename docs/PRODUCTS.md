@@ -31,19 +31,19 @@ POST `/api/v1/products`，Bearer + X-Tenant-Id，正文：
 
 成功 201，返回标准 `{data:<商品>,requestId:<UUID>}`。保存 data.id。原样再次提交同一商家，返回 409 `PRODUCT_SKU_ALREADY_EXISTS`，消息“当前商家已存在相同 SKU 编码”；修改 SKU 但仍复用非空条码则为 409 `PRODUCT_BARCODE_ALREADY_EXISTS`。不同商家可以使用完全相同的 SKU/条码。
 
-|中文字段|JSON 字段|规则|
-|---|---|---|
-|商品货号|articleNo|可省略或 null，最长 80；同款不同颜色/尺码共用同一个货号|
-|颜色|color|可省略或 null，最长 80|
-|尺码|size|可省略或 null，最长 80；也可放 42、均码等|
-|SKU 编码|sku|必填，trim 后 1–80，商家内唯一，保留大小写/内部字符/前导零|
-|商品名称|name|可省略，最长 200，不允许控制字符；留空或传空串时按 货号/颜色/尺码 自动生成|
-|规格|specification|可省略或 null，最长 200，空白归 null|
-|单位|unit|默认“件”，trim 后 1–20，不可 null|
-|商品条码|barcode|可省略或 null，最长 128，空白归 null；非空商家内唯一；不再是主要录入字段|
-|参考进货价|referencePurchasePrice|可省略或 null；非负十进制字符串，最多 16 位整数/2 位小数，返回固定 2 位|
-|启用状态|isActive|默认 true，仅 JSON boolean|
-|备注|remark|可省略或 null，最长 2000，空白归 null|
+| 中文字段   | JSON 字段              | 规则                                                                       |
+| ---------- | ---------------------- | -------------------------------------------------------------------------- |
+| 商品货号   | articleNo              | 可省略或 null，最长 80；同款不同颜色/尺码共用同一个货号                    |
+| 颜色       | color                  | 可省略或 null，最长 80                                                     |
+| 尺码       | size                   | 可省略或 null，最长 80；也可放 42、均码等                                  |
+| SKU 编码   | sku                    | 必填，trim 后 1–80，商家内唯一，保留大小写/内部字符/前导零                 |
+| 商品名称   | name                   | 可省略，最长 200，不允许控制字符；留空或传空串时按 货号/颜色/尺码 自动生成 |
+| 规格       | specification          | 可省略或 null，最长 200，空白归 null                                       |
+| 单位       | unit                   | 默认“件”，trim 后 1–20，不可 null                                          |
+| 商品条码   | barcode                | 可省略或 null，最长 128，空白归 null；非空商家内唯一；不再是主要录入字段   |
+| 参考进货价 | referencePurchasePrice | 可省略或 null；非负十进制字符串，最多 16 位整数/2 位小数，返回固定 2 位    |
+| 启用状态   | isActive               | 默认 true，仅 JSON boolean                                                 |
+| 备注       | remark                 | 可省略或 null，最长 2000，空白归 null                                      |
 
 同款商品不同颜色、尺码必须各建一个商品、各用一个 SKU，库存、采购、入库、出库都按 SKU 识别到具体变体。唯一性区分大小写，与现有数据库约束一致。条码与 SKU 拒绝控制/无效代理字符；文本不接受 NUL。金额不接受 JS number、负数、指数、NaN/Infinity、额外小数或溢出，不静默四舍五入。"0.00" 表示免费，null 表示未知；不计算会计成本。
 
@@ -73,7 +73,7 @@ code trim 后 1–128 字符，按当前商家启用商品的精确 SKU OR barco
 PATCH `/api/v1/products/{id}`，例如：
 
 ```json
-{"referencePurchasePrice":"19.90","remark":"调整下次采购参考价"}
+{ "referencePurchasePrice": "19.90", "remark": "调整下次采购参考价" }
 ```
 
 至少提供一个合法商品字段。省略字段不改，nullable 字段可 null 清空，barcode 空白也清空；name/sku/unit/isActive 不可 null。金额相同的 "1.0"/"1.00" 视为无变化，重复相同 PATCH 不改 updatedAt、不重复审计。
