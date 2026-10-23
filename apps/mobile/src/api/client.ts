@@ -41,13 +41,22 @@ export class ApiFailure extends Error {
   readonly status: number;
   readonly code: string;
   readonly requestId?: string;
+  /** 服务端 error.details，例如超收时的 maxReceivableQuantity、冲突时的 purchaseStatus。 */
+  readonly details?: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string, requestId?: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    requestId?: string,
+    details?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = 'ApiFailure';
     this.status = status;
     this.code = code;
     this.requestId = requestId;
+    this.details = details;
   }
 }
 
@@ -151,6 +160,7 @@ export function createApiClient(options: ClientOptions) {
         failure?.code ?? 'HTTP_ERROR',
         message,
         payload?.requestId,
+        failure?.details && typeof failure.details === 'object' ? failure.details : undefined,
       );
     }
     if (!payload || !('data' in payload))

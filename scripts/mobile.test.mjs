@@ -72,6 +72,7 @@ test(
           'pages/tenant/index',
           'pages/scan/index',
           'pages/package/index',
+          'pages/receiving/index',
         ]);
         assert.equal(pages.pages[0].path, 'pages/login/index', '登录页是启动页');
         assert.deepEqual(

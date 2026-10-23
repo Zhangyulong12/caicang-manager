@@ -4,7 +4,7 @@ import { createApiClient, type MobileStorage, type Transport } from './client';
 export { ApiFailure, SESSION_KEY, TENANT_KEY } from './client';
 export type { ApiClient, Session } from './client';
 
-const storage: MobileStorage = {
+export const mobileStorage: MobileStorage = {
   getItem(key) {
     const value = uni.getStorageSync(key);
     return typeof value === 'string' && value.length > 0 ? value : null;
@@ -42,6 +42,6 @@ const transport: Transport = (request) =>
 
 export const api = createApiClient({
   baseUrl: apiBaseUrl,
-  storage,
+  storage: mobileStorage,
   transport,
 });

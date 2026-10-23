@@ -4,7 +4,7 @@ import { computed, ref } from 'vue';
 import type { ApiPageResponse, PackageData, ReceiptData } from '@caicang/api-contract';
 import NetworkBanner from '../../components/NetworkBanner.vue';
 import { api } from '../../api';
-import { session } from '../../stores/session';
+import { session, can } from '../../stores/session';
 import { errorMessage } from '../../utils/feedback';
 import { requireSignIn } from '../../utils/guard';
 import {
@@ -22,6 +22,12 @@ const receipts = ref<ReceiptData[]>([]);
 const loading = ref(false);
 const error = ref('');
 const receiptNote = ref('');
+/** 从收货页返回时强制刷新，避免还显示收货前的数量。 */
+const stale = ref(false);
+const canReceive = computed(() => {
+  if (!can('receiving:confirm') || !detail.value) return false;
+  return detail.value.receivingStatus !== 'RECEIVED' && detail.value.status !== 'RECEIVED';
+});
 const planTotal = computed(() =>
   detail.value
     ? detail.value.expectedItems.reduce((sum, item) => sum + item.expectedQuantity, 0)
@@ -39,7 +45,8 @@ onShow(async () => {
     error.value = '缺少包裹编号，请返回重新扫码';
     return;
   }
-  if (!detail.value) await load();
+  if (detail.value && !stale.value) return;
+  await load();
 });
 
 async function load(): Promise<void> {
@@ -59,6 +66,7 @@ async function load(): Promise<void> {
       { tenantId },
     );
     detail.value = result.data;
+    stale.value = false;
   } catch (failure) {
     error.value = errorMessage(failure);
     return;
@@ -82,6 +90,14 @@ async function loadReceipts(tenantId: string): Promise<void> {
   } catch (failure) {
     receiptNote.value = errorMessage(failure);
   }
+}
+
+function openReceiving(): void {
+  if (!detail.value) return;
+  stale.value = true;
+  uni.navigateTo({
+    url: '/pages/receiving/index?id=' + encodeURIComponent(detail.value.id),
+  });
 }
 
 function backToScan(): void {
@@ -213,11 +229,20 @@ function goHome(): void {
 
         <view class="notice">
           <text class="notice-text">
-            扫码只用于查询包裹信息，不会修改库存。入库确认将在后续版本开放。
+            扫码与查看详情都不会修改库存；点「确认收货」才会调用真实入库事务，库存以服务端入库单为准。
           </text>
         </view>
 
-        <button class="btn btn-primary action" @click="backToScan">继续扫码</button>
+        <button v-if="canReceive" class="btn btn-primary action" @click="openReceiving">
+          确认收货
+        </button>
+        <button
+          class="action"
+          :class="canReceive ? 'btn btn-ghost' : 'btn btn-primary'"
+          @click="backToScan"
+        >
+          继续扫码
+        </button>
         <button class="btn btn-ghost action" @click="goHome">返回首页</button>
       </template>
     </view>

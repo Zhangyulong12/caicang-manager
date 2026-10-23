@@ -46,6 +46,13 @@
         "navigationBarTitleText": "包裹详情",
         "enablePullDownRefresh": false
       }
+    },
+    {
+      "path": "pages/receiving/index",
+      "style": {
+        "navigationBarTitleText": "扫码入库",
+        "enablePullDownRefresh": false
+      }
     }
   ],
   "tabBar": {

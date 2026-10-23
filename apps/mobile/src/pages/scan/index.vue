@@ -299,7 +299,7 @@ function goHome(): void {
 
       <view class="notice">
         <text class="notice-text">
-          扫码只用于查询包裹信息，不会修改库存。入库确认将在后续版本开放。
+          扫码只用于查询包裹信息，不会修改库存。确认收货在包裹详情页单独提交。
         </text>
       </view>
     </view>

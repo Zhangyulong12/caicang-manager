@@ -1,5 +1,13 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 21：手机扫码验收入库全流程
+
+扫码命中包裹后，详情页「确认收货」进入收货页（`pages/receiving/index`），逐 SKU 展示订购 / 已入库 / 剩余与本次最多可收，默认带出可收数量，可改成实际到货（留空即"这件没到"），支持一个包裹多个 SKU、部分收货、2000 字备注；点确认先弹二次确认框（列出商品 × 数量与总件数），确认后调任务 17 的真实事务 `POST /receipts`，成功页展示服务端返回的入库单号与**本次入库件数**，并可「继续扫下一包裹」。
+
+幂等按内容决定：同样的包裹 + 数量 + 备注重试（断网/5xx/杀进程后重开）复用落盘的 `clientOperationId` 与原样请求体，服务端返回原入库单、库存不重复增加；改了数量或备注则生成新 UUID。断网时页面显示「未提交」并明确"不会提前增加库存"，本地不做任何数量乐观更新；超收（含服务端 409 的剩余可收量）、包裹已关闭、采购单已取消、无权限、操作号冲突都有独立文案并说明"本次未入库"。本机操作日志留最近 50 条（收货页展示 5 条）。
+
+`pnpm test:mobile-receiving` 覆盖数量解析、部分收货、指纹变化、UUID 复用/更换、错误文案与页面接线（10 通过 / 1 跳过），跳过的正是需要 PostgreSQL 的"收 5 件 → 库存 +5"真实验收；本机 Docker 仍被系统策略拦截，需在能启动 PostgreSQL 的环境或真机按 [任务 21 报告](docs/TASK_21_REPORT.md) 第六节验证。设计与幂等规则见 [手机端说明](docs/MOBILE_APP.md)「十、扫码验收入库」。
+
 ## 任务 20：Android 手机扫一扫
 
 `apps/mobile` 新增真正的扫码页（`pages/scan/index`）与包裹详情页（`pages/package/index`），调用官方 `uni.scanCode`，同时支持一维条形码与二维码，扫码结果只用于查询包裹、**不写收货单也不动库存**。码值全程按字符串处理（`000783456123` 的前导零不会被吃掉），清洗后调 `GET /packages/lookup`：唯一命中直接进详情，多个候选列出来让用户按采购单/承运商选，查不到给"单号有误 / 未绑定采购单 / 属于其他商家"的异常提示；条码磨损可手动输入或粘贴。`ScanGuard` 做两层防抖（查询未返回时挡并发、同一单号 3 秒内不重复请求），「重新扫码」可清窗口重扫。相机权限被拒时给出说明 +「去设置开启」+「我已开启，重新扫码」，H5 预览不会被当成扫码设备。
@@ -123,11 +131,12 @@ pnpm typecheck
 pnpm build
 pnpm test
 pnpm test:scan
+pnpm test:mobile-receiving
 pnpm --filter @caicang/mobile build:app
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 ```
 
-`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`pnpm test:scan` 只校验手机扫码逻辑与路由，不需要数据库。`build:app` 只生成 uni-app 的 App 资源，不签名、不生成可安装 APK。实际执行记录和未解决事项见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)。
+`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`pnpm test:scan` 只校验手机扫码逻辑与路由，不需要数据库；`pnpm test:mobile-receiving` 的纯逻辑用例同样不需要数据库，其中的真实验收用例在 PostgreSQL 不可用时显式跳过。`build:app` 只生成 uni-app 的 App 资源，不签名、不生成可安装 APK。实际执行记录和未解决事项见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)。
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 

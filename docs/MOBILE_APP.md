@@ -15,7 +15,8 @@
 | 请求封装 | 统一 `ApiFailure(status, code, message, requestId)`，15 秒超时，429 统一文案 |
 | 断网提示 | 启动即监听网络状态，断开时页面顶部红色条 + toast |
 | 双环境地址 | `.env.development` / `.env.production` 注入 `VITE_API_BASE_URL` |
-| 扫码查包裹 | 官方 `uni.scanCode` 扫一维码/二维码，调 `GET /packages/lookup`，唯一进详情、多候选手动选、未知给异常提示；**只查不改库存** |
+| 扫码查包裹 | 官方 `uni.scanCode` 扫一维码/二维码，调 `GET /packages/lookup`，唯一进详情、多候选手动选、未知给异常提示 |
+| 扫码验收入库 | 收货页按 SKU 填实际到货数、写备注、二次确认后调 `POST /receipts` 真实事务；断网未提交、重试复用同一操作号不重复入库 |
 
 **尚未实现**：库存查询、扫码出库的真实业务页面（点击入口会提示"将在下一阶段开放"）。入库记录已接 `GET /receipts`，可翻页、下拉刷新。
 
@@ -30,12 +31,14 @@ apps/mobile/
     api/index.ts              注入 uni.request 与 uni storage 的适配层
     services/network.ts       网络状态监听
     services/scan.ts          扫码结果清洗、lookup 请求、去重闸门（框架无关，可单测）
+    services/receiving.ts     收货草稿、幂等 UUID 闸门、错误文案（框架无关，可单测）
+    services/operation-log.ts 本机操作日志（50 条环形缓冲）
     stores/session.ts         登录态、商家列表、当前商家、本地缓存
     utils/feedback.ts         错误文案、toast、确认框
     utils/guard.ts            页面级登录守卫
     utils/package.ts          包裹/收货状态中文名、时间格式化
     components/NetworkBanner.vue
-    pages/login|home|records|account|tenant|scan|package/index.vue
+    pages/login|home|records|account|tenant|scan|package|receiving/index.vue
     pages.json / manifest.json
 ```
 
@@ -51,7 +54,8 @@ apps/mobile/
 | `pages/account/index` | 我的账户、服务地址、退出登录 | 我的 |
 | `pages/tenant/index` | 切换商家 | 否（从首页/我的进入） |
 | `pages/scan/index` | 扫一扫：相机扫码 / 手动输入，查包裹 | 否（首页「扫码入库」进入） |
-| `pages/package/index` | 包裹详情：采购单、预计明细、入库单（只读） | 否（扫码命中后进入） |
+| `pages/package/index` | 包裹详情：采购单、预计明细、入库单；有权限时可进收货 | 否（扫码命中后进入） |
+| `pages/receiving/index` | 扫码验收入库：按 SKU 填到货数、备注、二次确认、提交事务 | 否（详情页「确认收货」进入） |
 
 四个入口按权限判断：`receiving:confirm`（扫码入库）、`products:read`（库存查询）、`outbound:write`（扫码出库）、`packages:read`（入库记录）。没有权限的入口置灰并提示原因，而不是点了报 403。扫码页还额外校验 `packages:lookup`（服务端同样会校验）。
 
@@ -140,7 +144,7 @@ pnpm --filter @caicang/mobile build:app   # 产出 apps/mobile/dist/build/app
 - **多候选不自动选第一个**：同一运单号可能被不同承运商复用，猜错会把货记到别的采购单上。
 - **权限被拒不是死路**：面板里「去设置开启」调 `uni.openAppAuthorizeSetting`，「我已开启，重新扫码」直接重试；`uni.scanCode` 的 fail 回调也会识别 `auth/permission/denied/权限` 关键字兜底切到权限面板。
 - **H5 不能假装能扫**：`plus` 不存在时直接给模态提示，避免把浏览器当扫码设备"验收通过"。
-- **详情页只读**：`GET /packages/:id` + `GET /receipts?packageId=…`，没有验收按钮；入库确认属于后续任务。
+- **详情页本身不改库存**：`GET /packages/:id` + `GET /receipts?packageId=…` 只读；真正的入库在「确认收货」后的收货页里单独提交。
 
 排障：
 
@@ -152,11 +156,53 @@ pnpm --filter @caicang/mobile build:app   # 产出 apps/mobile/dist/build/app
 | 一直提示"刚刚已查询过该单号" | 3 秒防抖，等一秒或点「重新扫码」 |
 | 条码磨损扫不出 | 用页面下方手动输入，或「粘贴」剪贴板里的单号 |
 
-## 十、已知限制
+## 十、扫码验收入库
+
+`pages/package/index` 点「确认收货」→ `pages/receiving/index?id=…`。这一页是**唯一会写库存的地方**，调的是任务 17 的真实事务接口。
+
+```
+GET /packages/:id            → 采购单、承运商、运单号、包裹状态
+GET /packages/:id/receivable → 每个 SKU 的订购 / 已入库 / 剩余 / 本次最多可收
+        ↓ 每行默认填「最多可收」，可改小；留空 = 这件没到
+二次确认（uni.showModal，列出商品 × 数量 + 总件数 + 备注）
+        ↓
+POST /receipts { packageId, clientOperationId, items[{purchaseOrderItemId, receivedQty}], remark }
+        ↓ 201 首次 / 200 幂等重放
+成功页：入库单号、本次入库件数、逐商品数量、时间 → 「继续扫下一包裹」
+```
+
+**数量规则**
+
+- 只收非负整数；空 = 0（本次没到），不进入请求体。
+- 每行上限是 `maxReceivableQuantity`（服务端已按"整单剩余"与"本包裹计划剩余"取小），提交前本地先拦一次并指出是哪一行，服务端 409 再兜底。
+- 部分收货、多 SKU 混合都只是"提交哪些行、各多少"的区别，不需要额外开关。
+
+**幂等：什么时候复用 UUID**
+
+| 场景 | 行为 |
+| --- | --- |
+| 断网 / 5xx 后重试，内容没改 | 复用原 `clientOperationId` + 原样请求体；服务端返回原入库单，库存不变 |
+| App 被杀掉后重开再重试 | 同样复用（待提交记录写在 `caicang.mobile.receipt-pending.v1`） |
+| 改了数量或备注再提交 | 内容指纹变化 → 生成新 UUID，服务端按新一次入库处理 |
+| 成功后再次提交 | 记录已清除 → 新 UUID（确实是一次新的入库） |
+| 服务端 4xx 拒绝（超收/已关闭/已取消） | 不会产生入库单，清掉记录，让用户改完再提 |
+
+**断网与错误**
+
+- 断网提交：页面显示「未提交」，并明确写"App 不会提前增加库存"；本地不扣减任何数量，也不把待确认当成已入库。
+- 网络恢复后点「重试本次提交」，走同一条幂等路径；如果上次其实已写成功，返回的是同一张入库单，成功页会标注"重试命中同一入库单，未重复加库存"。
+- 超收、包裹已关闭、采购单已取消、无权限、操作号冲突都有独立标题与处理建议，且都说明"本次未入库"。
+
+**操作日志**
+
+`services/operation-log.ts` 在本机留最近 50 条（提交、成功、失败原因、读明细失败），收货页底部展示最近 5 条。它只用于现场追溯；库存事实以服务端入库单与 `audit_logs` 为准。
+
+## 十一、已知限制
 
 - 底部导航暂时只有文字没有图标（避免往仓库里塞二进制资源），后续补 81×81 PNG。
 - 断网时不做离线队列：收货、查询都要求在线，避免出现"以为收了、其实没入库"。
 - 未做指纹/面容解锁与"保持登录"开关。
 - `uni.request` 的类型声明没有 PATCH：H5 走 XHR 可用，App 端接入写接口（如修改包裹）前需要真机实测一次。
-- 扫码只做查询；收货确认（写收货单、加库存）不在本版范围内，详情页没有任何验收按钮。
-- 相机扫码无法在自动化测试里覆盖：`scripts/scan.test.mjs` 覆盖码值清洗、去重、候选分类与"不写库存"，摄像头与授权弹窗必须真机验收。
+- 收货只支持"整件"数量，不支持按重量/批次/序列号验收，也不支持拆行分批到货的独立包装记录。
+- 备注只保存在入库单文本字段，不支持拍照附件。
+- 相机扫码无法在自动化测试里覆盖：`scripts/scan.test.mjs` 覆盖码值清洗、去重与候选分类，`scripts/mobile-receiving.test.mjs` 覆盖数量与幂等，摄像头、授权弹窗与真机入库必须真机验收。
