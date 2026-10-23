@@ -48,7 +48,7 @@
 | `pendingInboundQuantity` | 采购待入库：`PLACED`/`PARTIAL_RECEIVED` 采购单每行 `quantity - 已入库量` 之和，按商品+仓库聚合 |
 | `averageCost` | 移动加权平均成本 = `totalCost / quantityOnHand`，四位小数；数量为 0 时为 `0.0000` |
 | `totalCost` | 库存账面总成本，四位小数字符串 |
-| `lastReceivedAt` | **最近一次入库时间**（`stock_movements` 里该仓库+商品最新一条 `RECEIPT` 的 `created_at`），没入过库为 `null`。与 `updatedAt` 的区别：出库也会改 `updatedAt`，只有入库才改 `lastReceivedAt` |
+| `lastReceivedAt` | **最近一次入库时间**：按仓库+商品取 `receipts.received_at` 的最大值（经 `receipt_items` 关联回执），没入过库为 `null`。与 `updatedAt` 的区别：出库也会改 `updatedAt`，只有入库才改 `lastReceivedAt` |
 | `updatedAt` | 库存行最近变动时间，无余额行时为 `null` |
 
 行的来源是 `stock_balances` 与"待入库键"的并集，所以**只有待入库、一件都没到的商品也会出现在列表里**（`quantityOnHand = 0`）。这是"下单了但货还在路上"在仓库视图下的正确表现。

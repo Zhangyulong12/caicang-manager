@@ -29,7 +29,7 @@
 | 平均成本 | `averageCost` | 服务端算好的移动加权平均，四位小数 |
 | 库存总成本 | `totalCost` | `¥` 千分位两位展示 |
 | 待入库数量 | `pendingInboundQuantity` | 大于 0 时用琥珀色 |
-| 最近入库时间 | `lastReceivedAt` | 来自 `receipts.received_at` 的最大值；从未入库显示 `—` |
+| 最近入库时间 | `lastReceivedAt` | 服务端按仓库+商品取 `receipts.received_at` 的最大值（`receipt_items` 关联回执）；从未入库显示 `—` |
 
 工具栏：搜索（SKU / 商品名称 / 条码子串）、仓库下拉、变动日期区间（作用于 `stock_balances.updated_at`）、刷新、清除筛选。分页 10/20/50/100，底部显示「共 N 条 · 第 x / y 页」。
 
