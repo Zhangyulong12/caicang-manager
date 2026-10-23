@@ -1,5 +1,18 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 19：uni-app 手机应用基础功能
+
+- 新增登录页：真实 `POST /auth/login`，大号输入框与按钮，错误内联展示 + toast，支持回车提交；启动时若已有有效会话自动进首页。
+- 新增框架无关的会话客户端 `api/client.ts`：access token 提前 30 秒刷新、refresh token 轮换、401 只重试一次、刷新失败清空本地会话；`api/index.ts` 用 `uni.request` 与 uni storage 注入，逻辑可在 Node 中直接测试。
+- 新增会话状态模块：用户、商家列表、当前商家、按权限判断入口，并把商家与当前商家做本地快照，断网启动仍可进首页。
+- 首页重写为四个大入口（扫码入库 / 库存查询 / 扫码出库 / 入库记录），无权限置灰；底部导航为首页 / 入库记录 / 我的。
+- 新增入库记录页，接 `GET /receipts`，支持分页、下拉刷新、空态与错误重试。
+- 新增切换商家页与我的账户页：显示角色、服务环境与地址、版本，退出登录先调 `/auth/logout` 吊销再清本地。
+- 新增断网提示：`onLaunch` 监听网络状态，顶部红条与断开/恢复 toast。
+- 新增开发 / 正式地址配置（`.env.development`、`.env.production`），正式兜底域名故意不可解析；Android 清单补 INTERNET / ACCESS_NETWORK_STATE / CAMERA / VIBRATE 与明文调试开关。
+- 新增 `scripts/mobile.test.mjs` 与 `pnpm test:mobile`：校验页面与 tabBar 一致、四入口、适配层使用 `uni.request`、构建产物使用正式地址，并覆盖真实 API 的登录、刷新、重试、切换商家、退出与错误文案。本次真实 API 用例因本机 Docker 的 WSL 后端被安全策略拦截而跳过，其余 3 项通过。
+- 详见 `docs/MOBILE_APP.md`、`docs/TASK_19_REPORT.md`。
+
 ## 2026-10-22 — 用户任务 18：验收入库安全专项测试
 
 - 新增 `scripts/receiving-safety.test.mjs`：在隔离 PostgreSQL 库 + 真实 API 进程上重放 12 个破坏性场景（首次入库、同 ID 重发、同 ID 换请求体、两人同扫一箱、两箱同收一 SKU、合计超收、多行其中一行失败、采购单已取消、跨商家包裹、事务中途失败、先部分后剩余、多次入库加权平均），共 13 个子测试。

@@ -19,7 +19,7 @@ export default tseslint.config(
     files: ['**/*.vue'],
     languageOptions: {
       parserOptions: { parser: tseslint.parser },
-      globals: { window: 'readonly', BeforeUnloadEvent: 'readonly' },
+      globals: { window: 'readonly', BeforeUnloadEvent: 'readonly', uni: 'readonly' },
     },
     rules: {
       'vue/multi-word-component-names': 'off',

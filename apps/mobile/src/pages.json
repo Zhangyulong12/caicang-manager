@@ -1,7 +1,62 @@
 {
-  "pages": [{ "path": "pages/home/index", "style": { "navigationBarTitleText": "采仓管家" } }],
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "采仓管家",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/records/index",
+      "style": {
+        "navigationBarTitleText": "入库记录",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/account/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/tenant/index",
+      "style": {
+        "navigationBarTitleText": "切换商家"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#7b8b83",
+    "selectedColor": "#17382d",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/records/index",
+        "text": "入库记录"
+      },
+      {
+        "pagePath": "pages/account/index",
+        "text": "我的"
+      }
+    ]
+  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "采仓管家",
     "navigationBarBackgroundColor": "#f4f7f5",
     "backgroundColor": "#f4f7f5"
   }

@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 19：uni-app 手机应用基础功能
+
+`apps/mobile` 现在是可登录、可切换商家、能装到 Android 上的 App：真实调用 `/auth/login`，access token 提前 30 秒自动刷新、refresh token 轮换、401 只重试一次、刷新失败清会话；首页四个大按钮（扫码入库 / 库存查询 / 扫码出库 / 入库记录）按角色权限置灰，底部导航为首页 / 入库记录 / 我的，入库记录已接 `GET /receipts`。请求统一走注入式客户端（`api/client.ts` 不依赖 uni API，`api/index.ts` 才接 `uni.request`），错误统一为 `ApiFailure(status, code, message, requestId)`，断网有顶部红条与 toast。开发 / 正式地址由 `.env.development`、`.env.production` 的 `VITE_API_BASE_URL` 决定，正式兜底域名故意不可解析。
+
+`pnpm --filter @caicang/mobile build:app` 产出 `dist/build/app`，导入 HBuilderX 即可运行到 Android 基座；Android 权限已声明 INTERNET / ACCESS_NETWORK_STATE / CAMERA / VIBRATE。结构、tabBar 一致性、四入口与构建产物地址由 `pnpm test:mobile` 自动校验（本次真实 API 用例因本机 Docker 的 WSL 后端被策略拦截而跳过，需在能启动 Docker 的环境补跑）。设计与真机步骤见 [手机端说明](docs/MOBILE_APP.md)，结果见 [任务 19 报告](docs/TASK_19_REPORT.md)。
+
 ## 任务 18：验收入库安全专项测试
 
 不新增页面，只验证任务 17 的入库事务。`scripts/receiving-safety.test.mjs` 在隔离 PostgreSQL 库与真实 API 进程上重放 12 个破坏性场景：首次入库、同一操作 ID 重发 10 次 + 并发重发、同 ID 换请求体、两名仓管同扫一箱、两箱同收一 SKU、两次合计超收、多商品某一行失败、已取消采购单、跨商家包裹、事务中途数据库报错、先收部分再收剩余、三次不同单价的加权平均。

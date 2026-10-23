@@ -14,6 +14,9 @@ apps/api/src/generated/
 .env.*
 !.env.example
 !.env.*.example
+# 手机端开发 / 正式地址不含密钥，必须随仓库走，否则打包会落到兜底域名
+!apps/mobile/.env.development
+!apps/mobile/.env.production
 .npmrc.local
 
 # Build, test and Android output
