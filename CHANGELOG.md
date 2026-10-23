@@ -1,5 +1,17 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 20：Android 手机扫一扫
+
+- 新增扫码页 `pages/scan/index`：官方 `uni.scanCode`，`scanType: ['barCode','qrCode']`，`onlyFromCamera: true`，320rpx 大按钮，适配仓库单手操作。
+- 新增框架无关的 `services/scan.ts`：`normalizeTrackingNo` 只 trim、限长 128、拒绝控制字符，**前导零原样保留**（绝不做数字转换）；`lookupPackages` 走 `GET /packages/lookup?trackingNo=` 并对码值 `encodeURIComponent`；`classifyLookup` 区分单候选/多候选/无结果；`ScanGuard` 两层防抖（查询未返回挡并发 + 同码 3 秒窗口）。
+- 命中唯一包裹进新增的 `pages/package/index` 详情页（采购单、承运商、物流/收货状态、预计明细、该包裹入库单，全部只读）；多候选列采购单号与承运商让用户手选，不自动取第一条；未知单号给"单号有误 / 未绑定采购单 / 属于其他商家"提示与补录建议。
+- 支持手动输入运单号与剪贴板粘贴，条码磨损时可用；「重新扫码」清空去重窗口后可立刻重扫同一个箱子。
+- 相机权限被拒时显示说明面板：`openAppAuthorizeSetting` 跳系统设置 + 「我已开启，重新扫码」；`uni.scanCode` fail 回调按 `auth|permission|denied|权限` 关键字兜底。H5 预览不伪装扫码，直接提示需在 App 中使用。
+- 首页「扫码入库」入口改为跳转扫码页；扫码页额外校验 `packages:lookup` 权限。
+- **扫码路径不写库存**：页面与服务无任何 POST/PATCH/DELETE，详情页无验收按钮，并有静态断言守住这条线。
+- 新增 `scripts/scan.test.mjs` 与 `pnpm test:scan`：10/10 通过（前导零、输入校验、请求拼装、候选分类、防抖窗口、路由与授权 API、"不写库存"静态校验），已纳入全仓 `test`；`scripts/mobile.test.mjs` 页面清单同步更新为 7 个页面。摄像头与授权弹窗需真机验收，真实 lookup 端到端因本机 Docker 的 WSL 后端被策略拦截未复跑。
+- 详见 `docs/MOBILE_APP.md`（新增「九、扫码查包裹」）、`docs/TASK_20_REPORT.md`（含 HBuilderX 真机调试步骤）。
+
 ## 2026-10-23 — 用户任务 19：uni-app 手机应用基础功能
 
 - 新增登录页：真实 `POST /auth/login`，大号输入框与按钮，错误内联展示 + toast，支持回车提交；启动时若已有有效会话自动进首页。

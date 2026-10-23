@@ -32,6 +32,20 @@
       "style": {
         "navigationBarTitleText": "切换商家"
       }
+    },
+    {
+      "path": "pages/scan/index",
+      "style": {
+        "navigationBarTitleText": "扫一扫",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/package/index",
+      "style": {
+        "navigationBarTitleText": "包裹详情",
+        "enablePullDownRefresh": false
+      }
     }
   ],
   "tabBar": {

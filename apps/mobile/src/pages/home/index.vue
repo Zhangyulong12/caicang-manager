@@ -14,6 +14,7 @@ interface Entry {
   hint: string;
   permission: TenantPermission;
   tab?: string;
+  url?: string;
 }
 
 const entries: Entry[] = [
@@ -21,8 +22,9 @@ const entries: Entry[] = [
     key: 'receiving',
     label: '扫码入库',
     glyph: '入',
-    hint: '扫描运单确认收货',
+    hint: '扫描运单查询包裹',
     permission: 'receiving:confirm',
+    url: '/pages/scan/index',
   },
   {
     key: 'stock',
@@ -80,6 +82,10 @@ function open(entry: Entry): void {
   }
   if (entry.tab) {
     uni.switchTab({ url: entry.tab });
+    return;
+  }
+  if (entry.url) {
+    uni.navigateTo({ url: entry.url });
     return;
   }
   toast(entry.label + '将在下一阶段开放');

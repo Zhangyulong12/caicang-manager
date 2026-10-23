@@ -1,5 +1,11 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 20：Android 手机扫一扫
+
+`apps/mobile` 新增真正的扫码页（`pages/scan/index`）与包裹详情页（`pages/package/index`），调用官方 `uni.scanCode`，同时支持一维条形码与二维码，扫码结果只用于查询包裹、**不写收货单也不动库存**。码值全程按字符串处理（`000783456123` 的前导零不会被吃掉），清洗后调 `GET /packages/lookup`：唯一命中直接进详情，多个候选列出来让用户按采购单/承运商选，查不到给"单号有误 / 未绑定采购单 / 属于其他商家"的异常提示；条码磨损可手动输入或粘贴。`ScanGuard` 做两层防抖（查询未返回时挡并发、同一单号 3 秒内不重复请求），「重新扫码」可清窗口重扫。相机权限被拒时给出说明 +「去设置开启」+「我已开启，重新扫码」，H5 预览不会被当成扫码设备。
+
+`pnpm --filter @caicang/mobile build:app` 产出 `dist/build/app`，HBuilderX 导入后运行到 Android 基座即可对准真实面单验收。扫码逻辑抽在 `services/scan.ts`（框架无关），`pnpm test:scan` 覆盖前导零、输入校验、请求拼装、候选分类、去重闸门与"不写库存"共 10 项；摄像头与授权弹窗只能真机确认。真机步骤见 [手机端说明](docs/MOBILE_APP.md)，结果与未验证项见 [任务 20 报告](docs/TASK_20_REPORT.md)。
+
 ## 任务 19：uni-app 手机应用基础功能
 
 `apps/mobile` 现在是可登录、可切换商家、能装到 Android 上的 App：真实调用 `/auth/login`，access token 提前 30 秒自动刷新、refresh token 轮换、401 只重试一次、刷新失败清会话；首页四个大按钮（扫码入库 / 库存查询 / 扫码出库 / 入库记录）按角色权限置灰，底部导航为首页 / 入库记录 / 我的，入库记录已接 `GET /receipts`。请求统一走注入式客户端（`api/client.ts` 不依赖 uni API，`api/index.ts` 才接 `uni.request`），错误统一为 `ApiFailure(status, code, message, requestId)`，断网有顶部红条与 toast。开发 / 正式地址由 `.env.development`、`.env.production` 的 `VITE_API_BASE_URL` 决定，正式兜底域名故意不可解析。
@@ -116,11 +122,12 @@ pnpm format:check
 pnpm typecheck
 pnpm build
 pnpm test
+pnpm test:scan
 pnpm --filter @caicang/mobile build:app
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 ```
 
-`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`build:app` 只生成 uni-app 的 App 资源，不签名、不生成可安装 APK。实际执行记录和未解决事项见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)。
+`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`pnpm test:scan` 只校验手机扫码逻辑与路由，不需要数据库。`build:app` 只生成 uni-app 的 App 资源，不签名、不生成可安装 APK。实际执行记录和未解决事项见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)。
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
