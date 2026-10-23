@@ -15,6 +15,18 @@ const MAX_STORED_COST = new Decimal('9999999999999999.9999');
 const ACTIVE_ORDER_STATUSES = ['PLACED', 'PARTIAL_RECEIVED'];
 // LIKE wildcards stay literal so a search term cannot broaden the result set.
 const literal = (value: string) => value.replace(/[\\%_]/g, '\\$&');
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+/** 只写日期时，上界补到当天 23:59:59.999Z，避免"选了今天却查不到今天的入库单"。 */
+function instant(value: string | undefined, field: string, endOfDay: boolean): Date | undefined {
+  if (!value) return undefined;
+  const text = DATE_ONLY.test(value)
+    ? value + (endOfDay ? 'T23:59:59.999Z' : 'T00:00:00.000Z')
+    : value;
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime()))
+    throw new BusinessException('BUSINESS_VALIDATION_FAILED', { field });
+  return date;
+}
 
 const receiptInclude = {
   purchaseOrder: { select: { orderNo: true, status: true } },
@@ -453,6 +465,15 @@ export class ReceiptsService {
       const where: Prisma.ReceiptWhereInput = { tenantId: current.tenantId };
       if (query.packageId) where.packageId = query.packageId;
       if (query.purchaseOrderId) where.purchaseOrderId = query.purchaseOrderId;
+      const from = instant(query.from, 'from', false),
+        to = instant(query.to, 'to', true);
+      if (from && to && from.getTime() > to.getTime())
+        throw new BusinessException('BUSINESS_VALIDATION_FAILED', {
+          field: 'from',
+          reason: 'RANGE_REVERSED',
+        });
+      if (from || to)
+        where.receivedAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
       if (query.search) {
         const search = { contains: literal(query.search), mode: 'insensitive' as const };
         where.OR = [

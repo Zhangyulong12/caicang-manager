@@ -1,5 +1,13 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 23：Web 库存管理页面
+
+管理后台新增 7 个库存页面，全部只读、全部走真实接口：库存总览 `/inventory`（现存件数、账面总成本、均价、待入库、最近入库 + 分仓明细 + 最近 5 笔流水）、商品库存列表 `/inventory/balances`（商品名称、SKU、仓库、当前数量、平均成本、库存总成本、待入库数量、最近入库时间，支持搜索 / 仓库 / 日期 / 分页）、SKU 详情 `/inventory/sku/:productId`、变动流水 `/inventory/movements`（含来源单据可跳详情）、入库记录 `/receipts` 与详情 `/receipts/:id`、待入库采购商品 `/inventory/pending`（按采购行给出订购 / 已入库 / 待入库 / 单价 / 待入库金额）。
+
+页面不自己算库存、不做乐观更新，也没有任何写请求：数量与金额都是接口字段，前端只做千分位与货币格式化；`/inventory/*` 依旧只有 GET。为支撑页面，后端补了 4 个只读能力：`balances.lastReceivedAt`、`GET /inventory/summary`（数据库直接聚合全量合计并返回 `generatedAt`）、`GET /inventory/pending`、`movements.sourceDocumentId`（来源行 ID 查不到单头），入库单列表增加 `from`/`to`。
+
+验收路径：`POST /receipts` 入库 20 件后，列表显示 20 件（930.0000 / 均价 46.5000），总览、流水、入库记录、SKU 详情读到同一笔数据。`pnpm test:web-inventory` **12 通过 / 0 失败 / 0 跳过**，`pnpm test:inventory` 13 通过，全仓 **553 通过 / 0 失败 / 0 跳过**。页面说明与手工验收步骤见 [Web 库存说明](docs/WEB_INVENTORY.md)，结果与未验证项见 [任务 23 报告](docs/TASK_23_REPORT.md)。
+
 ## 2026-10-23 阶段复核（任务 00—20）
 
 Docker/PostgreSQL 已正常恢复，任务 17 入库事务 22 项、任务 18 安全专项 15 项、手机测试 15 项（含 11 个真实 API 子测试）、扫码专项 10 项均已本轮实际通过，0 跳过。完整结果、失败修复记录与剩余问题见 [阶段复核报告](docs/STAGE_REVIEW_00_20.md)。

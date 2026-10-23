@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useTenantStore } from '../stores/tenant';
 import { ApiFailure } from '../api/client';
-import { allowed, navigation, safeRedirect } from './policy';
+import { allowed, inventoryPath, navigation, receiptPath, safeRedirect } from './policy';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -28,12 +28,41 @@ export const router = createRouter({
                   ? () => import('../views/PurchasesView.vue')
                   : item.path === '/packages'
                     ? () => import('../views/PackagesView.vue')
-                    : item.path === '/warehouses'
-                      ? () => import('../views/WarehousesView.vue')
-                      : item.path === '/settings'
-                        ? () => import('../views/SettingsView.vue')
-                        : () => import('../views/ModuleView.vue'),
+                    : item.path === '/inventory'
+                      ? () => import('../views/InventoryOverviewView.vue')
+                      : item.path === '/receipts'
+                        ? () => import('../views/ReceiptsView.vue')
+                        : item.path === '/warehouses'
+                          ? () => import('../views/WarehousesView.vue')
+                          : item.path === '/settings'
+                            ? () => import('../views/SettingsView.vue')
+                            : () => import('../views/ModuleView.vue'),
         })),
+        {
+          path: 'inventory/balances',
+          component: () => import('../views/InventoryBalancesView.vue'),
+          meta: { title: '商品库存' },
+        },
+        {
+          path: 'inventory/movements',
+          component: () => import('../views/InventoryMovementsView.vue'),
+          meta: { title: '库存变动流水' },
+        },
+        {
+          path: 'inventory/pending',
+          component: () => import('../views/InventoryPendingView.vue'),
+          meta: { title: '待入库采购商品' },
+        },
+        {
+          path: 'inventory/sku/:productId',
+          component: () => import('../views/InventorySkuView.vue'),
+          meta: { title: 'SKU 库存详情' },
+        },
+        {
+          path: 'receipts/:id',
+          component: () => import('../views/ReceiptDetailView.vue'),
+          meta: { title: '入库记录详情' },
+        },
         {
           path: 'purchases/new',
           component: () => import('../views/PurchaseFormView.vue'),
@@ -87,7 +116,9 @@ router.beforeEach(async (to) => {
   if (
     (navigation.some((item) => item.path === to.path) ||
       to.path.startsWith('/products/') ||
-      to.path.startsWith('/purchases/')) &&
+      to.path.startsWith('/purchases/') ||
+      inventoryPath(to.path) ||
+      receiptPath(to.path)) &&
     !allowed(to.path, tenants.current?.permissions ?? [])
   )
     return '/forbidden';

@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsDateString,
   IsInt,
   IsString,
   IsUUID,
@@ -88,6 +89,20 @@ export class ReceiptListQueryDto extends PaginationQueryDto {
   @MaxLength(200)
   @NotContains('\u0000')
   search?: string;
+
+  @ApiPropertyOptional({
+    description: '入库时间下界（ISO 8601，含边界）；只写日期表示当天 00:00:00Z',
+  })
+  @ValidateIf(present)
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: '入库时间上界（ISO 8601，含边界）；只写日期表示当天 23:59:59.999Z',
+  })
+  @ValidateIf(present)
+  @IsDateString()
+  to?: string;
 }
 export class ReceiptIdDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID() id!: string;

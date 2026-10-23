@@ -1,4 +1,8 @@
-# 库存查询（任务 22）
+# 库存查询（任务 22 / 23）
+
+任务 22 交付 `GET /inventory/balances`、`GET /inventory/movements`；任务 23 为 Web 页面补了 `GET /inventory/summary`、`GET /inventory/pending` 两个聚合查询与若干字段。四个端点**全部只有 GET**。
+
+页面侧的说明、截图路径与手工验收步骤见 [Web 库存说明](WEB_INVENTORY.md)。
 
 ## 一、定位
 
@@ -18,7 +22,7 @@
 
 ## 二、端点
 
-两个端点都要求 Bearer + `X-Tenant-Id`，权限 `products:read`（全部角色，含只读 VIEWER），均返回统一分页结构。
+四个端点都要求 Bearer + `X-Tenant-Id`，权限 `products:read`（全部角色，含只读 VIEWER）。`balances` / `movements` / `pending` 返回统一分页结构，`summary` 返回单个对象。
 
 ### 2.1 `GET /api/v1/inventory/balances`
 
@@ -44,6 +48,7 @@
 | `pendingInboundQuantity` | 采购待入库：`PLACED`/`PARTIAL_RECEIVED` 采购单每行 `quantity - 已入库量` 之和，按商品+仓库聚合 |
 | `averageCost` | 移动加权平均成本 = `totalCost / quantityOnHand`，四位小数；数量为 0 时为 `0.0000` |
 | `totalCost` | 库存账面总成本，四位小数字符串 |
+| `lastReceivedAt` | **最近一次入库时间**（`stock_movements` 里该仓库+商品最新一条 `RECEIPT` 的 `created_at`），没入过库为 `null`。与 `updatedAt` 的区别：出库也会改 `updatedAt`，只有入库才改 `lastReceivedAt` |
 | `updatedAt` | 库存行最近变动时间，无余额行时为 `null` |
 
 行的来源是 `stock_balances` 与"待入库键"的并集，所以**只有待入库、一件都没到的商品也会出现在列表里**（`quantityOnHand = 0`）。这是"下单了但货还在路上"在仓库视图下的正确表现。
@@ -75,8 +80,46 @@
 | `sourceType` | 来源单据类型 |
 | `sourceNo` | 来源单号：入库单号 / 出库单号；调整单没有编号时为 `null` |
 | `sourceId` | 来源**行** ID，可追到具体凭证 |
+| `sourceDocumentId` | 来源**单据头** ID（入库单 / 出库单 / 盘点单）。用 `sourceId` 去查 `GET /receipts/{id}` 会 404，跳转要用这个字段 |
 | `note` | 入库备注 / 出库备注 / 盘点原因 |
 | `operatorId` / `operatorName` | 操作人；`display_name` 为空时回落 `email` |
+
+### 2.3 `GET /api/v1/inventory/summary`
+
+总览页用。参数只保留 `warehouseId`、`productId`、`sku`、`barcode`、`search`（不需要分页），返回全量聚合：
+
+| 字段 | 含义 |
+| --- | --- |
+| `quantityOnHand` | 现存件数合计 |
+| `totalCost` | 账面总成本合计 |
+| `averageCost` | 总成本 / 总数量，四位小数 |
+| `pendingInboundQuantity` | 待入库合计 |
+| `productCount` / `warehouseCount` | 覆盖的商品数与仓库数 |
+| `lastReceivedAt` | 全商家（或筛选范围内）最近一次入库时间 |
+| `warehouses[]` | 分仓明细：`warehouseId`、`warehouseName`、`productCount`、`quantityOnHand`、`totalCost`、`pendingInboundQuantity`、`lastReceivedAt` |
+| `generatedAt` | 服务端生成时间，页面用它证明数据是实时拉的 |
+
+为什么不在前端把分页列表加起来：`pageSize` 有上限，合计只能覆盖当前页；合计必须由数据库聚合，否则总览数字会随翻页变化。
+
+### 2.4 `GET /api/v1/inventory/pending`
+
+待入库页用，**一条采购明细一行**，不是按商品聚合：
+
+| 字段 | 含义 |
+| --- | --- |
+| `purchaseOrderId` / `orderNo` / `status` / `platform` / `purchaseDate` | 采购单 |
+| `warehouseId` / `warehouseName` | 采购单指定的入库仓库 |
+| `productId` / `sku` / `name` / `unit` | 商品 |
+| `orderedQuantity` / `receivedQuantity` / `pendingQuantity` | 订购 / 已入库 / 待入库（`ordered - received`，已夹到非负） |
+| `unitPrice` / `pendingAmount` | 采购单价；`pendingAmount = pendingQuantity × unitPrice`，四位小数 |
+
+只返回 `PLACED` / `PARTIAL_RECEIVED` 且 `pendingQuantity > 0` 的行 —— 收完的行、取消的单不出现。排序 `purchase_date ASC NULLS LAST, order_no, line_no`，最早该到的在前面。
+
+注意 `pendingAmount` 用采购单价，不含运费与折扣分摊（到岸成本要到入库时才确定），所以它是"预计采购额"而非"预计入库成本"。
+
+### 2.5 入库单列表的时间筛选
+
+`GET /api/v1/receipts` 在原有 `packageId` / `purchaseOrderId` / `search` 之外增加 `from` / `to`，作用于 `received_at`（含边界，纯日期按当天首/末处理），反向区间同样 422。
 
 ## 三、错误
 

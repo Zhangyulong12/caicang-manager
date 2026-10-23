@@ -5,6 +5,7 @@ import {
   ElButton,
   ElDescriptions,
   ElDescriptionsItem,
+  ElDatePicker,
   ElDialog,
   ElDropdown,
   ElDropdownItem,
@@ -30,6 +31,7 @@ import './style.css';
 import './catalog.css';
 import './purchases.css';
 import './packages.css';
+import './inventory.css';
 import { router } from './router';
 import { useAuthStore } from './stores/auth';
 import { useTenantStore } from './stores/tenant';
@@ -43,6 +45,7 @@ for (const component of [
   ElButton,
   ElDescriptions,
   ElDescriptionsItem,
+  ElDatePicker,
   ElDialog,
   ElDropdown,
   ElDropdownItem,

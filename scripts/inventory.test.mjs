@@ -255,7 +255,31 @@ test(
           assert.equal(row.pendingInboundQuantity, 0, '整单收完不再有待入库');
           assert.equal(row.totalCost, (20 * 18.5).toFixed(4), '账面总成本 = 20 × 18.50');
           assert.equal(row.averageCost, '18.5000', '移动加权平均成本 = 总成本 / 数量');
+          assert.equal(
+            row.lastReceivedAt,
+            receipt.receivedAt,
+            '最近入库时间 = 这笔入库单的收货时间',
+          );
           assert.ok(row.updatedAt);
+        });
+
+        await http.test('the summary adds up what the balance rows show', async () => {
+          const summary = (await read(await request('/inventory/summary'), 200)).data;
+          assert.equal(summary.totalProducts, 1);
+          assert.equal(summary.totalWarehouses, 1);
+          assert.equal(summary.quantityOnHand, 20);
+          assert.equal(summary.totalCost, '370.0000');
+          assert.equal(summary.averageCost, '18.5000');
+          assert.equal(summary.pendingInboundQuantity, 0);
+          assert.equal(summary.lastReceivedAt, receipt.receivedAt);
+          assert.equal(summary.warehouses.length, 1);
+          assert.equal(summary.warehouses[0].skuCount, 1);
+          assert.equal(summary.warehouses[0].quantityOnHand, 20);
+          assert.equal(summary.warehouses[0].totalCost, '370.0000');
+          assert.ok(
+            Math.abs(new Date(summary.generatedAt).getTime() - Date.now()) < 60_000,
+            'generatedAt 是服务端当前时间',
+          );
         });
 
         await http.test(
@@ -273,6 +297,7 @@ test(
             assert.equal(movement.totalCostAfter, '370.0000');
             assert.equal(movement.sourceNo, receipt.receiptNo, '来源单据是入库单号');
             assert.equal(movement.sourceId, receipt.items[0].id);
+            assert.equal(movement.sourceDocumentId, receipt.id, '来源单据头可跳入库单详情');
             assert.equal(movement.note, '整箱到货，外箱完好');
             assert.equal(movement.operatorName, accounts.owner.user.displayName);
             assert.ok(movement.occurredAt);
@@ -300,6 +325,50 @@ test(
             assert.equal(total.total, 3, '默认仓 1 行 + 二仓 2 行');
           },
         );
+
+        await http.test('pending inbound lists the unpaid purchase lines per SKU', async () => {
+          const rows = await page('/inventory/pending');
+          assert.equal(rows.length, 2);
+          const chargerLine = rows.find((row) => row.sku === 'CHARGER-20W');
+          assert.equal(chargerLine.orderedQuantity, 6);
+          assert.equal(chargerLine.receivedQuantity, 0);
+          assert.equal(chargerLine.pendingQuantity, 6);
+          assert.equal(chargerLine.unitPrice, '19.00');
+          assert.equal(chargerLine.pendingAmount, '114.0000', '待入库金额 = 6 × 19.00');
+          assert.equal(chargerLine.status, 'PLACED');
+          assert.equal(chargerLine.platform, 'TAOBAO');
+          assert.equal(chargerLine.purchaseDate, '2026-10-23');
+          assert.equal(chargerLine.warehouseId, second.id);
+          assert.ok(chargerLine.orderNo.startsWith('PO-'));
+          // 收完的那张采购单不再出现在待入库里
+          assert.equal(
+            rows.some((row) => row.purchaseOrderId === firstOrder.id),
+            false,
+          );
+
+          const cableOnly = await page('/inventory/pending?sku=CABLE-1M');
+          assert.equal(cableOnly.length, 1);
+          assert.equal(cableOnly[0].pendingAmount, '12.8000', '4 × 3.20');
+          assert.equal((await page('/inventory/pending?warehouseId=' + second.id)).length, 2);
+          assert.equal(
+            (await page('/inventory/pending?warehouseId=' + a.defaultWarehouse.id)).length,
+            0,
+          );
+          assert.equal((await page('/inventory/pending?search=' + chargerLine.orderNo)).length, 2);
+          assert.equal((await page('/inventory/pending?search=数据线')).length, 1);
+          assert.equal((await page('/inventory/pending?barcode=06912345678901')).length, 1);
+          assert.equal(
+            (await page('/inventory/pending?from=2026-10-24')).length,
+            0,
+            '采购日期早于下界',
+          );
+          assert.equal((await page('/inventory/pending?to=2026-10-23')).length, 2);
+          const reversed = await request('/inventory/pending?from=2026-10-24&to=2026-10-22');
+          assert.equal(
+            (await read(reversed, 422, 'BUSINESS_VALIDATION_FAILED')).error.details.field,
+            'from',
+          );
+        });
 
         await http.test(
           'SKU, barcode, product, warehouse, text and page filters all work',
@@ -397,6 +466,7 @@ test(
             // 出库接口尚未实现（后续任务），这里用同一个事务完成"写流水 + 改余额"，
             // 模拟一次真实出库，用来验证查询侧能正确反映减少后的库存。
             const outboundNo = 'OUT-INV-0001';
+            let outboundOrderId;
             try {
               await db.query('BEGIN');
               const order1 = await db.query(
@@ -413,6 +483,7 @@ test(
                   randomBytes(32).toString('hex'),
                 ],
               );
+              outboundOrderId = order1.rows[0].id;
               const item = await db.query(
                 `INSERT INTO outbound_order_items (tenant_id, outbound_order_id, product_id, quantity, shipped_unit_cost)
                VALUES ($1,$2,$3,8,'18.5000') RETURNING id`,
@@ -463,6 +534,7 @@ test(
             assert.equal(outbound.quantityBefore, 20);
             assert.equal(outbound.quantityAfter, 12);
             assert.equal(outbound.sourceNo, outboundNo, '来源单据是出库单号');
+            assert.equal(outbound.sourceDocumentId, outboundOrderId);
             assert.equal(outbound.unitCost, '18.5000');
             assert.equal(inbound.quantityAfter, outbound.quantityBefore, '流水首尾相接，没有缺口');
 
@@ -480,8 +552,38 @@ test(
               balanceRows[0].quantityOnHand,
               '流水数量合计等于当前库存',
             );
+
+            const summary = await read(await request('/inventory/summary'), 200);
+            assert.equal(summary.data.quantityOnHand, 12, '总览跟着出库一起减少');
+            assert.equal(summary.data.totalCost, '222.0000');
+            assert.equal(summary.data.averageCost, '18.5000');
+            assert.equal(summary.data.pendingInboundQuantity, 10, '二仓 6 + 4 仍待入库');
+            assert.equal(summary.data.totalProducts, 2);
+            assert.equal(summary.data.totalWarehouses, 2);
+            const secondWarehouse = summary.data.warehouses.find(
+              (row) => row.warehouseId === second.id,
+            );
+            assert.equal(secondWarehouse.quantityOnHand, 0);
+            assert.equal(secondWarehouse.pendingInboundQuantity, 10);
+            assert.equal(secondWarehouse.lastReceivedAt, null, '从未收货的仓库没有入库时间');
           },
         );
+
+        await http.test('receipt list filters by received time', async () => {
+          const today = new Date().toISOString().slice(0, 10);
+          const future = new Date(Date.now() + 25 * 3600_000).toISOString().slice(0, 10);
+          const all = await page('/receipts');
+          assert.equal(all.length, 1);
+          assert.equal(all[0].receiptNo, receipt.receiptNo);
+          assert.equal((await page('/receipts?from=' + today)).length, 1, '只写日期按当天起点算');
+          assert.equal((await page('/receipts?to=' + today)).length, 1, '上界按当天末尾算');
+          assert.equal((await page('/receipts?from=' + future)).length, 0);
+          const reversed = await request('/receipts?from=' + future + '&to=' + today);
+          assert.equal(
+            (await read(reversed, 422, 'BUSINESS_VALIDATION_FAILED')).error.details.field,
+            'from',
+          );
+        });
 
         await http.test('time and type filters, reversed ranges and paging', async () => {
           const recent = new Date(Date.now() - 3600_000).toISOString();

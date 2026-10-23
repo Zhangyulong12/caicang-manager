@@ -1,5 +1,15 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 23：Web 库存管理页面
+
+- 管理后台新增 7 个只读库存页面：库存总览 `/inventory`、商品库存列表 `/inventory/balances`、SKU 库存详情 `/inventory/sku/:productId`、库存变动流水 `/inventory/movements`、入库记录列表 `/receipts`、入库记录详情 `/receipts/:id`、待入库采购商品 `/inventory/pending`；导航「库存管理」「入库记录」去掉待开放标记，按 `products:read` / `packages:read` 判定访问。
+- 库存列表按需求给出 8 列（商品名称、SKU、仓库、当前数量、平均成本、库存总成本、待入库数量、最近入库时间），支持搜索 / 仓库 / 日期区间 / 分页 10–100；数量为 0 灰色、待入库大于 0 琥珀色，行可进 SKU 详情。
+- 后端补齐页面需要但原来没有的只读能力：`balances.lastReceivedAt`（`last_receipt` CTE 取最近一次入库时间，与 `updatedAt` 语义区分）、`GET /inventory/summary`（现存件数 / 覆盖商品数与仓库数 / 账面总成本 / 均价 / 待入库 / `generatedAt`，由数据库聚合，分页列表算不出全量合计）、`GET /inventory/pending`（采购行粒度：单号、平台、采购日期、仓库、订购 / 已入库 / 待入库 / 单价 / 待入库金额，只列 `PLACED`/`PARTIAL_RECEIVED` 且剩余 > 0 的行）、`movements.sourceDocumentId`（`sourceId` 是来源行 ID，直接查入库单会 404）。入库单列表增加 `from`/`to` 按收货时间筛选，反向区间 422。
+- `/inventory/*` 仍然只有 GET：新增的 summary / pending 也纳入"四写方法 404 + OpenAPI 只有 get + 调用前后余额不变"的检查。页面客户端（`api/inventory.ts`、`api/receipts.ts`）只发 GET，模板里不出现 `stock_balances` / `stock_movements`，也没有内联数组、随机数或 mock/demo 数据 —— 这些都用测试正则守着。
+- 新增 `scripts/web-inventory.test.mjs` 与 `pnpm test:web-inventory`（纳入 `test` 与 `test:web`）：把页面真正使用的客户端模块编译出来，配一次性 PostgreSQL 与真实 API 跑一遍页面会发出的请求，**12 通过 / 0 失败 / 0 跳过**；`scripts/inventory.test.mjs` 同步扩到 **13 通过**，全仓 `pnpm test` **553 通过 / 0 失败 / 0 跳过**（6 分 03 秒）。
+- 验收（测试内复现）：`POST /receipts` 入库 20 件 → 库存列表显示 20 件、账面 930.0000、均价 46.5000、`lastReceivedAt` 等于入库单 `receivedAt` → 总览、流水（`0 → 20`）、入库记录、SKU 详情读到同一笔数据；VIEWER 可读但入库单备注被隐藏；跨商家 balances / summary / pending 全空。
+- 无新依赖、无新表、无迁移。页面没有浏览器端 E2E（无 Playwright），交互靠人工验收；日期筛选按 UTC 边界，北京时区 08:00 前查"今天"会少几小时数据，需商家时区配置才能彻底解决。详见 `docs/WEB_INVENTORY.md`、`docs/TASK_23_REPORT.md`。
+
 ## 2026-10-23 — 用户任务 22：库存查询系统
 
 - 新增 `GET /api/v1/inventory/balances`：按商家隔离，每行返回现存数量（读 `stock_balances`）、采购待入库数量（`PLACED`/`PARTIAL_RECEIVED` 采购行减去已入库量，按商品+仓库聚合）、移动加权平均成本（账面总成本 ÷ 现存数量，四位小数）、库存账面总成本；只有待入库、一件未到的商品也会出现在列表（`quantityOnHand = 0`），待入库用 `GREATEST(... , 0)` 夹到非负，部分收货不会重复计算。

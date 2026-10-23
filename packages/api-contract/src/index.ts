@@ -364,7 +364,55 @@ export interface InventoryBalanceData {
   averageCost: string;
   /** 库存账面总成本，四位小数。 */
   totalCost: string;
+  /** 该仓库这一商品最近一次入库（收货）时间；从未收过货时为 null。 */
+  lastReceivedAt: string | null;
   updatedAt: string | null;
+}
+/** 库存总览里按仓库汇总的一行。 */
+export interface InventoryWarehouseSummaryData {
+  warehouseId: string;
+  warehouseName: string;
+  /** 该仓库有库存或待入库的商品数。 */
+  skuCount: number;
+  quantityOnHand: number;
+  pendingInboundQuantity: number;
+  totalCost: string;
+  lastReceivedAt: string | null;
+}
+/** 库存总览：全仓合计 + 分仓明细，全部由数据库实时算出。 */
+export interface InventorySummaryData {
+  totalProducts: number;
+  totalWarehouses: number;
+  quantityOnHand: number;
+  /** 账面总成本（所有仓库合计），四位小数。 */
+  totalCost: string;
+  /** 全局移动加权平均成本 = totalCost / quantityOnHand，四位小数。 */
+  averageCost: string;
+  pendingInboundQuantity: number;
+  lastReceivedAt: string | null;
+  warehouses: InventoryWarehouseSummaryData[];
+  /** 服务端生成这份汇总的时间，用于证明页面读的是实时数据。 */
+  generatedAt: string;
+}
+/** 一笔"已下单但还没完全入库"的采购行，按仓库+商品+采购行展开。 */
+export interface InventoryPendingData {
+  purchaseOrderId: string;
+  orderNo: string;
+  status: PurchaseStatus;
+  platform: PurchasePlatform;
+  purchaseDate: string | null;
+  warehouseId: string;
+  warehouseName: string;
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  orderedQuantity: number;
+  receivedQuantity: number;
+  pendingQuantity: number;
+  unitPrice: string;
+  /** 未入库部分的采购金额 = 待入库数量 x 采购单价，四位小数。 */
+  pendingAmount: string;
 }
 /** 一条不可变库存流水，含操作前后数量与来源单据。 */
 export interface InventoryMovementData {
@@ -392,6 +440,8 @@ export interface InventoryMovementData {
   sourceNo: string | null;
   /** 来源单据行 ID，便于追溯具体凭证。 */
   sourceId: string;
+  /** 来源单据头 ID（入库单 / 出库单 / 盘点单），可直接跳详情；没有单据头时为 null。 */
+  sourceDocumentId: string | null;
   note: string | null;
   operatorId: string;
   operatorName: string;

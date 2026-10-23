@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TENANT_ROLES } from '@caicang/api-contract';
-import { ApiPageResponse } from '../../common/api-docs.js';
+import { ApiDataResponse, ApiPageResponse } from '../../common/api-docs.js';
 import { CurrentTenant, type TenantContext } from '../../common/tenancy/tenant-context.js';
 import { RequirePermissions, TenantEndpoint } from '../../common/tenancy/tenant.decorators.js';
 import { InventoryService } from './inventory.service.js';
@@ -10,6 +10,9 @@ import {
   InventoryBalanceQueryDto,
   InventoryMovementDto,
   InventoryMovementQueryDto,
+  InventoryPendingDto,
+  InventoryPendingQueryDto,
+  InventorySummaryDto,
 } from './inventory.dto.js';
 
 /**
@@ -22,6 +25,17 @@ import {
 @TenantEndpoint(...TENANT_ROLES)
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
+  @Get('summary')
+  @RequirePermissions('products:read')
+  @ApiOperation({
+    summary: '库存总览：商品/仓库数、现存合计、账面总成本、待入库与分仓明细',
+    description:
+      '全部由 stock_balances、未收完的采购行与收货记录实时算出；generatedAt 是服务端计算时间。',
+  })
+  @ApiDataResponse(InventorySummaryDto)
+  summary(@CurrentTenant() context: TenantContext) {
+    return this.inventory.summary(context);
+  }
   @Get('balances')
   @RequirePermissions('products:read')
   @ApiOperation({
@@ -33,6 +47,17 @@ export class InventoryController {
   @ApiPageResponse(InventoryBalanceDto)
   balances(@CurrentTenant() context: TenantContext, @Query() query: InventoryBalanceQueryDto) {
     return this.inventory.balances(context, query);
+  }
+  @Get('pending')
+  @RequirePermissions('products:read')
+  @ApiOperation({
+    summary: '待入库采购商品：已下单未收完的采购行，含订单、仓库、剩余数量与金额',
+    description:
+      '只统计状态为 PLACED / PARTIAL_RECEIVED 且仍有剩余数量的采购行；可按仓库/商品/SKU/条码/单号搜索，按采购日期筛选。',
+  })
+  @ApiPageResponse(InventoryPendingDto)
+  pending(@CurrentTenant() context: TenantContext, @Query() query: InventoryPendingQueryDto) {
+    return this.inventory.pending(context, query);
   }
   @Get('movements')
   @RequirePermissions('products:read')

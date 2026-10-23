@@ -8,6 +8,7 @@ import {
   Box,
   Download,
   OfficeBuilding,
+  Coin,
   Upload,
   DataAnalysis,
   Setting,
@@ -31,6 +32,7 @@ const icons = {
   Box,
   Download,
   OfficeBuilding,
+  Coin,
   Upload,
   DataAnalysis,
   Setting,
@@ -70,7 +72,7 @@ function switchTenant() {
           :class="{
             active:
               route.path === item.path ||
-              (['/products', '/purchases'].includes(item.path) &&
+              (['/products', '/purchases', '/inventory', '/receipts'].includes(item.path) &&
                 route.path.startsWith(item.path + '/')),
           }"
           @click="mobileOpen = false"

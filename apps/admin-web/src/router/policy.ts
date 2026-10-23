@@ -45,17 +45,15 @@ export const navigation: {
   {
     path: '/receipts',
     title: '入库记录',
-    permission: 'tenant:read',
+    permission: 'packages:read',
     icon: 'Download',
-    soon: true,
     description: '追溯每一次验收入库',
   },
   {
     path: '/inventory',
     title: '库存管理',
-    permission: 'tenant:read',
-    icon: 'OfficeBuilding',
-    soon: true,
+    permission: 'products:read',
+    icon: 'Coin',
     description: '按仓库与 SKU 查看库存',
   },
   {
@@ -90,7 +88,11 @@ export const roleNames = {
   VIEWER: '只读成员',
 };
 export function safeRedirect(value: unknown): string {
-  if (typeof value === 'string' && (productDetailPath(value) || purchasePath(value))) return value;
+  if (
+    typeof value === 'string' &&
+    (productDetailPath(value) || purchasePath(value) || inventoryPath(value) || receiptPath(value))
+  )
+    return value;
   return typeof value === 'string' &&
     [...navigation.map((item) => item.path), '/select-tenant'].includes(value)
     ? value
@@ -101,6 +103,8 @@ export function allowed(path: string, permissions: readonly TenantPermission[]):
     return permissions.includes('purchase:write');
   if (purchasePath(path)) return permissions.includes('purchase:read');
   if (path.startsWith('/products/')) return permissions.includes('products:read');
+  if (inventoryPath(path)) return permissions.includes('products:read');
+  if (receiptPath(path)) return permissions.includes('packages:read');
   const item = navigation.find((item) => item.path === path);
   return item ? permissions.includes(item.permission) : false;
 }
@@ -114,5 +118,28 @@ export function purchasePath(path: string): boolean {
     /^\/purchases\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/edit)?$/i.test(
       path,
     )
+  );
+}
+
+const inventoryPages = [
+  '/inventory',
+  '/inventory/balances',
+  '/inventory/movements',
+  '/inventory/pending',
+];
+
+/** 库存子页面：固定四个列表页 + SKU 详情。 */
+export function inventoryPath(path: string): boolean {
+  return (
+    inventoryPages.includes(path) ||
+    /^\/inventory\/sku\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
+  );
+}
+
+/** 入库记录详情。 */
+export function receiptPath(path: string): boolean {
+  return (
+    path === '/receipts' ||
+    /^\/receipts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
   );
 }

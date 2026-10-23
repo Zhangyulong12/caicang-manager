@@ -101,6 +101,18 @@ export class InventoryMovementQueryDto extends InventoryFilterQueryDto {
   to?: string;
 }
 
+export class InventoryPendingQueryDto extends InventoryFilterQueryDto {
+  @ApiPropertyOptional({ description: '采购日期下界（含），只写日期' })
+  @ValidateIf(present)
+  @IsDateString()
+  from?: string;
+
+  @ApiPropertyOptional({ description: '采购日期上界（含），只写日期' })
+  @ValidateIf(present)
+  @IsDateString()
+  to?: string;
+}
+
 export class InventoryBalanceDto {
   @ApiProperty({ format: 'uuid' }) warehouseId!: string;
   @ApiProperty() warehouseName!: string;
@@ -114,7 +126,61 @@ export class InventoryBalanceDto {
   @ApiProperty({ description: '采购待入库数量' }) pendingInboundQuantity!: number;
   @ApiProperty({ description: '移动加权平均成本，四位小数' }) averageCost!: string;
   @ApiProperty({ description: '库存账面总成本，四位小数' }) totalCost!: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'date-time',
+    description: '该仓库这一商品最近一次入库时间；从未收货为 null',
+  })
+  lastReceivedAt!: string | null;
   @ApiProperty({ type: String, nullable: true, format: 'date-time' }) updatedAt!: string | null;
+}
+
+export class InventoryWarehouseSummaryDto {
+  @ApiProperty({ format: 'uuid' }) warehouseId!: string;
+  @ApiProperty() warehouseName!: string;
+  @ApiProperty({ description: '有库存或待入库的商品数' }) skuCount!: number;
+  @ApiProperty() quantityOnHand!: number;
+  @ApiProperty() pendingInboundQuantity!: number;
+  @ApiProperty({ description: '账面总成本，四位小数' }) totalCost!: string;
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' }) lastReceivedAt!:
+    string | null;
+}
+
+export class InventorySummaryDto {
+  @ApiProperty({ description: '有库存或待入库的商品数（按商品去重）' }) totalProducts!: number;
+  @ApiProperty({ description: '有库存或待入库的仓库数' }) totalWarehouses!: number;
+  @ApiProperty() quantityOnHand!: number;
+  @ApiProperty({ description: '账面总成本，四位小数' }) totalCost!: string;
+  @ApiProperty({ description: '全局移动加权平均成本，四位小数' }) averageCost!: string;
+  @ApiProperty() pendingInboundQuantity!: number;
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' }) lastReceivedAt!:
+    string | null;
+  @ApiProperty({ type: [InventoryWarehouseSummaryDto] })
+  warehouses!: InventoryWarehouseSummaryDto[];
+  @ApiProperty({ format: 'date-time', description: '服务端生成本次汇总的时间' })
+  generatedAt!: string;
+}
+
+export class InventoryPendingDto {
+  @ApiProperty({ format: 'uuid' }) purchaseOrderId!: string;
+  @ApiProperty() orderNo!: string;
+  @ApiProperty({ enum: ['DRAFT', 'PLACED', 'PARTIAL_RECEIVED', 'RECEIVED', 'CANCELLED'] })
+  status!: string;
+  @ApiProperty() platform!: string;
+  @ApiProperty({ type: String, nullable: true }) purchaseDate!: string | null;
+  @ApiProperty({ format: 'uuid' }) warehouseId!: string;
+  @ApiProperty() warehouseName!: string;
+  @ApiProperty({ format: 'uuid' }) productId!: string;
+  @ApiProperty() sku!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty() unit!: string;
+  @ApiProperty() orderedQuantity!: number;
+  @ApiProperty() receivedQuantity!: number;
+  @ApiProperty() pendingQuantity!: number;
+  @ApiProperty() unitPrice!: string;
+  @ApiProperty({ description: '待入库金额 = 待入库数量 x 采购单价，四位小数' })
+  pendingAmount!: string;
 }
 
 export class InventoryMovementDto {
@@ -137,7 +203,14 @@ export class InventoryMovementDto {
   @ApiProperty() unit!: string;
   @ApiProperty({ description: '来源单据类型' }) sourceType!: string;
   @ApiProperty({ type: String, nullable: true }) sourceNo!: string | null;
-  @ApiProperty({ format: 'uuid' }) sourceId!: string;
+  @ApiProperty({ format: 'uuid', description: '来源单据行 ID' }) sourceId!: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'uuid',
+    description: '来源单据头 ID（入库单/出库单/盘点单），可直接跳详情',
+  })
+  sourceDocumentId!: string | null;
   @ApiProperty({ type: String, nullable: true }) note!: string | null;
   @ApiProperty({ format: 'uuid' }) operatorId!: string;
   @ApiProperty() operatorName!: string;
