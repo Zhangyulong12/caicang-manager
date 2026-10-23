@@ -1,5 +1,8 @@
 import type { ProductData } from '@caicang/api-contract';
 export interface ProductForm {
+  articleNo: string;
+  color: string;
+  size: string;
   name: string;
   sku: string;
   specification: string;
@@ -16,6 +19,9 @@ export interface WarehouseForm {
 }
 export function blankProduct(): ProductForm {
   return {
+    articleNo: '',
+    color: '',
+    size: '',
     name: '',
     sku: '',
     specification: '',
@@ -28,6 +34,9 @@ export function blankProduct(): ProductForm {
 }
 export function productForm(product: ProductData): ProductForm {
   return {
+    articleNo: product.articleNo ?? '',
+    color: product.color ?? '',
+    size: product.size ?? '',
     name: product.name,
     sku: product.sku,
     specification: product.specification ?? '',
@@ -50,6 +59,9 @@ function requiredText(value: string, max: number, label: string): string {
 }
 export function productErrors(form: ProductForm): Partial<Record<keyof ProductForm, string>> {
   const errors: Partial<Record<keyof ProductForm, string>> = {};
+  for (const key of ['articleNo', 'color', 'size'] as const)
+    if (length(form[key].trim()) > 80 || /[\p{Cc}\p{Cs}]/u.test(form[key].trim()))
+      errors[key] = '最多 80 字，不能包含控制字符';
   for (const [key, max, label] of [
     ['name', 200, '商品名称'],
     ['sku', 80, 'SKU 编码'],
@@ -91,6 +103,9 @@ export function warehouseErrors(form: WarehouseForm): Partial<Record<keyof Wareh
 }
 export function productPayload(form: ProductForm) {
   return {
+    articleNo: form.articleNo.trim() || null,
+    color: form.color.trim() || null,
+    size: form.size.trim() || null,
     name: form.name.trim(),
     sku: form.sku.trim(),
     specification: form.specification.trim() || null,

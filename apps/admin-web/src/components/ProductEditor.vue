@@ -82,6 +82,20 @@ onBeforeUnmount(() => {
       class="form-alert"
     /><el-form :model="form" label-position="top" @submit.prevent="save"
       ><div class="catalog-form-grid">
+        <el-form-item
+          v-for="field in ['articleNo', 'color', 'size'] as const"
+          :key="field"
+          :label="{ articleNo: '商品货号', color: '颜色', size: '尺码' }[field]"
+          :error="errors[field]"
+        >
+          <el-input
+            v-model="form[field]"
+            :maxlength="80"
+            :disabled="busy || !canWrite"
+            :validate-event="false"
+            @blur="validate(field)"
+          />
+        </el-form-item>
         <el-form-item label="商品名称" prop="name" required :error="errors.name"
           ><el-input
             v-model="form.name"

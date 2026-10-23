@@ -36,6 +36,13 @@ export const navigation: {
     description: '记录采购订单与到仓成本',
   },
   {
+    path: '/purchase-accounts',
+    title: '采购账号',
+    permission: 'purchase:read',
+    icon: 'User',
+    description: '管理平台账号别名与采购对账来源',
+  },
+  {
     path: '/packages',
     title: '快递包裹',
     permission: 'packages:read',

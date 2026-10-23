@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   House,
+  User,
   Goods,
   ShoppingCart,
   Box,
@@ -26,6 +27,7 @@ const router = useRouter();
 const tenants = useTenantStore();
 const mobileOpen = ref(false);
 const icons = {
+  User,
   House,
   Goods,
   ShoppingCart,

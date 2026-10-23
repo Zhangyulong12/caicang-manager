@@ -83,6 +83,15 @@ export class PurchaseLineInputDto {
 }
 export class CreatePurchaseDto {
   @ApiPropertyOptional({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    description: '当前商家启用账号；可空兼容旧单，平台必须一致',
+  })
+  @ValidateIf(nonNull)
+  @IsUUID()
+  purchaseAccountId?: string | null;
+  @ApiPropertyOptional({
     maxLength: 50,
     description: '商家内唯一；可省略，由服务端生成随机采购单号',
   })
@@ -151,6 +160,22 @@ export class PurchaseIdDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID() id!: string;
 }
 export class PurchaseListQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ format: 'uuid' })
+  @ValidateIf(present)
+  @IsUUID()
+  purchaseAccountId?: string;
+  @ApiPropertyOptional({ format: 'date', description: '采购日期起，含当日' })
+  @ValidateIf(present)
+  @IsString()
+  @Matches(/^(?!0000)\d{4}-\d{2}-\d{2}$/)
+  @IsDateString({ strict: true })
+  dateFrom?: string;
+  @ApiPropertyOptional({ format: 'date', description: '采购日期止，含当日' })
+  @ValidateIf(present)
+  @IsString()
+  @Matches(/^(?!0000)\d{4}-\d{2}-\d{2}$/)
+  @IsDateString({ strict: true })
+  dateTo?: string;
   @ApiPropertyOptional({
     maxLength: 200,
     description: '单号、平台订单号、店铺、商品快照的字面子串',
@@ -173,6 +198,9 @@ export class PurchaseListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ format: 'uuid' }) @ValidateIf(present) @IsUUID() warehouseId?: string;
 }
 export class PurchaseItemDto {
+  @ApiProperty({ type: String, nullable: true }) articleNo!: string | null;
+  @ApiProperty({ type: String, nullable: true }) color!: string | null;
+  @ApiProperty({ type: String, nullable: true }) size!: string | null;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) productId!: string;
   @ApiProperty({ type: Number, nullable: true }) lineNo!: number | null;
@@ -193,6 +221,13 @@ export class PurchaseRecipientResultDto {
   @ApiProperty({ type: String, nullable: true }) address!: string | null;
 }
 export class PurchaseOrderDto {
+  @ApiProperty({ type: String, format: 'uuid', nullable: true }) purchaseAccountId!: string | null;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: '草稿取当前别名，确认时冻结；旧单无账号为 null',
+  })
+  purchaseAccountAlias!: string | null;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) tenantId!: string;
   @ApiProperty() orderNo!: string;

@@ -50,6 +50,11 @@ export const API_ERROR_CODES = [
   'PRODUCT_BARCODE_ALREADY_EXISTS',
   'WAREHOUSE_CODE_ALREADY_EXISTS',
   'PURCHASE_ORDER_NO_ALREADY_EXISTS',
+  'PURCHASE_ACCOUNT_ALREADY_EXISTS',
+  'PURCHASE_ACCOUNT_INACTIVE',
+  'PURCHASE_ACCOUNT_PLATFORM_MISMATCH',
+  'PURCHASE_ACCOUNT_PLATFORM_LOCKED',
+  'PURCHASE_ACCOUNT_HAS_ORDERS',
   'PACKAGE_TRACKING_ALREADY_EXISTS',
   'PACKAGE_EXPECTED_QTY_EXCEEDED',
 ] as const;
@@ -145,6 +150,9 @@ export interface TenantChoiceData {
 }
 
 export interface ProductData {
+  articleNo: string | null;
+  color: string | null;
+  size: string | null;
   id: string;
   tenantId: string;
   name: string;
@@ -179,8 +187,22 @@ export const PURCHASE_STATUSES = [
   'CANCELLED',
 ] as const;
 export type PurchasePlatform = (typeof PURCHASE_PLATFORMS)[number];
+export interface PurchaseAccountData {
+  id: string;
+  tenantId: string;
+  platform: PurchasePlatform;
+  alias: string;
+  remark: string | null;
+  isActive: boolean;
+  hasOrders: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 export type PurchaseStatus = (typeof PURCHASE_STATUSES)[number];
 export interface PurchaseItemData {
+  articleNo: string | null;
+  color: string | null;
+  size: string | null;
   id: string;
   productId: string;
   lineNo: number | null;
@@ -196,6 +218,8 @@ export interface PurchaseItemData {
   landedUnitCost: string | null;
 }
 export interface PurchaseOrderData {
+  purchaseAccountId: string | null;
+  purchaseAccountAlias: string | null;
   id: string;
   tenantId: string;
   orderNo: string;

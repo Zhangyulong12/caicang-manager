@@ -469,9 +469,9 @@ test(
           store.clear();
         });
         await http.test(
-          'all ten menu destinations exist and role guards refuse settings without permission',
+          'all eleven menu destinations exist and role guards refuse settings without permission',
           () => {
-            assert.equal(navigation.length, 10);
+            assert.equal(navigation.length, 11);
             assert.equal(
               allowed('/settings', ['tenant:read', 'products:read', 'warehouses:read']),
               false,
@@ -489,6 +489,8 @@ test(
               false,
             );
             assert.equal(allowed('/purchases', ['purchase:read']), true);
+            assert.equal(allowed('/purchase-accounts', ['purchase:read']), true);
+            assert.equal(allowed('/purchase-accounts', ['products:read']), false);
             assert.equal(allowed('/purchases/new', ['purchase:read']), false);
             assert.equal(allowed('/purchases/new', ['purchase:write']), true);
             assert.equal(

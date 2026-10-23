@@ -2,7 +2,12 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Plus, Search, Refresh } from '@element-plus/icons-vue';
-import type { PurchaseOrderData, PurchaseStatus, PurchasePlatform } from '@caicang/api-contract';
+import type {
+  PurchaseOrderData,
+  PurchaseStatus,
+  PurchasePlatform,
+  PurchaseAccountData,
+} from '@caicang/api-contract';
 import { usePurchases } from '../composables/purchases';
 import { useTenantStore } from '../stores/tenant';
 import { failureMessage } from '../utils/feedback';
@@ -20,6 +25,12 @@ const rows = ref<PurchaseOrderData[]>([]),
 const search = ref(typeof route.query.search === 'string' ? route.query.search.slice(0, 200) : ''),
   status = ref<PurchaseStatus | ''>(''),
   platform = ref<PurchasePlatform | ''>('');
+const accounts = ref<PurchaseAccountData[]>([]),
+  purchaseAccountId = ref(
+    typeof route.query.purchaseAccountId === 'string' ? route.query.purchaseAccountId : '',
+  ),
+  dateFrom = ref(''),
+  dateTo = ref('');
 let applied = search.value,
   sequence = 0;
 const canWrite = computed(() => tenants.current?.permissions.includes('purchase:write') === true);
@@ -29,12 +40,17 @@ async function load() {
   error.value = '';
   rows.value = [];
   try {
+    if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value)
+      throw new Error('采购开始日期不能晚于结束日期');
     const result = await api.list({
       page: page.value,
       pageSize: size.value,
       search: applied,
       ...(status.value ? { status: status.value } : {}),
       ...(platform.value ? { platform: platform.value } : {}),
+      ...(purchaseAccountId.value ? { purchaseAccountId: purchaseAccountId.value } : {}),
+      ...(dateFrom.value ? { dateFrom: dateFrom.value } : {}),
+      ...(dateTo.value ? { dateTo: dateTo.value } : {}),
     });
     if (version !== sequence) return;
     rows.value = result.data;
@@ -53,7 +69,23 @@ function searchNow() {
   page.value = 1;
   void load();
 }
-onMounted(load);
+async function initialize() {
+  const version = ++sequence;
+  loading.value = true;
+  error.value = '';
+  try {
+    const options = await api.accountOptions();
+    if (version !== sequence) return;
+    accounts.value = options;
+    await load();
+  } catch (e) {
+    if (version === sequence) {
+      loading.value = false;
+      error.value = failureMessage(e);
+    }
+  }
+}
+onMounted(initialize);
 onBeforeUnmount(() => sequence++);
 </script>
 <template>
@@ -80,11 +112,37 @@ onBeforeUnmount(() => sequence++);
       class="form-alert"
     />
     <div class="surface catalog-panel">
+      <div class="account-date-filters">
+        <el-select
+          v-model="purchaseAccountId"
+          aria-label="采购账号筛选"
+          placeholder="全部采购账号"
+          clearable
+          @change="searchNow"
+        >
+          <el-option label="全部采购账号" value="" /><el-option
+            v-for="row in accounts"
+            :key="row.id"
+            :label="
+              platformNames[row.platform] + ' · ' + row.alias + (row.isActive ? '' : '（已停用）')
+            "
+            :value="row.id"
+          />
+        </el-select>
+        <label
+          >采购日期起
+          <el-input v-model="dateFrom" type="date" aria-label="采购日期起" @change="searchNow"
+        /></label>
+        <label
+          >采购日期止
+          <el-input v-model="dateTo" type="date" aria-label="采购日期止" @change="searchNow"
+        /></label>
+      </div>
       <form class="catalog-toolbar purchase-filters" @submit.prevent="searchNow">
         <el-input
           v-model="search"
           aria-label="采购单搜索"
-          placeholder="搜索采购单号或平台订单号"
+          placeholder="搜索货号、SKU、采购单号或平台订单号"
           :maxlength="200"
           :prefix-icon="Search"
           clearable
@@ -109,10 +167,11 @@ onBeforeUnmount(() => sequence++);
             :label="label"
             :value="value" /></el-select
         ><el-button native-type="submit" type="primary" :loading="loading">搜索</el-button
-        ><el-button :icon="Refresh" :disabled="loading" @click="load">刷新</el-button>
+        ><el-button :icon="Refresh" :disabled="loading" @click="initialize">刷新</el-button>
       </form>
       <div v-if="error" class="catalog-error">
-        <el-alert :title="error" type="error" :closable="false" show-icon /><el-button @click="load"
+        <el-alert :title="error" type="error" :closable="false" show-icon /><el-button
+          @click="initialize"
           >重试加载</el-button
         >
       </div>
@@ -141,6 +200,10 @@ onBeforeUnmount(() => sequence++);
               >{{ platformNames[row.platform as PurchasePlatform]
               }}<small class="catalog-item-sub">{{ row.platformOrderNo || '—' }}</small></template
             ></el-table-column
+          ><el-table-column label="采购账号" min-width="155"
+            ><template #default="{ row }">{{
+              row.purchaseAccountAlias || '未指定账号'
+            }}</template></el-table-column
           ><el-table-column prop="purchaseDate" label="采购日期" width="115" /><el-table-column
             label="SKU"
             width="65"

@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Plus, ArrowLeft } from '@element-plus/icons-vue';
-import type { ProductData, WarehouseData } from '@caicang/api-contract';
+import type { ProductData, WarehouseData, PurchaseAccountData } from '@caicang/api-contract';
 import { usePurchases } from '../composables/purchases';
 import { useCatalog } from '../composables/catalog';
 import { useTenantStore } from '../stores/tenant';
@@ -25,6 +25,7 @@ const route = useRoute(),
   tenants = useTenantStore();
 const form = reactive(blankPurchase()),
   warehouses = ref<WarehouseData[]>([]),
+  accounts = ref<PurchaseAccountData[]>([]),
   loading = ref(false),
   saving = ref(false),
   loadError = ref(''),
@@ -51,13 +52,15 @@ async function load() {
   locked.value = false;
   picker.value = false;
   try {
-    const [options, order, preferred] = await Promise.all([
+    const [options, order, preferred, accountRows] = await Promise.all([
       api.warehouses(),
       editing.value ? api.detail(String(route.params.id)) : Promise.resolve(null),
       editing.value ? Promise.resolve(null) : catalog.defaultWarehouse(),
+      api.accountOptions(),
     ]);
     if (version !== sequence) return;
     warehouses.value = options;
+    accounts.value = accountRows;
     Object.assign(form, order ? purchaseForm(order) : blankPurchase());
     if (!order) form.warehouseId = preferred?.id ?? '';
     locked.value = !!order && order.status !== 'DRAFT';
@@ -145,6 +148,16 @@ watch(
   { immediate: true },
 );
 watch(
+  () => form.platform,
+  (platform) => {
+    if (
+      initialized.value &&
+      accounts.value.find((row) => row.id === form.purchaseAccountId)?.platform !== platform
+    )
+      form.purchaseAccountId = '';
+  },
+);
+watch(
   form,
   () => {
     if (!Object.keys(errors.value).length) return;
@@ -229,6 +242,23 @@ onBeforeUnmount(() => {
                 :validate-event="false"
                 placeholder="复制淘宝、京东等平台的订单号"
             /></el-form-item>
+            <el-form-item label="采购账号" :error="errors.purchaseAccountId">
+              <el-select
+                v-model="form.purchaseAccountId"
+                aria-label="采购账号"
+                placeholder="选择该平台的账号"
+                clearable
+              >
+                <el-option
+                  v-for="row in accounts.filter((a) => a.platform === form.platform)"
+                  :key="row.id"
+                  :label="row.alias + (row.isActive ? '' : '（已停用）')"
+                  :value="row.id"
+                  :disabled="!row.isActive"
+                />
+              </el-select>
+              <small class="field-hint">可留空兼容旧采购；在采购账号页面维护账号。</small>
+            </el-form-item>
             <el-form-item label="店铺名称" :error="errors.supplierName"
               ><el-input
                 v-model="form.supplierName"
@@ -321,6 +351,9 @@ onBeforeUnmount(() => {
                   <td>
                     <strong>{{ row.name }}</strong
                     ><small>{{ row.sku }} · {{ row.unit }}</small
+                    ><small
+                      >货号：{{ row.articleNo || '—' }} · {{ row.color || '未填颜色' }} ·
+                      {{ row.size || '未填尺码' }}</small
                     ><span
                       v-if="errors['items.' + index + '.productId']"
                       class="purchase-field-error"

@@ -236,19 +236,26 @@ test(
               )
             ).data;
             assert.deepEqual(Object.keys(product).sort(), [
+              'articleNo',
               'barcode',
+              'color',
               'createdAt',
               'id',
               'isActive',
               'name',
               'referencePurchasePrice',
               'remark',
+              'size',
               'sku',
               'specification',
               'tenantId',
               'unit',
               'updatedAt',
             ]);
+            // 新属性可空：没填就是 null，不写空字符串。
+            assert.equal(product.articleNo, null);
+            assert.equal(product.color, null);
+            assert.equal(product.size, null);
             assert.equal(product.name, '20W 充电器');
             assert.equal(product.sku, 'CHARGER-20W');
             assert.equal(product.referencePurchasePrice, '18.50');

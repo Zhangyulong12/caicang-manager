@@ -4,6 +4,7 @@ import type {
   PurchasePlatform,
   PurchaseStatus,
   WarehouseData,
+  PurchaseAccountData,
 } from '@caicang/api-contract';
 import type { CatalogClient, CatalogScope } from './catalog';
 import { ApiFailure } from './client';
@@ -36,18 +37,85 @@ export function createPurchases(client: CatalogClient, scope: () => CatalogScope
     return result;
   }
   return {
+    async accounts(query: {
+      page: number;
+      pageSize: number;
+      search?: string;
+      platform?: PurchasePlatform;
+      isActive?: boolean;
+    }) {
+      const params = new URLSearchParams({
+        page: String(query.page),
+        pageSize: String(query.pageSize),
+      });
+      for (const key of ['search', 'platform'] as const) {
+        if (query[key]?.trim()) params.set(key, query[key]!.trim());
+      }
+      if (query.isActive !== undefined) params.set('isActive', String(query.isActive));
+      return (await request<PurchaseAccountData[]>(
+        '/purchase-accounts?' + params,
+      )) as ApiPageResponse<PurchaseAccountData>;
+    },
+    async accountOptions() {
+      const current = capture();
+      const rows: PurchaseAccountData[] = [];
+      for (let page = 1; ; page++) {
+        const result = (await request<PurchaseAccountData[]>(
+          `/purchase-accounts?page=${page}&pageSize=100`,
+        )) as ApiPageResponse<PurchaseAccountData>;
+        check(current);
+        if (result.data.some((row) => row.tenantId !== current.tenantId)) {
+          throw new ApiFailure(502, 'INVALID_RESPONSE', '账号范围异常');
+        }
+        rows.push(...result.data);
+        if (page * 100 >= result.pagination.total) return rows;
+        if (!result.data.length) throw new ApiFailure(502, 'INVALID_RESPONSE', '账号分页异常');
+      }
+    },
+    async saveAccount(
+      body: { platform: PurchasePlatform; alias: string; remark: string | null; isActive: boolean },
+      id?: string,
+    ) {
+      return (
+        await request<PurchaseAccountData>(
+          id ? '/purchase-accounts/' + encodeURIComponent(id) : '/purchase-accounts',
+          { method: id ? 'PATCH' : 'POST', body },
+          true,
+        )
+      ).data;
+    },
+    /** 只有从未被采购单引用的账号能删；有历史时服务端返回 409。 */
+    async deleteAccount(id: string) {
+      return (
+        await request<{ id: string; deleted: boolean }>(
+          '/purchase-accounts/' + encodeURIComponent(id),
+          { method: 'DELETE' },
+          true,
+        )
+      ).data;
+    },
     async list(query: {
       page: number;
       pageSize: number;
       search?: string;
       status?: PurchaseStatus;
       platform?: PurchasePlatform;
+      purchaseAccountId?: string;
+      dateFrom?: string;
+      dateTo?: string;
     }) {
       const params = new URLSearchParams({
         page: String(query.page),
         pageSize: String(query.pageSize),
       });
-      for (const key of ['search', 'status', 'platform'] as const)
+      for (const key of [
+        'search',
+        'status',
+        'platform',
+        'purchaseAccountId',
+        'dateFrom',
+        'dateTo',
+      ] as const)
         if (query[key]?.trim()) params.set(key, query[key]!.trim());
       return (await request<PurchaseOrderData[]>(
         '/purchase-orders?' + params,

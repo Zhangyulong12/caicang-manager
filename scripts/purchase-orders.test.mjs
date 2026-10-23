@@ -129,7 +129,7 @@ test(
         new URL('../apps/api/prisma/migrations/', import.meta.url),
         { withFileTypes: true },
       )) {
-        if (entry.name === latest) continue;
+        if (entry.isDirectory() && entry.name >= latest) continue;
         await cp(
           new URL('../apps/api/prisma/migrations/' + entry.name, import.meta.url),
           new URL('migrations/' + entry.name, oldProject),
@@ -207,6 +207,9 @@ test(
           for (const [key, value] of Object.entries(oldOrder)) assert.deepEqual(order[key], value);
           for (const [key, value] of Object.entries(oldItem)) assert.deepEqual(item[key], value);
           assert.equal(order.purchase_date, null);
+          assert.equal(order.purchase_account_id, null);
+          assert.equal(order.purchase_account_alias_snapshot, null);
+          assert.equal(item.article_no_snapshot, null);
           assert.equal(item.freight_allocated, null);
           assert.equal(
             (
@@ -214,7 +217,11 @@ test(
                 'SELECT count(*)::int n FROM _prisma_migrations WHERE finished_at IS NOT NULL',
               )
             ).rows[0].n,
-            6,
+            (
+              await readdir(new URL('../apps/api/prisma/migrations/', import.meta.url), {
+                withFileTypes: true,
+              })
+            ).filter((entry) => entry.isDirectory()).length,
           );
         },
       );

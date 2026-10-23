@@ -7,6 +7,9 @@ import { TenantContextService, type TenantContext } from '../../common/tenancy/t
 import type { CreateProductDto, UpdateProductDto, ProductListQueryDto } from './product.dto.js';
 
 const fields = [
+  'articleNo',
+  'color',
+  'size',
   'name',
   'sku',
   'specification',
@@ -17,6 +20,9 @@ const fields = [
   'remark',
 ] as const;
 const mapProduct = (product: Product): ProductData => ({
+  articleNo: product.articleNo,
+  color: product.color,
+  size: product.size,
   id: product.id,
   tenantId: product.tenantId,
   name: product.name,
@@ -31,6 +37,9 @@ const mapProduct = (product: Product): ProductData => ({
   updatedAt: product.updatedAt.toISOString(),
 });
 const auditState = (product: ProductData) => ({
+  articleNo: product.articleNo,
+  color: product.color,
+  size: product.size,
   sku: product.sku,
   barcode: product.barcode,
   referencePurchasePrice: product.referencePurchasePrice,
@@ -82,6 +91,9 @@ export class ProductsService {
           { sku: search },
           { barcode: search },
           { specification: search },
+          { articleNo: search },
+          { color: search },
+          { size: search },
         ];
       }
       const total = await tx.product.count({ where });
@@ -133,6 +145,9 @@ export class ProductsService {
             tenantId: current.tenantId,
             name: dto.name,
             sku: dto.sku,
+            articleNo: dto.articleNo ?? null,
+            color: dto.color ?? null,
+            size: dto.size ?? null,
             specification: dto.specification ?? null,
             unit: dto.unit ?? '件',
             barcode: dto.barcode ?? null,
@@ -177,6 +192,9 @@ export class ProductsService {
         const before = mapProduct(existing);
         const next: ProductData = {
           ...before,
+          articleNo: dto.articleNo === undefined ? before.articleNo : dto.articleNo,
+          color: dto.color === undefined ? before.color : dto.color,
+          size: dto.size === undefined ? before.size : dto.size,
           name: dto.name ?? before.name,
           sku: dto.sku ?? before.sku,
           unit: dto.unit ?? before.unit,
@@ -198,6 +216,9 @@ export class ProductsService {
           where,
           data: {
             name: next.name,
+            articleNo: next.articleNo,
+            color: next.color,
+            size: next.size,
             sku: next.sku,
             specification: next.specification,
             unit: next.unit,

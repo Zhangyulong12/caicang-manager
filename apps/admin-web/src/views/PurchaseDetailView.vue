@@ -167,8 +167,11 @@ onBeforeUnmount(() => {
             }}</el-descriptions-item
             ><el-descriptions-item label="平台订单号">{{
               order.platformOrderNo || '未填写'
-            }}</el-descriptions-item
-            ><el-descriptions-item label="店铺名称">{{
+            }}</el-descriptions-item>
+            <el-descriptions-item label="采购账号">{{
+              order.purchaseAccountAlias || '未指定账号'
+            }}</el-descriptions-item>
+            <el-descriptions-item label="店铺名称">{{
               order.supplierName || '未填写'
             }}</el-descriptions-item
             ><el-descriptions-item label="采购日期">{{
@@ -209,6 +212,10 @@ onBeforeUnmount(() => {
             ><template #default="{ row }"
               ><strong>{{ row.name }}</strong
               ><small class="catalog-item-sub">{{ row.sku }}</small></template
+            ></el-table-column
+          ><el-table-column label="货号 / 颜色 / 尺码" min-width="190"
+            ><template #default="{ row }"
+              >{{ row.articleNo || '—' }} / {{ row.color || '—' }} / {{ row.size || '—' }}</template
             ></el-table-column
           ><el-table-column prop="quantity" label="采购数量" width="100" /><el-table-column
             prop="receivedQuantity"

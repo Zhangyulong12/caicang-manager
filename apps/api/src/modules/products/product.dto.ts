@@ -26,6 +26,27 @@ const present = (_object: unknown, value: unknown) => value !== undefined;
 const nonNull = (_object: unknown, value: unknown) => value !== undefined && value !== null;
 
 class ProductDetailsDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 80 })
+  @NullableTrim()
+  @ValidateIf(nonNull)
+  @IsString()
+  @MaxLength(80)
+  @Matches(/^[^\p{Cc}\p{Cs}]+$/u)
+  articleNo?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 80 })
+  @NullableTrim()
+  @ValidateIf(nonNull)
+  @IsString()
+  @MaxLength(80)
+  @Matches(/^[^\p{Cc}\p{Cs}]+$/u)
+  color?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 80 })
+  @NullableTrim()
+  @ValidateIf(nonNull)
+  @IsString()
+  @MaxLength(80)
+  @Matches(/^[^\p{Cc}\p{Cs}]+$/u)
+  size?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 200, example: 'USB-C PD，白色' })
   @NullableTrim()
   @ValidateIf(nonNull)
@@ -160,6 +181,9 @@ export class ProductIdDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID() id!: string;
 }
 export class ProductDto {
+  @ApiProperty({ type: String, nullable: true }) articleNo!: string | null;
+  @ApiProperty({ type: String, nullable: true }) color!: string | null;
+  @ApiProperty({ type: String, nullable: true }) size!: string | null;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) tenantId!: string;
   @ApiProperty({ example: '20W 充电器' }) name!: string;

@@ -72,7 +72,7 @@ onBeforeUnmount(() => sequence++);
       <el-input
         v-model="search"
         aria-label="搜索可采购商品"
-        placeholder="搜索 SKU、商品名称、条码或规格"
+        placeholder="搜索货号、SKU、颜色、尺码或商品名称"
         :maxlength="200"
         clearable
       /><el-button native-type="submit" type="primary" :loading="loading">查询商品</el-button>
@@ -89,7 +89,13 @@ onBeforeUnmount(() => sequence++);
           prop="name"
           label="商品名称"
           min-width="160"
-        /><el-table-column label="参考价" width="100"
+        /><el-table-column prop="articleNo" label="货号" min-width="110" /><el-table-column
+          prop="color"
+          label="颜色"
+          width="80"
+        /><el-table-column prop="size" label="尺码" width="80" /><el-table-column
+          label="参考价"
+          width="100"
           ><template #default="{ row }">{{
             row.referencePurchasePrice ?? '未设置'
           }}</template></el-table-column

@@ -8,6 +8,7 @@ import { MembersModule } from './modules/members/members.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { WarehousesModule } from './modules/warehouses/warehouses.module.js';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module.js';
+import { PurchaseAccountsModule } from './modules/purchase-accounts/purchase-accounts.module.js';
 import { PackagesModule } from './modules/packages/packages.module.js';
 import { ReceiptsModule } from './modules/receipts/receipts.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
@@ -23,6 +24,7 @@ import { OutboundOrdersModule } from './modules/outbound/outbound.module.js';
     ProductsModule,
     WarehousesModule,
     PurchaseOrdersModule,
+    PurchaseAccountsModule,
     PackagesModule,
     ReceiptsModule,
     InventoryModule,

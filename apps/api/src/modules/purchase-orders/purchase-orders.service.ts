@@ -9,6 +9,7 @@ import type { CreatePurchaseDto, UpdatePurchaseDto, PurchaseListQueryDto } from 
 import { purchaseCost } from './purchase-cost.js';
 
 const include = {
+  purchaseAccount: { select: { alias: true } },
   purchaseOrderItem_purchaseOrderId: {
     orderBy: [{ lineNo: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     include: {
@@ -19,6 +20,7 @@ const include = {
 } satisfies Prisma.PurchaseOrderInclude;
 type Order = Prisma.PurchaseOrderGetPayload<{ include: typeof include }>;
 const fields = [
+  'purchaseAccountId',
   'orderNo',
   'warehouseId',
   'platform',
@@ -42,6 +44,11 @@ function mapOrder(order: Order, role: TenantContext['role']): PurchaseOrderData 
     orderNo: order.orderNo,
     warehouseId: order.warehouseId,
     platform: order.platform as PurchasePlatform,
+    purchaseAccountId: order.purchaseAccountId,
+    purchaseAccountAlias:
+      order.status === 'DRAFT'
+        ? (order.purchaseAccount?.alias ?? null)
+        : order.purchaseAccountAliasSnapshot,
     platformOrderNo: order.platformOrderNo,
     supplierName: order.supplierName,
     purchaseDate: order.purchaseDate?.toISOString().slice(0, 10) ?? null,
@@ -68,6 +75,9 @@ function mapOrder(order: Order, role: TenantContext['role']): PurchaseOrderData 
       productId: line.productId,
       lineNo: line.lineNo,
       sku: line.skuSnapshot ?? line.product.sku,
+      articleNo: line.articleNoSnapshot,
+      color: line.colorSnapshot,
+      size: line.sizeSnapshot,
       name: line.nameSnapshot ?? line.product.name,
       unit: line.unitSnapshot ?? line.product.unit,
       quantity: line.quantity,
@@ -84,6 +94,9 @@ function auditState(order: PurchaseOrderData) {
   return {
     status: order.status,
     warehouseId: order.warehouseId,
+    platform: order.platform,
+    purchaseAccountId: order.purchaseAccountId,
+    purchaseAccountAlias: order.purchaseAccountAlias,
     totalCost: order.totalCost,
     items: order.items.map((row) => ({
       id: row.id,
@@ -120,6 +133,24 @@ function conflict(error: unknown): never {
 @Injectable()
 export class PurchaseOrdersService {
   constructor(private readonly contexts: TenantContextService) {}
+  private async account(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    id: string | null,
+    platform: string,
+    allowInactive = false,
+  ) {
+    if (!id) return null;
+    const account = await tx.purchaseAccount.findUnique({
+      where: { tenantId_id: { tenantId, id } },
+    });
+    if (!account) throw new BusinessException('NOT_FOUND');
+    if (account.platform !== platform)
+      throw new BusinessException('PURCHASE_ACCOUNT_PLATFORM_MISMATCH');
+    if (!account.isActive && !allowInactive)
+      throw new BusinessException('PURCHASE_ACCOUNT_INACTIVE');
+    return account;
+  }
   private async find(tx: Prisma.TransactionClient, tenantId: string, id: string) {
     const order = await tx.purchaseOrder.findUnique({
       where: { tenantId_id: { tenantId, id } },
@@ -145,7 +176,16 @@ export class PurchaseOrdersService {
     if (new Set(ids).size !== ids.length) throw new BusinessException('BUSINESS_VALIDATION_FAILED');
     const products = await tx.product.findMany({
       where: { tenantId, id: { in: ids } },
-      select: { id: true, sku: true, name: true, unit: true, isActive: true },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        unit: true,
+        isActive: true,
+        articleNo: true,
+        color: true,
+        size: true,
+      },
     });
     // Missing/foreign references are indistinguishable. Only own inactive records get a validation error.
     if (!warehouse || products.length !== ids.length) throw new BusinessException('NOT_FOUND');
@@ -177,6 +217,8 @@ export class PurchaseOrdersService {
     });
   }
   async list(context: TenantContext, query: PurchaseListQueryDto) {
+    if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo)
+      throw new BusinessException('BAD_REQUEST');
     const skip = (query.page - 1) * query.pageSize;
     if (!Number.isSafeInteger(skip) || skip > 2147483647)
       throw new BusinessException('BAD_REQUEST');
@@ -185,6 +227,12 @@ export class PurchaseOrdersService {
       if (query.status) where.status = query.status;
       if (query.platform) where.platform = query.platform;
       if (query.warehouseId) where.warehouseId = query.warehouseId;
+      if (query.purchaseAccountId) where.purchaseAccountId = query.purchaseAccountId;
+      if (query.dateFrom || query.dateTo)
+        where.purchaseDate = {
+          ...(query.dateFrom ? { gte: new Date(query.dateFrom + 'T00:00:00Z') } : {}),
+          ...(query.dateTo ? { lte: new Date(query.dateTo + 'T00:00:00Z') } : {}),
+        };
       if (query.search) {
         const search = { contains: literal(query.search), mode: 'insensitive' as const };
         where.OR = [
@@ -193,7 +241,15 @@ export class PurchaseOrdersService {
           { supplierName: search },
           {
             purchaseOrderItem_purchaseOrderId: {
-              some: { OR: [{ skuSnapshot: search }, { nameSnapshot: search }] },
+              some: {
+                OR: [
+                  { skuSnapshot: search },
+                  { nameSnapshot: search },
+                  { articleNoSnapshot: search },
+                  { skuSnapshot: null, product: { sku: search } },
+                  { nameSnapshot: null, product: { name: search } },
+                ],
+              },
             },
           },
         ];
@@ -220,6 +276,12 @@ export class PurchaseOrdersService {
   async create(context: TenantContext, dto: CreatePurchaseDto, requestId: string) {
     try {
       return await this.contexts.run(context, 'purchase:write', true, async (tx, current) => {
+        const account = await this.account(
+          tx,
+          current.tenantId,
+          dto.purchaseAccountId ?? null,
+          dto.platform,
+        );
         purchaseCost(
           dto.items.map((row) => ({ ...row, discountAmount: row.discountAmount ?? '0.00' })),
           dto.freightAmount ?? '0.00',
@@ -237,6 +299,7 @@ export class PurchaseOrdersService {
             orderNo: dto.orderNo ?? 'PO-' + randomUUID().replaceAll('-', ''),
             warehouseId: dto.warehouseId,
             platform: dto.platform,
+            purchaseAccountId: account?.id ?? null,
             platformOrderNo: dto.platformOrderNo ?? null,
             supplierName: dto.supplierName ?? null,
             purchaseDate: new Date(dto.purchaseDate + 'T00:00:00.000Z'),
@@ -258,6 +321,9 @@ export class PurchaseOrdersService {
               productId: p.id,
               lineNo: index + 1,
               skuSnapshot: p.sku,
+              articleNoSnapshot: p.articleNo,
+              colorSnapshot: p.color,
+              sizeSnapshot: p.size,
               nameSnapshot: p.name,
               unitSnapshot: p.unit,
               quantity: line.quantity,
@@ -310,7 +376,18 @@ export class PurchaseOrdersService {
           items.map((row) => row.productId),
         );
         const before = mapOrder(order, current.role);
+        const accountId =
+          dto.purchaseAccountId === undefined ? order.purchaseAccountId : dto.purchaseAccountId;
+        // Inactive existing links may be retained while editing other draft fields; place revalidates.
+        await this.account(
+          tx,
+          current.tenantId,
+          accountId,
+          dto.platform ?? order.platform,
+          accountId === order.purchaseAccountId,
+        );
         const data = {
+          purchaseAccountId: accountId,
           orderNo: dto.orderNo ?? order.orderNo,
           warehouseId,
           platform: dto.platform ?? order.platform,
@@ -367,6 +444,9 @@ export class PurchaseOrdersService {
               discountAmount: line.discountAmount,
               lineNo: index + 1,
               skuSnapshot: p.sku,
+              articleNoSnapshot: p.articleNo,
+              colorSnapshot: p.color,
+              sizeSnapshot: p.size,
               nameSnapshot: p.name,
               unitSnapshot: p.unit,
               freightAllocated: null,
@@ -410,6 +490,12 @@ export class PurchaseOrdersService {
       const order = await this.lock(tx, current.tenantId, id);
       if (order.status === 'PLACED') return mapOrder(order, current.role);
       if (order.status !== 'DRAFT') throw new BusinessException('STATUS_CONFLICT');
+      const account = await this.account(
+        tx,
+        current.tenantId,
+        order.purchaseAccountId,
+        order.platform,
+      );
       if (
         (await tx.receipt.count({ where: { tenantId: current.tenantId, purchaseOrderId: id } })) ||
         (await tx.package.count({ where: { tenantId: current.tenantId, purchaseOrderId: id } }))
@@ -439,6 +525,9 @@ export class PurchaseOrdersService {
             freightAllocated: cost.items[index]!.freightAllocated,
             landedUnitCost: cost.items[index]!.landedUnitCost,
             skuSnapshot: p.sku,
+            articleNoSnapshot: p.articleNo,
+            colorSnapshot: p.color,
+            sizeSnapshot: p.size,
             nameSnapshot: p.name,
             unitSnapshot: p.unit,
           },
@@ -447,7 +536,11 @@ export class PurchaseOrdersService {
       const result = mapOrder(
         await tx.purchaseOrder.update({
           where: { tenantId_id: { tenantId: current.tenantId, id } },
-          data: { status: 'PLACED', placedAt: new Date() },
+          data: {
+            status: 'PLACED',
+            placedAt: new Date(),
+            purchaseAccountAliasSnapshot: account?.alias ?? null,
+          },
           include,
         }),
         current.role,

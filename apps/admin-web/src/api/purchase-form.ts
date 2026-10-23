@@ -1,5 +1,8 @@
 import type { PurchaseOrderData, PurchasePlatform, ProductData } from '@caicang/api-contract';
 export interface PurchaseLineForm {
+  articleNo: string | null;
+  color: string | null;
+  size: string | null;
   key: string;
   productId: string;
   sku: string;
@@ -10,6 +13,7 @@ export interface PurchaseLineForm {
   discountAmount: string;
 }
 export interface PurchaseForm {
+  purchaseAccountId: string;
   orderNo: string;
   platform: PurchasePlatform;
   platformOrderNo: string;
@@ -80,6 +84,7 @@ export function blankPurchase(): PurchaseForm {
   return {
     orderNo: 'PO-' + crypto.randomUUID().replaceAll('-', ''),
     platform: 'TAOBAO',
+    purchaseAccountId: '',
     platformOrderNo: '',
     supplierName: '',
     purchaseDate: date,
@@ -94,6 +99,9 @@ export function blankPurchase(): PurchaseForm {
 }
 export function newPurchaseLine(product: ProductData): PurchaseLineForm {
   return {
+    articleNo: product.articleNo ?? null,
+    color: product.color ?? null,
+    size: product.size ?? null,
     key: crypto.randomUUID(),
     productId: product.id,
     sku: product.sku,
@@ -106,6 +114,7 @@ export function newPurchaseLine(product: ProductData): PurchaseLineForm {
 }
 export function purchaseForm(order: PurchaseOrderData): PurchaseForm {
   return {
+    purchaseAccountId: order.purchaseAccountId ?? '',
     orderNo: order.orderNo,
     platform: order.platform,
     platformOrderNo: order.platformOrderNo ?? '',
@@ -119,6 +128,9 @@ export function purchaseForm(order: PurchaseOrderData): PurchaseForm {
     remark: order.remark ?? '',
     items: order.items.map((row) => ({
       key: row.id,
+      articleNo: row.articleNo ?? null,
+      color: row.color ?? null,
+      size: row.size ?? null,
       productId: row.productId,
       sku: row.sku,
       name: row.name,
@@ -131,6 +143,11 @@ export function purchaseForm(order: PurchaseOrderData): PurchaseForm {
 }
 export function purchaseErrors(form: PurchaseForm): Record<string, string> {
   const errors: Record<string, string> = {};
+  if (
+    form.purchaseAccountId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(form.purchaseAccountId)
+  )
+    errors.purchaseAccountId = '请选择有效采购账号';
   for (const [key, label, max, required] of [
     ['orderNo', '采购单号', 50, true],
     ['platformOrderNo', '平台订单号', 100, false],
@@ -188,6 +205,7 @@ export function purchasePayload(form: PurchaseForm) {
   return {
     orderNo: form.orderNo.trim(),
     platform: form.platform,
+    purchaseAccountId: form.purchaseAccountId || null,
     platformOrderNo: form.platformOrderNo.trim() || null,
     supplierName: form.supplierName.trim() || null,
     purchaseDate: form.purchaseDate,

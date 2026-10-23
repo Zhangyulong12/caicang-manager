@@ -33,19 +33,21 @@ export const router = createRouter({
                 ? () => import('../views/ProductsView.vue')
                 : item.path === '/purchases'
                   ? () => import('../views/PurchasesView.vue')
-                  : item.path === '/packages'
-                    ? () => import('../views/PackagesView.vue')
-                    : item.path === '/inventory'
-                      ? () => import('../views/InventoryOverviewView.vue')
-                      : item.path === '/receipts'
-                        ? () => import('../views/ReceiptsView.vue')
-                        : item.path === '/outbound'
-                          ? () => import('../views/OutboundView.vue')
-                          : item.path === '/warehouses'
-                            ? () => import('../views/WarehousesView.vue')
-                            : item.path === '/settings'
-                              ? () => import('../views/SettingsView.vue')
-                              : () => import('../views/ModuleView.vue'),
+                  : item.path === '/purchase-accounts'
+                    ? () => import('../views/PurchaseAccountsView.vue')
+                    : item.path === '/packages'
+                      ? () => import('../views/PackagesView.vue')
+                      : item.path === '/inventory'
+                        ? () => import('../views/InventoryOverviewView.vue')
+                        : item.path === '/receipts'
+                          ? () => import('../views/ReceiptsView.vue')
+                          : item.path === '/outbound'
+                            ? () => import('../views/OutboundView.vue')
+                            : item.path === '/warehouses'
+                              ? () => import('../views/WarehousesView.vue')
+                              : item.path === '/settings'
+                                ? () => import('../views/SettingsView.vue')
+                                : () => import('../views/ModuleView.vue'),
         })),
         {
           path: 'inventory/balances',

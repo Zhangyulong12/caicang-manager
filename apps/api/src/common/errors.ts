@@ -30,6 +30,11 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   PRODUCT_BARCODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同商品条码' },
   WAREHOUSE_CODE_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同仓库编码' },
   PURCHASE_ORDER_NO_ALREADY_EXISTS: { status: 409, message: '当前商家已存在相同采购单号' },
+  PURCHASE_ACCOUNT_ALREADY_EXISTS: { status: 409, message: '当前商家此平台已存在相同账号别名' },
+  PURCHASE_ACCOUNT_INACTIVE: { status: 409, message: '采购账号已停用，请启用或选择其他账号' },
+  PURCHASE_ACCOUNT_PLATFORM_MISMATCH: { status: 422, message: '采购账号与采购平台不匹配' },
+  PURCHASE_ACCOUNT_PLATFORM_LOCKED: { status: 409, message: '已关联采购记录的账号不能修改平台' },
+  PURCHASE_ACCOUNT_HAS_ORDERS: { status: 409, message: '该账号已有采购记录，不能删除；可改为停用' },
   PACKAGE_TRACKING_ALREADY_EXISTS: { status: 409, message: '当前商家此快递公司和运单号已绑定包裹' },
   PACKAGE_EXPECTED_QTY_EXCEEDED: { status: 409, message: '全部包裹预计数量超过采购明细数量' },
 };

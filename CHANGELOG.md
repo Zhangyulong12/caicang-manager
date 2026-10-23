@@ -1,5 +1,17 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 27：采购账号管理与采购单关联
+
+- 新增 `purchase_accounts` 表（平台 `TAOBAO/JD/PDD/OTHER`、别名、备注、启停用）与四个端点：`GET/POST /purchase-accounts`、`PATCH/DELETE /purchase-accounts/{id}`；同商家同平台别名唯一，服务端 trim 并拒绝控制字符。
+- 采购单新增可空 `purchaseAccountId` 与 `purchaseAccountAliasSnapshot`：草稿显示当前别名，`place` 时冻结快照；`create/update/place` 校验同商家、平台一致、账号启用。列表新增 `purchaseAccountId`、`dateFrom`/`dateTo` 筛选。
+- 规则：停用账号不能用于新采购或确认下单（409 `PURCHASE_ACCOUNT_INACTIVE`）；有采购记录后不能改平台（409 `PURCHASE_ACCOUNT_PLATFORM_LOCKED`）、不能删除（409 `PURCHASE_ACCOUNT_HAS_ORDERS`）；删除只对从未被引用的账号开放，并写 `PURCHASE_ACCOUNT_DELETED` 审计。
+- 不保存第三方凭据：账号表没有密码/令牌列，请求体未知字段（含 `password`）白名单拒绝 400。
+- 历史兼容：迁移只增可空列，老单据账号字段 `null`、老明细回落商品主数据；新增静态断言禁止迁移出现 DROP/UPDATE/DELETE/TRUNCATE，并手插 200 天前老单据验证可读、金额 50.50 不变。
+- Web：新增「采购账号」导航与 `/purchase-accounts` 页面（列表、平台/状态筛选、新增/编辑/停用、删除确认、跳转采购记录）；采购列表加账号与日期筛选列，采购表单加按平台过滤的账号下拉，详情显示账号别名。
+- 商品属性（工作区既有改动一并整理）：`products` 加货号/颜色/尺码，`purchase_order_items` 加三项快照，独立迁移 `20261023130000_product_attributes`。
+- 新增 `scripts/purchase-accounts.test.mjs` 与 `pnpm test:purchase-accounts`（纳入 `test`）：**14 通过 / 0 失败 / 0 跳过**，覆盖五角色权限、跨商家隔离、并发重名、停用/改平台/删除规则、快照冻结、历史兼容与筛选。全仓 **605 通过 / 0 失败 / 0 跳过（7 分 59 秒）**。
+- 新增 `docs/PURCHASE_ACCOUNTS.md` 与 `docs/TASK_27_REPORT.md`。
+
 ## 2026-10-23 — 用户任务 26：Android 库存查询与扫码出库
 
 - 新增 3 个页面：`pages/stock/index`（库存查询）、`pages/stock/detail`（SKU 库存详情）、`pages/outbound/index`（扫码出库）；首页「库存查询」「扫码出库」入口接上 url，权限分别为 `products:read` / `outbound:write`。
