@@ -463,59 +463,33 @@ test(
         await http.test(
           'a shipped outbound reduces the balance and appends a chained movement',
           async () => {
-            // 出库接口尚未实现（后续任务），这里用同一个事务完成"写流水 + 改余额"，
-            // 模拟一次真实出库，用来验证查询侧能正确反映减少后的库存。
-            const outboundNo = 'OUT-INV-0001';
-            let outboundOrderId;
-            try {
-              await db.query('BEGIN');
-              const order1 = await db.query(
-                `INSERT INTO outbound_orders
-                 (tenant_id, warehouse_id, outbound_no, status, created_by,
-                  shipped_at, shipped_by, confirm_operation_id, confirm_request_hash)
-               VALUES ($1,$2,$3,'SHIPPED',$4, now(), $4, $5, $6) RETURNING id`,
-                [
-                  a.tenant.id,
-                  a.defaultWarehouse.id,
-                  outboundNo,
-                  accounts.owner.user.id,
-                  randomUUID(),
-                  randomBytes(32).toString('hex'),
-                ],
-              );
-              outboundOrderId = order1.rows[0].id;
-              const item = await db.query(
-                `INSERT INTO outbound_order_items (tenant_id, outbound_order_id, product_id, quantity, shipped_unit_cost)
-               VALUES ($1,$2,$3,8,'18.5000') RETURNING id`,
-                [a.tenant.id, order1.rows[0].id, charger.id],
-              );
-              await db.query(
-                `UPDATE stock_balances
-                  SET quantity_on_hand = quantity_on_hand - 8,
-                      total_cost = total_cost - 148.0000,
-                      updated_at = now()
-                WHERE tenant_id=$1 AND warehouse_id=$2 AND product_id=$3`,
-                [a.tenant.id, a.defaultWarehouse.id, charger.id],
-              );
-              await db.query(
-                `INSERT INTO stock_movements
-                 (tenant_id, warehouse_id, product_id, source_type, source_item_id, quantity_delta,
-                  cost_delta, quantity_before, quantity_after, total_cost_before, total_cost_after,
-                  created_by, created_at)
-               VALUES ($1,$2,$3,'OUTBOUND',$4,-8,-148.0000,20,12,370.0000,222.0000,$5, now() + interval '1 second')`,
-                [
-                  a.tenant.id,
-                  a.defaultWarehouse.id,
-                  charger.id,
-                  item.rows[0].id,
-                  accounts.owner.user.id,
-                ],
-              );
-              await db.query('COMMIT');
-            } catch (error) {
-              await db.query('ROLLBACK');
-              throw error;
-            }
+            // 通过真实出库接口发货，验证查询侧读到的是发货事务写下的账（任务 24）。
+            const draft = (
+              await read(
+                await request('/outbound-orders', {
+                  method: 'POST',
+                  body: {
+                    warehouseId: a.defaultWarehouse.id,
+                    items: [{ productId: charger.id, quantity: 8 }],
+                    customerName: '出库测试客户',
+                    customerPhone: '13800000000',
+                    customerAddress: '虚构发货地址',
+                  },
+                }),
+                201,
+              )
+            ).data;
+            const shipped = (
+              await read(
+                await request(`/outbound-orders/${draft.id}/ship`, {
+                  method: 'POST',
+                  body: { clientOperationId: randomUUID() },
+                }),
+                201,
+              )
+            ).data;
+            const outboundNo = shipped.outboundNo;
+            const outboundOrderId = shipped.id;
 
             const rows = await page(
               '/inventory/balances?sku=CHARGER-20W&warehouseId=' + a.defaultWarehouse.id,

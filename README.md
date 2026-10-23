@@ -1,5 +1,13 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 24：出库发货系统
+
+新增 6 个出库端点：创建草稿、列表、详情、修改草稿、确认发货、取消。字段覆盖出库单号、仓库、SKU、数量、收件人/电话/地址、快递公司、运单号与备注，全部落在既有表 `outbound_orders` / `outbound_order_items` 上，**无新迁移**。
+
+确认发货是一个数据库事务：锁出库单 → 按 `product_id` 升序锁库存行 → 全部行都校验完再写（缺货一次性报全）→ 按移动加权平均取成本快照 → 扣余额、回写明细快照、写 `OUTBOUND` 流水 → 单据置 `SHIPPED` → 写审计。库存不足返回 `409 OUT_OF_STOCK` 并逐 SKU 给出申请量与可用量；并发靠行锁保证不超卖（数据库还有 `quantity_on_hand >= 0` 兜底）；`clientOperationId` 幂等，重复确认返回原单据且不再扣减；已发货的单不能再次确认、不能修改、不能取消；取消草稿只改状态、不碰库存；任一步失败整个事务回滚。
+
+验收按题目数字跑通：**库存 10 → 发 3 → 剩 7 → 再发 8 被拒（要 8 只有 7）→ 库存仍为 7**。`pnpm test:outbound` **16 通过 / 0 失败 / 0 跳过**，另有库存测试改为调用真实出库接口发货。事务顺序、成本口径、错误码与核对 SQL 见 [出库说明](docs/OUTBOUND.md)，逐条对照见 [任务 24 报告](docs/TASK_24_REPORT.md)。
+
 ## 任务 23：Web 库存管理页面
 
 管理后台新增 7 个库存页面，全部只读、全部走真实接口：库存总览 `/inventory`（现存件数、账面总成本、均价、待入库、最近入库 + 分仓明细 + 最近 5 笔流水）、商品库存列表 `/inventory/balances`（商品名称、SKU、仓库、当前数量、平均成本、库存总成本、待入库数量、最近入库时间，支持搜索 / 仓库 / 日期 / 分页）、SKU 详情 `/inventory/sku/:productId`、变动流水 `/inventory/movements`（含来源单据可跳详情）、入库记录 `/receipts` 与详情 `/receipts/:id`、待入库采购商品 `/inventory/pending`（按采购行给出订购 / 已入库 / 待入库 / 单价 / 待入库金额）。
@@ -24,7 +32,7 @@ Android 真机、相机权限与签名 APK **尚未验收**。真机准备使用
 
 库存只能由收货等业务事务写入（`INSERT stock_movements` + `UPDATE stock_balances`），**本模块只有 GET**：POST/PUT/PATCH/DELETE 一律 404，OpenAPI 里这两个路径只有 `get`，测试会在调用前后比对余额确认没被改动。只读角色（VIEWER）凭 `products:read` 即可查询。
 
-`pnpm test:inventory` 在一次性 PostgreSQL 库上跑真实 API：**入库 20 件 → 查询显示 20 件（总成本 370.0000、均价 18.5000）→ 出库 8 件 → 显示 12 件（222.0000）**，流水链 0→20→12 首尾相接、数量合计等于余额；另覆盖待入库、条码前导零、六种筛选、分页、跨商家隔离与"无写接口"。**10 通过 / 0 失败 / 0 跳过**。出库 API 尚未实现（属阶段 06 剩余部分），测试里的出库由同一事务模拟。字段、口径与对账 SQL 见 [库存说明](docs/INVENTORY.md)，结果与未验证项见 [任务 22 报告](docs/TASK_22_REPORT.md)。
+`pnpm test:inventory` 在一次性 PostgreSQL 库上跑真实 API：**入库 20 件 → 查询显示 20 件（总成本 370.0000、均价 18.5000）→ 出库 8 件 → 显示 12 件（222.0000）**，流水链 0→20→12 首尾相接、数量合计等于余额；另覆盖待入库、条码前导零、六种筛选、分页、跨商家隔离与"无写接口"。**13 通过 / 0 失败 / 0 跳过**。测试里的出库已改为调用任务 24 的真实出库接口发货。字段、口径与对账 SQL 见 [库存说明](docs/INVENTORY.md)，结果与未验证项见 [任务 22 报告](docs/TASK_22_REPORT.md)。
 
 ## 任务 21：手机扫码验收入库全流程
 
@@ -114,7 +122,7 @@ PowerShell 先 `pnpm db:up`、`pnpm prisma:migrate:deploy`，再 `pnpm start:api
 
 ## 当前工作区与环境
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app；已有真实数据库、认证、商家/成员权限、商品/仓库/采购及包裹 API、Web 商品/仓库/采购/包裹页面，以及入库事务、账本、库存余额与流水查询接口和手机扫码查询。出库、盘点、统计页面与库存 Web/App 视图仍属后续任务，Android 真机验收待完成。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app；已有真实数据库、认证、商家/成员权限、商品/仓库/采购及包裹 API、Web 商品/仓库/采购/包裹页面，以及入库事务、账本、库存余额与流水查询接口和手机扫码查询。出库发货 API（任务 24）已实现，出库/盘点/统计页面与手机端出库视图仍属后续任务，Android 真机验收待完成。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 

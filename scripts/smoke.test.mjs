@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { readFile, access } from 'node:fs/promises';
 import { test } from 'node:test';
 import { startTestApi } from './api-test-server.mjs';
@@ -44,8 +45,9 @@ test('built NestJS serves real PostgreSQL health, OpenAPI and CORS policy', asyn
       // /inventory/* exists too (task 22): a read-only route that still requires a tenant + token.
       for (const route of ['/inventory/balances', '/inventory/movements'])
         assert.equal((await fetch(`${base}/api/v1${route}`)).status, 401);
-      // 出库仍是计划中的端点，路由不存在。
-      assert.equal((await fetch(`${base}/api/v1/outbound-orders`)).status, 404);
+      // /outbound-orders exists too (task 24): shipping routes always need a token and a tenant.
+      for (const route of ['/outbound-orders', '/outbound-orders/' + randomUUID()])
+        assert.equal((await fetch(`${base}/api/v1${route}`)).status, 401);
     },
   );
 });

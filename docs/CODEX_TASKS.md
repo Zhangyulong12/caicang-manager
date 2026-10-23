@@ -2,7 +2,9 @@
 
 **重要原则：一次只给 Codex 一个阶段。** 每完成一个阶段，要让 Codex 运行脚本/测试、检查差异、提交 Git；不能凭“已生成文件”宣布完成。任务不能跨阶段跳过后端业务逻辑直接做页面。
 
-当前用户任务 23：Web 库存管理页面。管理后台新增 7 个只读页面（库存总览、商品库存列表、SKU 库存详情、库存变动流水、入库记录列表、入库记录详情、待入库采购商品），列表含商品名称、SKU、仓库、当前数量、平均成本、库存总成本、待入库数量、最近入库时间，支持搜索 / 分页 / 日期筛选。数据全部来自真实 API，不得使用固定演示数字，页面只查询、不得绕过后端改库存。为支撑页面新补 `balances.lastReceivedAt`、`GET /inventory/summary`、`GET /inventory/pending`、`movements.sourceDocumentId` 与入库单 `from`/`to`（全部只读）。验收：手机扫码入库后电脑刷新库存页面即可看到真实记录（测试内以入库 20 件复现）。详见 `docs/TASK_23_REPORT.md`、「`docs/WEB_INVENTORY.md`」。
+当前用户任务 24：出库发货系统。实现 `GET/POST /outbound-orders`、`GET/PATCH /outbound-orders/{id}`、`POST /outbound-orders/{id}/ship`、`POST /outbound-orders/{id}/cancel`：草稿填写商品数量与客户地址 → 确认发货扣除库存并写流水。字段含出库单号、仓库、SKU、数量、收件人、电话、地址、快递公司、运单号、备注。要求：库存不足禁止确认、单事务、并发不超卖、重复确认不重复扣减、`clientOperationId` 幂等、移动平均成本快照、不可变流水、审计日志、仅合法角色可确认、已发货不能再次确认、取消不扣库存、任一步失败全部回滚。验收：库存 10 件发 3 件剩 7 件，再发 8 件被拒且仍为 7（实测通过）。详见 `docs/TASK_24_REPORT.md`、「docs/OUTBOUND.md」。
+
+用户任务 23 已完成 Web 库存管理页面。管理后台新增 7 个只读页面（库存总览、商品库存列表、SKU 库存详情、库存变动流水、入库记录列表、入库记录详情、待入库采购商品），列表含商品名称、SKU、仓库、当前数量、平均成本、库存总成本、待入库数量、最近入库时间，支持搜索 / 分页 / 日期筛选。数据全部来自真实 API，不得使用固定演示数字，页面只查询、不得绕过后端改库存。为支撑页面新补 `balances.lastReceivedAt`、`GET /inventory/summary`、`GET /inventory/pending`、`movements.sourceDocumentId` 与入库单 `from`/`to`（全部只读）。验收：手机扫码入库后电脑刷新库存页面即可看到真实记录（测试内以入库 20 件复现）。详见 `docs/TASK_23_REPORT.md`、「`docs/WEB_INVENTORY.md`」。
 
 用户任务 22 已完成库存查询系统：新增只读 `GET /inventory/balances` 与 `GET /inventory/movements`，按商家/仓库/SKU 返回现存数量、采购待入库数量、移动加权平均成本、账面总成本与完整流水；`/inventory/*` 只有 GET。验收：入库 20 → 出库 8 → 剩 12，流水链 0→20→12 闭合。详见 `docs/TASK_22_REPORT.md`。
 

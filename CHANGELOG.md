@@ -1,5 +1,16 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 24：出库发货系统
+
+- 新增 6 个端点：`POST /api/v1/outbound-orders`（创建草稿 201）、`GET /api/v1/outbound-orders`（分页列表，支持仓库/状态/商品/创建日期/单号·运单号·收件人搜索）、`GET /api/v1/outbound-orders/{id}`、`PATCH /api/v1/outbound-orders/{id}`（`items` 整单替换）、`POST /api/v1/outbound-orders/{id}/ship`（首次 201 / 幂等重放 200）、`POST /api/v1/outbound-orders/{id}/cancel`（200）。
+- 字段覆盖出库单号、仓库、商品 SKU、数量、收件人、联系电话、收件地址、快递公司、发货运单号、备注；全部落在既有 `outbound_orders` / `outbound_order_items` 上，**无新表、无迁移**。草稿不校验库存（草稿不动库存），但收件人/电话/地址在确认发货前必须补齐；客户端夹带 `totalCost` 等派生字段被 whitelist 拒绝。
+- 确认发货是单事务：锁出库单行 → 按 `product_id` 升序 `FOR UPDATE` 锁库存行 → 所有行校验完再写 → 移动加权平均取单价快照 → 扣余额、回写 `shipped_unit_cost`、写 `OUTBOUND` 流水 → 单据置 `SHIPPED` → 写 `OUTBOUND_SHIPPED` 审计。库存不足返回 `409 OUT_OF_STOCK`，`details.shortages` 逐 SKU 给出申请量与可用量；发完整批时 `costDelta = -total_cost` 清空成本池，不留尾差。
+- 并发出库靠行锁而不是乐观重试：两张单同时抢最后几件时一个 201、一个 409，`stock_balances.quantity_on_hand` 不会为负（数据库也有 `>= 0` 约束兜底）；同一张单的两个并发重试用同一操作号只有一个 201、一个 200，库存只扣一次。
+- 幂等与状态：`outbound_orders.(tenant_id, confirm_operation_id)` 唯一键 + `confirm_request_hash` 比对；同 ID 同内容返回原单据且不再扣减，同 ID 不同内容 409 `IDEMPOTENCY_CONFLICT`，同 ID 挪用到另一张单也 409；已发货的单换新 ID 再确认、PATCH、取消全部 409 `STATUS_CONFLICT`；取消草稿只改状态、不写流水、不动余额（审计记 `stockTouched: false`），重复取消 200 且 `cancelled=false`。
+- 权限：写操作 `outbound:write` + `Roles(OWNER/ADMIN/WAREHOUSE)`，BUYER / VIEWER 一律 403；读操作 `products:read`（含 VIEWER，`remark` 由服务端隐藏）。审计新增 `OUTBOUND_DRAFT_CREATED` / `OUTBOUND_DRAFT_UPDATED` / `OUTBOUND_SHIPPED` / `OUTBOUND_CANCELLED`。
+- 新增 `scripts/outbound.test.mjs` 与 `pnpm test:outbound`，一次性 PostgreSQL + 真实 API，**16 通过 / 0 失败 / 0 跳过**：验收路径 10 → 发 3 → 7 → 发 8 被拒且仍为 7；另覆盖并发超卖、并发重复、幂等冲突、权限、取消、PATCH 替换、移动平均快照与清池、审计回滚（触发器注入失败后同一操作号重试成功）、账本对账与 OpenAPI 契约。
+- 顺带修正：`scripts/smoke.test.mjs` 里 `/outbound-orders` 由"未来路由 404"改为匿名 401；`scripts/inventory.test.mjs` 的模拟出库改为调用真实出库接口发货 8 件（13 通过）。`docs/OUTBOUND.md` 记录事务顺序、成本口径、错误码与核对 SQL。
+
 ## 2026-10-23 — 用户任务 23：Web 库存管理页面
 
 - 管理后台新增 7 个只读库存页面：库存总览 `/inventory`、商品库存列表 `/inventory/balances`、SKU 库存详情 `/inventory/sku/:productId`、库存变动流水 `/inventory/movements`、入库记录列表 `/receipts`、入库记录详情 `/receipts/:id`、待入库采购商品 `/inventory/pending`；导航「库存管理」「入库记录」去掉待开放标记，按 `products:read` / `packages:read` 判定访问。

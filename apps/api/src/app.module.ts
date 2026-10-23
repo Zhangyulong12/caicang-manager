@@ -11,6 +11,7 @@ import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.
 import { PackagesModule } from './modules/packages/packages.module.js';
 import { ReceiptsModule } from './modules/receipts/receipts.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
+import { OutboundOrdersModule } from './modules/outbound/outbound.module.js';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { InventoryModule } from './modules/inventory/inventory.module.js';
     PackagesModule,
     ReceiptsModule,
     InventoryModule,
+    OutboundOrdersModule,
   ],
   controllers: [HealthController],
 })

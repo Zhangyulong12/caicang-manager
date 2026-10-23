@@ -347,6 +347,50 @@ export interface ReceiptData {
 export const STOCK_MOVEMENT_TYPES = ['RECEIPT', 'OUTBOUND', 'ADJUSTMENT'] as const;
 export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
 export type StockMovementDirection = 'IN' | 'OUT';
+
+export const OUTBOUND_STATUSES = ['DRAFT', 'SHIPPED', 'CANCELLED'] as const;
+export type OutboundStatus = (typeof OUTBOUND_STATUSES)[number];
+export interface OutboundItemData {
+  id: string;
+  productId: string;
+  sku: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  /** 发货时的移动加权平均单位成本快照；草稿未发货为 null。 */
+  shippedUnitCost: string | null;
+  /** quantity × shippedUnitCost；草稿为 null。 */
+  lineCost: string | null;
+  /** 当前该仓库可出库数量，来自 stock_balances，仅供页面提示。 */
+  availableQuantity: number;
+}
+export interface OutboundOrderData {
+  id: string;
+  tenantId: string;
+  outboundNo: string;
+  status: OutboundStatus;
+  warehouseId: string;
+  warehouseName: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  customerAddress: string | null;
+  carrierCode: string | null;
+  trackingNo: string | null;
+  remark: string | null;
+  createdBy: string;
+  createdByName: string;
+  shippedBy: string | null;
+  shippedByName: string | null;
+  /** 发货幂等操作 ID；草稿为 null。 */
+  confirmOperationId: string | null;
+  shippedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  totalQuantity: number;
+  /** 本单出库成本合计；草稿为 0.0000。 */
+  totalCost: string;
+  items: OutboundItemData[];
+}
 /** 库存余额快照行：现存数量来自 stock_balances，待入库来自未收完的采购行。 */
 export interface InventoryBalanceData {
   warehouseId: string;

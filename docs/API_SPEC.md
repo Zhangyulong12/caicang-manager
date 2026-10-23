@@ -174,6 +174,8 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 |GET|`/reports/export/stock-movements.csv`|导出库存流水|OWNER/ADMIN|
 |GET|`/health`|存活检查，生产避免暴露秘钥|公开|
 
+任务 24 已实现表中 6 个出库端点（`GET/POST /outbound-orders`、`GET/PATCH /outbound-orders/{id}`、`POST /outbound-orders/{id}/ship`、`POST /outbound-orders/{id}/cancel`），字段、事务顺序、成本口径、错误码与核对 SQL 见 `docs/OUTBOUND.md`。`POST /inventory/adjustments`（盘点差异）仍是计划项。
+
 任务 22 已实现表中两个库存查询端点（`GET /inventory/balances`、`GET /inventory/movements`，权限 `products:read`，字段与口径见 `docs/INVENTORY.md`）。**`/inventory/*` 目前只有 GET，没有任何写动词**——库存数量只能由收货等业务事务在同一个数据库事务里"写 `stock_movements` + 改 `stock_balances`"来改变，不存在直接改余额的 CRUD 接口。`POST /inventory/adjustments`（盘点差异）仍是计划项：将来实现时也必须走同一路径（写一条 `ADJUSTMENT` 流水并同步成本池），并记录审计，而不是 `PATCH stock_balances`。
 
 ## 5. 关键请求示例
@@ -324,7 +326,7 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 
 返回 `ReceiptData` 分页，按 `receivedAt DESC, id DESC` 排序；`search` 命中入库单号、采购单号、运单号的字面子串。`GET /receipts/{id}` 返回逐行 SKU/名称/单位/数量/到岸成本快照。查询强制商家隔离，VIEWER 的 `remark` 固定为 `null`。
 
-### 5.8 确认出库
+### 5.8 确认出库（任务 24 已实现）
 
 `POST /outbound-orders/{id}/ship`
 
@@ -332,7 +334,7 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 {"clientOperationId":"2d174cc7-75f7-4fc4-893e-5a16909c005b","carrierCode":"YTO","trackingNo":"YT00123456789"}
 ```
 
-成功后扣库存；重复同样确认 ID 返回原结果，换新的确认 ID 再确认已 SHIPPED 的出库单返回 409；存量不足返回 `409 OUT_OF_STOCK`。
+成功后扣库存并写 `OUTBOUND` 流水与审计；重复同样确认 ID 返回原结果（200）、不再扣减，换新的确认 ID 再确认已 SHIPPED 的出库单返回 `409 STATUS_CONFLICT`；存量不足返回 `409 OUT_OF_STOCK`，`details.shortages` 逐 SKU 给出 `requestedQuantity` 与 `availableQuantity`。`carrierCode` / `trackingNo` / `remark` 可选，给了就覆盖草稿里的值，并计入 `confirm_request_hash`。
 
 ## 6. 验证规则 / 约定
 

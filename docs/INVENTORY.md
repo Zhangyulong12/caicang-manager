@@ -9,7 +9,7 @@
 库存是**只读视图**，不是可编辑的数据表：
 
 ```
-业务动作（收货、将来的出库/盘点）
+业务动作（收货、出库、将来的盘点）
     └─ 一个事务内：INSERT stock_movements（quantity_before/after、cost_before/after）
                    UPDATE stock_balances（quantity_on_hand、total_cost）
                    ↑ 唯一写入口
@@ -168,7 +168,7 @@ HAVING b.quantity_on_hand <> SUM(m.quantity_delta);  -- 有差异才会返回行
 
 ## 六、已知边界
 
-- **出库接口尚未实现**：流水类型 `OUTBOUND` 与来源单据关联已就绪，但没有创建出库单的端点；测试里的出库由一条模拟事务写入。真正实现时务必沿用"写流水 + 改余额"的同一路径。
+- **出库已实现（任务 24）**：`POST /outbound-orders/{id}/ship` 在同一事务里"写 `OUTBOUND` 流水 + 改余额 + 回写成本快照"，所以本模块的余额与流水始终自洽；`scripts/inventory.test.mjs` 已改为调用真实出库接口发货。发货事务细节见 `docs/OUTBOUND.md`。
 - **零库存不保留历史均价**：全部出清后 `averageCost` 返回 `0.0000`。若业务需要"参考成本"，要另存一列最近均价。
 - **待入库每次实时聚合**：当前规模毫秒级；采购明细量级上来后应改为增量维护。
 - **时间筛选按 UTC 比较**：服务端只接受 ISO 8601 或纯日期，页面按本地时区展示时需自行换算边界。
