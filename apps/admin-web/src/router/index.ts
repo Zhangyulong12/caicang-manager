@@ -2,7 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { useTenantStore } from '../stores/tenant';
 import { ApiFailure } from '../api/client';
-import { allowed, inventoryPath, navigation, receiptPath, safeRedirect } from './policy';
+import {
+  allowed,
+  inventoryPath,
+  navigation,
+  outboundPath,
+  receiptPath,
+  safeRedirect,
+} from './policy';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -32,11 +39,13 @@ export const router = createRouter({
                       ? () => import('../views/InventoryOverviewView.vue')
                       : item.path === '/receipts'
                         ? () => import('../views/ReceiptsView.vue')
-                        : item.path === '/warehouses'
-                          ? () => import('../views/WarehousesView.vue')
-                          : item.path === '/settings'
-                            ? () => import('../views/SettingsView.vue')
-                            : () => import('../views/ModuleView.vue'),
+                        : item.path === '/outbound'
+                          ? () => import('../views/OutboundView.vue')
+                          : item.path === '/warehouses'
+                            ? () => import('../views/WarehousesView.vue')
+                            : item.path === '/settings'
+                              ? () => import('../views/SettingsView.vue')
+                              : () => import('../views/ModuleView.vue'),
         })),
         {
           path: 'inventory/balances',
@@ -79,6 +88,21 @@ export const router = createRouter({
           meta: { title: '采购单详情' },
         },
         {
+          path: 'outbound/new',
+          component: () => import('../views/OutboundFormView.vue'),
+          meta: { title: '新建出库单' },
+        },
+        {
+          path: 'outbound/:id/edit',
+          component: () => import('../views/OutboundFormView.vue'),
+          meta: { title: '修改出库草稿' },
+        },
+        {
+          path: 'outbound/:id',
+          component: () => import('../views/OutboundDetailView.vue'),
+          meta: { title: '出库单详情' },
+        },
+        {
           path: 'products/:id',
           component: () => import('../views/ProductDetailView.vue'),
           meta: { title: '商品详情' },
@@ -118,7 +142,8 @@ router.beforeEach(async (to) => {
       to.path.startsWith('/products/') ||
       to.path.startsWith('/purchases/') ||
       inventoryPath(to.path) ||
-      receiptPath(to.path)) &&
+      receiptPath(to.path) ||
+      outboundPath(to.path)) &&
     !allowed(to.path, tenants.current?.permissions ?? [])
   )
     return '/forbidden';

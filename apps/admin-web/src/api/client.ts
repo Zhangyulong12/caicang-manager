@@ -24,6 +24,8 @@ export class ApiFailure extends Error {
     readonly code: string,
     message: string,
     readonly requestId?: string,
+    /** 服务端结构化原因，例如库存不足时的 shortages 列表。 */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -99,7 +101,7 @@ export function createApiClient(options: ClientOptions) {
       }
       const body = (await response.json().catch(() => null)) as {
         data?: T;
-        error?: { code?: string; message?: string };
+        error?: { code?: string; message?: string; details?: Record<string, unknown> };
         requestId?: string;
       } | null;
       if (!response.ok) {
@@ -113,6 +115,7 @@ export function createApiClient(options: ClientOptions) {
               ? message
               : '请求未完成，请稍后重试',
           body?.requestId,
+          body?.error?.details ?? {},
         );
       }
       if (!body || !('data' in body))

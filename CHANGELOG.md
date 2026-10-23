@@ -1,5 +1,18 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 25：电脑端出库页面
+
+- 新增 4 个页面：出库单列表 `/outbound`、新建草稿 `/outbound/new`、修改草稿 `/outbound/:id/edit`、出库详情 `/outbound/:id`；「出库管理」导航项去掉「待开放」，权限 `products:read`（新建/修改需 `outbound:write`，路由守卫同步拦截）。
+- 列表列：出库单号、状态、仓库、收件人（电话）、商品摘要、件数、出库成本、快递/运单号、发货时间；筛选：搜索（单号/运单号/收件人/电话）、状态、仓库、创建日期区间、分页 10–100。
+- 草稿表单：发货仓库（默认偏好仓库）、快递公司（10 个常用编码）、运单号（前导零保留）、备注、收件人/电话/地址、商品明细。选品弹窗查 `GET /inventory/balances` 按仓库列出可出库 SKU 与可用数量；加行、换仓库、手动刷新都会重新向服务端要可用数量；超量行即时标红并汇总提示。离开未保存表单有二次确认。
+- 详情页：状态标签、单号、仓库、创建/发货人与时间、四张指标卡、收货信息、成本快照明细；草稿可「确认发货 / 取消草稿 / 修改草稿」。确认发货弹窗可覆盖快递公司、运单号、备注。
+- 库存不足**禁止完成发货并显示服务端原因**：`409 OUT_OF_STOCK` 的 `details.shortages` 翻成「库存不足，未扣减任何库存：SKU 需要 N 件、可用 M 件」；被拒后单据仍 `DRAFT`，库存与流水不变，页面重查可用数量。
+- 前端不算库存：数量、成本、均价、合计全部来自接口，页面无 `stock_balances` / `stock_movements` 访问，`api/inventory.ts` 仍只有 GET，唯一写请求是 `/outbound-orders`。
+- 幂等：`shipFingerprint(orderId, carrierCode, trackingNo, remark)` 生成指纹，同指纹重试复用同一 `clientOperationId`（超时重点不二次扣减），内容变更换新号。
+- `ApiFailure` 增加 `details`（保留服务端结构化原因）；`eslint.config.mjs` 声明 `crypto` 全局。
+- 新增 `scripts/web-outbound.test.mjs` 与 `pnpm test:web-outbound`（纳入 `test` / `test:web`），一次性 PostgreSQL + 真实 API + 生产构建，**12 通过 / 0 失败 / 0 跳过**：草稿不动库存 → 发 3 件后剩 7、流水 `10→7` → 8 件被拒且库存仍 7 → 同操作号重放不二次扣减 → 已发货 409 → 取消不扣库存且重复取消幂等 → 列表筛选 → VIEWER 可读不可写 → 静态断言无本地库存计算与假数据。全仓 **581 通过 / 0 失败 / 0 跳过**。
+- 新增 `docs/WEB_OUTBOUND.md` 与 `docs/TASK_25_REPORT.md`。
+
 ## 2026-10-23 — 用户任务 24：出库发货系统
 
 - 新增 6 个端点：`POST /api/v1/outbound-orders`（创建草稿 201）、`GET /api/v1/outbound-orders`（分页列表，支持仓库/状态/商品/创建日期/单号·运单号·收件人搜索）、`GET /api/v1/outbound-orders/{id}`、`PATCH /api/v1/outbound-orders/{id}`（`items` 整单替换）、`POST /api/v1/outbound-orders/{id}/ship`（首次 201 / 幂等重放 200）、`POST /api/v1/outbound-orders/{id}/cancel`（200）。

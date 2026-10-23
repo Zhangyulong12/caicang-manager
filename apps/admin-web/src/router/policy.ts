@@ -59,10 +59,9 @@ export const navigation: {
   {
     path: '/outbound',
     title: '出库管理',
-    permission: 'tenant:read',
+    permission: 'products:read',
     icon: 'Upload',
-    soon: true,
-    description: '管理发货订单与出库',
+    description: '创建出库单、确认发货与查看出库记录',
   },
   {
     path: '/reports',
@@ -90,7 +89,11 @@ export const roleNames = {
 export function safeRedirect(value: unknown): string {
   if (
     typeof value === 'string' &&
-    (productDetailPath(value) || purchasePath(value) || inventoryPath(value) || receiptPath(value))
+    (productDetailPath(value) ||
+      purchasePath(value) ||
+      inventoryPath(value) ||
+      receiptPath(value) ||
+      outboundPath(value))
   )
     return value;
   return typeof value === 'string' &&
@@ -102,6 +105,11 @@ export function allowed(path: string, permissions: readonly TenantPermission[]):
   if (path === '/purchases/new' || (purchasePath(path) && path.endsWith('/edit')))
     return permissions.includes('purchase:write');
   if (purchasePath(path)) return permissions.includes('purchase:read');
+  // 出库单的读对所有角色开放；新建与修改只有能发货的角色可以进。
+  if (outboundPath(path))
+    return permissions.includes(
+      path === '/outbound/new' || path.endsWith('/edit') ? 'outbound:write' : 'products:read',
+    );
   if (path.startsWith('/products/')) return permissions.includes('products:read');
   if (inventoryPath(path)) return permissions.includes('products:read');
   if (receiptPath(path)) return permissions.includes('packages:read');
@@ -133,6 +141,18 @@ export function inventoryPath(path: string): boolean {
   return (
     inventoryPages.includes(path) ||
     /^\/inventory\/sku\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
+  );
+}
+
+const OUTBOUND_ID = /^\/outbound\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 出库列表、草稿表单与详情。 */
+export function outboundPath(path: string): boolean {
+  return (
+    path === '/outbound' ||
+    path === '/outbound/new' ||
+    OUTBOUND_ID.test(path) ||
+    (path.endsWith('/edit') && OUTBOUND_ID.test(path.slice(0, -'/edit'.length)))
   );
 }
 

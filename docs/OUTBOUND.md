@@ -185,7 +185,11 @@ WHERE tenant_id = $1 AND status = 'SHIPPED'
   AND (shipped_at IS NULL OR confirm_operation_id IS NULL OR confirm_request_hash IS NULL);
 ```
 
-## 八、已知边界
+## 八、页面入口（任务 25）
+
+Web 端「出库管理」（`/outbound`）已经建在这些端点上：列表、新建/修改草稿、详情、确认发货、取消草稿。页面只负责收集输入与展示服务端结果，成本与库存一律不本地计算；库存不足时把这里返回的 `409 OUT_OF_STOCK` 逐 SKU 差额原样显示。操作方法与手工验收步骤见 `docs/WEB_OUTBOUND.md`。
+
+## 九、已知边界
 
 - **没有退货/逆向出库**：发错货只能先做盘点调整（`POST /inventory/adjustments` 也还没实现）。当前唯一能纠正库存的是再收一次货或后续盘点。
 - **不支持拆包/部分发货**：一张出库单要么全发，要么不发。需要分批发货就拆成多张单。
