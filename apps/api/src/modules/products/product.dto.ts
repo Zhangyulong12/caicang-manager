@@ -104,13 +104,16 @@ class ProductDetailsDto {
   remark?: string | null;
 }
 export class CreateProductDto extends ProductDetailsDto {
-  @ApiProperty({ example: '20W 充电器', maxLength: 200 })
+  @ApiPropertyOptional({
+    maxLength: 200,
+    description: '可选。留空时按 货号 颜色 尺码 生成；三者都没填则用 SKU。',
+  })
   @Trim()
+  @ValidateIf(present)
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
-  @Matches(/^[^\p{Cc}\p{Cs}]+$/u)
-  name!: string;
+  @Matches(/^[^\p{Cc}\p{Cs}]*$/u)
+  name?: string;
   @ApiProperty({ example: 'CHARGER-20W', maxLength: 80 })
   @Trim()
   @IsString()
@@ -120,13 +123,15 @@ export class CreateProductDto extends ProductDetailsDto {
   sku!: string;
 }
 export class UpdateProductDto extends ProductDetailsDto {
-  @ApiPropertyOptional({ example: '20W 充电器', maxLength: 200 })
+  @ApiPropertyOptional({
+    maxLength: 200,
+    description: '传空字符串表示改回按 货号/颜色/尺码 自动生成；不传则保持原名称。',
+  })
   @Trim()
   @ValidateIf(present)
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
-  @Matches(/^[^\p{Cc}\p{Cs}]+$/u)
+  @Matches(/^[^\p{Cc}\p{Cs}]*$/u)
   name?: string;
   @ApiPropertyOptional({ example: 'CHARGER-20W', maxLength: 80 })
   @Trim()
@@ -140,7 +145,7 @@ export class UpdateProductDto extends ProductDetailsDto {
 export class ProductListQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     maxLength: 200,
-    description: '名称/SKU/条码/规格的字面子串，不区分大小写',
+    description: '名称/货号/颜色/尺码/SKU/条码/规格的字面子串，不区分大小写',
   })
   @Trim()
   @ValidateIf(present)
@@ -186,7 +191,8 @@ export class ProductDto {
   @ApiProperty({ type: String, nullable: true }) size!: string | null;
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) tenantId!: string;
-  @ApiProperty({ example: '20W 充电器' }) name!: string;
+  @ApiProperty({ example: 'T20 白色 L', description: '自定义名称，或按货号/颜色/尺码自动生成' })
+  name!: string;
   @ApiProperty({ example: 'CHARGER-20W' }) sku!: string;
   @ApiProperty({ type: String, nullable: true }) specification!: string | null;
   @ApiProperty({ example: '个' }) unit!: string;

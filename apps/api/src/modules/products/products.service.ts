@@ -5,6 +5,7 @@ import { BusinessException } from '../../common/errors.js';
 import { PageResult } from '../../common/response.js';
 import { TenantContextService, type TenantContext } from '../../common/tenancy/tenant-context.js';
 import type { CreateProductDto, UpdateProductDto, ProductListQueryDto } from './product.dto.js';
+import { derivedProductName } from './product-name.js';
 
 const fields = [
   'articleNo',
@@ -143,7 +144,15 @@ export class ProductsService {
         const product = await tx.product.create({
           data: {
             tenantId: current.tenantId,
-            name: dto.name,
+            // 名称可不填：按业务真正用来识别商品的 货号/颜色/尺码 生成，避免多一个必填项。
+            name:
+              dto.name?.trim() ||
+              derivedProductName({
+                articleNo: dto.articleNo,
+                color: dto.color,
+                size: dto.size,
+                sku: dto.sku,
+              }),
             sku: dto.sku,
             articleNo: dto.articleNo ?? null,
             color: dto.color ?? null,
@@ -190,13 +199,25 @@ export class ProductsService {
         const existing = await tx.product.findUnique({ where });
         if (!existing) throw new BusinessException('NOT_FOUND');
         const before = mapProduct(existing);
+        const articleNo = dto.articleNo === undefined ? before.articleNo : dto.articleNo;
+        const color = dto.color === undefined ? before.color : dto.color;
+        const size = dto.size === undefined ? before.size : dto.size;
+        const sku = dto.sku ?? before.sku;
+        const generated = derivedProductName({ articleNo, color, size, sku });
+        // 用户自己填过的名称不因改属性被覆盖；只有原本就是自动生成的才跟着重算。
+        const name =
+          dto.name === undefined
+            ? before.name === derivedProductName(before)
+              ? generated
+              : before.name
+            : dto.name.trim() || generated;
         const next: ProductData = {
           ...before,
-          articleNo: dto.articleNo === undefined ? before.articleNo : dto.articleNo,
-          color: dto.color === undefined ? before.color : dto.color,
-          size: dto.size === undefined ? before.size : dto.size,
-          name: dto.name ?? before.name,
-          sku: dto.sku ?? before.sku,
+          articleNo,
+          color,
+          size,
+          name,
+          sku,
           unit: dto.unit ?? before.unit,
           specification: dto.specification === undefined ? before.specification : dto.specification,
           barcode: dto.barcode === undefined ? before.barcode : dto.barcode,

@@ -28,9 +28,8 @@ for (const file of ['client', 'catalog-form', 'catalog']) {
 }
 const { createApiClient, ApiFailure } = await import(new URL('client.mjs', output));
 const { createCatalog } = await import(new URL('catalog.mjs', output));
-const { blankProduct, productForm, productErrors, warehouseErrors } = await import(
-  new URL('catalog-form.mjs', output)
-);
+const { blankProduct, productForm, productErrors, previewProductName, warehouseErrors } =
+  await import(new URL('catalog-form.mjs', output));
 const { Client } = createRequire(new URL('../apps/api/package.json', import.meta.url))('pg');
 const runFile = promisify(execFile);
 loadEnvFile(new URL('../.env', import.meta.url));
@@ -146,13 +145,28 @@ test(
           error instanceof ApiFailure && error.status === status && (!code || error.code === code);
         let product, warehouse;
         await http.test(
-          'empty forms show required name SKU unit and warehouse field errors',
+          'empty forms require SKU and unit but let the name be generated, plus warehouse field errors',
           () => {
             assert.deepEqual(Object.keys(productErrors({ ...blankProduct(), unit: '' })).sort(), [
-              'name',
               'sku',
               'unit',
             ]);
+            // 名称留空是合法输入：服务端会按 货号/颜色/尺码（都没有就用 SKU）生成。
+            assert.deepEqual(productErrors({ ...blankProduct(), sku: 'AUTO-1' }), {});
+            assert.equal(
+              previewProductName({
+                articleNo: 'T20',
+                color: '黑色',
+                size: 'L',
+                sku: 'T20-BLK-L',
+              }),
+              'T20 黑色 L',
+            );
+            assert.equal(
+              previewProductName({ articleNo: '', color: '', size: '', sku: 'BARE-SKU' }),
+              'BARE-SKU',
+            );
+            assert.equal(previewProductName({ articleNo: '', color: '', size: '', sku: '' }), '');
             assert.deepEqual(
               Object.keys(warehouseErrors({ name: ' ', code: '', remark: '' })).sort(),
               ['code', 'name'],

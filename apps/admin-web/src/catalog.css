@@ -70,6 +70,27 @@
   line-height: 1.8;
   margin: 8px 0 20px;
 }
+.product-name-preview {
+  margin-top: -6px;
+}
+.product-name-preview strong {
+  color: #355a4d;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.catalog-advanced {
+  border-top: 1px solid #edf0f3;
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+.catalog-advanced .el-collapse-item__header {
+  height: 46px;
+  font-size: 12px;
+  color: #7c8997;
+}
+.catalog-advanced .el-collapse-item__content {
+  padding-bottom: 0;
+}
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

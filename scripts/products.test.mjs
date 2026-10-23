@@ -282,6 +282,48 @@ test(
           },
         );
         await http.test(
+          'name is optional and follows 货号 颜色 尺码 until a custom name is set',
+          async () => {
+            const auto = (
+              await read(
+                await create({ articleNo: 'T20', color: '黑色', size: 'L', sku: 'T20-BLK-L' }),
+                201,
+              )
+            ).data;
+            assert.equal(auto.name, 'T20 黑色 L');
+            // 没有任何属性时用 SKU 兜底，名称永远不为空。
+            const bare = (await read(await create({ sku: 'BARE-SKU' }), 201)).data;
+            assert.equal(bare.name, 'BARE-SKU');
+            const recolored = (await read(await patch(auto.id, { color: '白色' }), 200)).data;
+            assert.equal(recolored.name, 'T20 白色 L');
+            // 用户自己写的名称不跟着属性变。
+            const custom = (await read(await patch(auto.id, { name: '黑标经典款' }), 200)).data;
+            assert.equal(
+              (await read(await patch(custom.id, { size: 'XL' }), 200)).data.name,
+              '黑标经典款',
+            );
+            // 传空字符串表示改回自动生成。
+            assert.equal(
+              (await read(await patch(custom.id, { name: '' }), 200)).data.name,
+              'T20 白色 XL',
+            );
+            // 属性全清空后回落到 SKU。
+            assert.equal(
+              (
+                await read(
+                  await patch(custom.id, { articleNo: null, color: null, size: null }),
+                  200,
+                )
+              ).data.name,
+              'T20-BLK-L',
+            );
+            assert.equal(
+              (await read(await request('/products/' + custom.id), 200)).data.name,
+              'T20-BLK-L',
+            );
+          },
+        );
+        await http.test(
           'duplicate SKU is a standard 409 without creating product or audit',
           async () => {
             const before = await auditCount();
@@ -514,14 +556,30 @@ test(
             }
           });
         await http.test(
-          'search covers name SKU barcode and specification without crossing merchants',
+          'search covers 货号 颜色 尺码 name SKU barcode and specification without crossing merchants',
           async () => {
-            for (const search of ['充电器', 'charger-20w', '0001234567890', 'usb-c']) {
+            const variant = await make('SEARCH-VARIANT', {
+              articleNo: 'ART-9',
+              color: '藏青',
+              size: 'XXL',
+            });
+            for (const [search, id] of [
+              ['充电器', product.id],
+              ['charger-20w', product.id],
+              ['0001234567890', product.id],
+              ['usb-c', product.id],
+              ['art-9', variant.id],
+              ['藏青', variant.id],
+              ['xxl', variant.id],
+            ]) {
               const body = await read(
                 await request('/products?search=' + encodeURIComponent(search)),
                 200,
               );
-              assert.ok(body.data.some((p) => p.id === product.id));
+              assert.ok(
+                body.data.some((p) => p.id === id),
+                'search ' + search,
+              );
               assert.ok(body.data.every((p) => p.tenantId === a.tenant.id));
               assert.equal(
                 body.data.some((p) => p.id === foreign.id),
@@ -971,7 +1029,6 @@ test(
           async () => {
             for (const body of [
               {},
-              { name: '', sku: 'BAD' },
               { name: 'x', sku: ' ' },
               { name: null, sku: 'BAD' },
               { name: 'x', sku: 'BAD', unit: null },
@@ -1056,10 +1113,10 @@ test(
               assert.deepEqual(doc.paths['/api/v1' + path][method].security, [
                 { bearer: [], tenant: [] },
               ]);
-            assert.equal(
-              doc.components.schemas.CreateProductDto.properties.name.example,
-              '20W 充电器',
-            );
+            // 名称可以缺省（服务端按 货号/颜色/尺码 生成），所以它不在必填列表里。
+            const createSchema = doc.components.schemas.CreateProductDto;
+            assert.equal(createSchema.required.includes('name'), false);
+            assert.equal(createSchema.properties.name.maxLength, 200);
             assert.equal(
               doc.components.schemas.CreateProductDto.properties.sku.example,
               'CHARGER-20W',

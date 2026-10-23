@@ -96,10 +96,10 @@ register/login/refresh/logout 均沿用每 IP 每路由 5 次/60 秒限流。认
 
 所有商品接口同时要求 Bearer 与 X-Tenant-Id，五种 active 角色可读，OWNER/ADMIN/BUYER 可创建/修改；WAREHOUSE/VIEWER 只读。读写均经 Tenant Context 事务重新验证授权，跨商家 ID 与未知 ID 统一 404。
 
-- POST /products：name、sku 必填；specification、unit（默认件）、barcode、referencePurchasePrice、isActive（默认 true）、remark 可选。参考价只接受非负十进制字符串或 null，最多十六位整数/两位小数，未知为 null；响应为两位小数字符串。例：`{"name":"20W 充电器","sku":"CHARGER-20W","unit":"个","referencePurchasePrice":"18.50"}`，成功 201。
-- GET /products：标准分页 data 数组/pagination/requestId；page/pageSize 默认 1/20，上限 pageSize=100。search 按名称/SKU/条码/规格做字面子串搜索、不区分大小写；isActive 与 hasBarcode 只接受 true/false 字符串；unit 精确筛选。默认包含停用商品，按 createdAt DESC/id DESC 稳定排序。
+- POST /products：只有 sku 必填；name、articleNo、color、size、specification、unit（默认件）、barcode、referencePurchasePrice、isActive（默认 true）、remark 可选。name 留空时按 `货号 颜色 尺码` 生成，三者都空则用 SKU。参考价只接受非负十进制字符串或 null，最多十六位整数/两位小数，未知为 null；响应为两位小数字符串。例：`{"articleNo":"T20","color":"白色","size":"L","sku":"T20-WHT-L","referencePurchasePrice":"18.50"}`，成功 201。
+- GET /products：标准分页 data 数组/pagination/requestId；page/pageSize 默认 1/20，上限 pageSize=100。search 按名称/货号/颜色/尺码/SKU/条码/规格做字面子串搜索、不区分大小写；isActive 与 hasBarcode 只接受 true/false 字符串；unit 精确筛选。默认包含停用商品，按 createdAt DESC/id DESC 稳定排序。
 - GET /products/{id}：当前商家内商品详情（含停用）。SKU/name/specification/unit/barcode/referencePurchasePrice/isActive/remark 与 id/tenantId/createdAt/updatedAt 均返回，不包含订单或库存数据。
-- PATCH /products/{id}：至少一个合法商品字段，省略不改；nullable 字段可传 null 清空，barcode 空白也归 null；sku/name/unit/isActive 不可 null。成功 200，重复相同值不重复变更/审计，不修改历史采购行价格、折扣、成本或时间。
+- PATCH /products/{id}：至少一个合法商品字段，省略不改；nullable 字段可传 null 清空，barcode 空白也归 null；sku/name/unit/isActive 不可 null。name 传空字符串表示改回按货号/颜色/尺码自动生成；未传 name 时，原名是自动生成的就随属性重算，是自定义名称则保持不变。成功 200，重复相同值不重复变更/审计，不修改历史采购行价格、折扣、成本或时间。
 - GET /products/lookup?code=：code 去首尾空格、1–128 字符，按精确 SKU OR barcode 查询当前商家的启用商品；保留前导零/大小写/内部字符。data 为 0–2 个商品候选，未知或仅匹配停用商品为空；跨字段匹配不同商品时客户端必须选择，不自动采用第一个。不返回分页。
 
 SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，barcode 最长 128 且可为空。停用商品仍占用编码。重复 SKU 为 409 PRODUCT_SKU_ALREADY_EXISTS，重复非空条码为 409 PRODUCT_BARCODE_ALREADY_EXISTS；并发冲突同样由数据库保证。名称最长 200、规格最长 200、单位最长 20、备注最长 2000；不接受 NUL、多余 tenantId/订单价格字段、无效类型或金额格式，返回标准 400。新迁移保留原数据，只新增参考进货价与备注列；参考 SQL 不叠加执行。

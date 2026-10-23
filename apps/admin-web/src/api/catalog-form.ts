@@ -32,6 +32,15 @@ export function blankProduct(): ProductForm {
     remark: '',
   };
 }
+// 与服务端 product-name.ts 保持一致，仅用于表单里展示"留空会叫什么名字"。
+export function previewProductName(
+  form: Pick<ProductForm, 'articleNo' | 'color' | 'size' | 'sku'>,
+): string {
+  const segments = [form.articleNo, form.color, form.size]
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+  return segments.join(' ') || form.sku.trim();
+}
 export function productForm(product: ProductData): ProductForm {
   return {
     articleNo: product.articleNo ?? '',
@@ -62,14 +71,14 @@ export function productErrors(form: ProductForm): Partial<Record<keyof ProductFo
   for (const key of ['articleNo', 'color', 'size'] as const)
     if (length(form[key].trim()) > 80 || /[\p{Cc}\p{Cs}]/u.test(form[key].trim()))
       errors[key] = '最多 80 字，不能包含控制字符';
-  for (const [key, max, label] of [
-    ['name', 200, '商品名称'],
-    ['sku', 80, 'SKU 编码'],
-    ['unit', 20, '单位'],
-  ] as const) {
-    const error = requiredText(form[key], max, label);
-    if (error) errors[key] = error;
-  }
+  // 只有 SKU 是硬性必填：同商家内唯一，是所有单据的识别依据。
+  const sku = requiredText(form.sku, 80, 'SKU 编码');
+  if (sku) errors.sku = sku;
+  const unit = requiredText(form.unit, 20, '单位');
+  if (unit) errors.unit = unit;
+  // 名称与条码都可以留空：名称为空时服务端按 货号/颜色/尺码 生成。
+  if (length(form.name.trim()) > 200 || /[\p{Cc}\p{Cs}]/u.test(form.name.trim()))
+    errors.name = '商品名称最多 200 个字符，不能包含控制字符';
   if (
     form.barcode.trim() &&
     (length(form.barcode.trim()) > 128 || /[\p{Cc}\p{Cs}]/u.test(form.barcode.trim()))
@@ -106,6 +115,7 @@ export function productPayload(form: ProductForm) {
     articleNo: form.articleNo.trim() || null,
     color: form.color.trim() || null,
     size: form.size.trim() || null,
+    // 空字符串表示交给服务端按 货号/颜色/尺码 生成。
     name: form.name.trim(),
     sku: form.sku.trim(),
     specification: form.specification.trim() || null,

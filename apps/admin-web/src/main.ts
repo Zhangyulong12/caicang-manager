@@ -3,6 +3,8 @@ import { createPinia } from 'pinia';
 import {
   ElAlert,
   ElButton,
+  ElCollapse,
+  ElCollapseItem,
   ElDescriptions,
   ElDescriptionsItem,
   ElDatePicker,
@@ -44,6 +46,8 @@ app.use(createPinia());
 for (const component of [
   ElAlert,
   ElButton,
+  ElCollapse,
+  ElCollapseItem,
   ElDescriptions,
   ElDescriptionsItem,
   ElDatePicker,

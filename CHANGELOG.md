@@ -1,5 +1,15 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 28：精简商品管理字段
+
+- 商品主字段收敛为 **商品货号 / 颜色 / 尺码 / SKU 编码 / 参考进货价 / 商品名称（选填）**；条码、规格、单位、备注、启用状态收进「高级选项」，单位默认「件」，**全表只剩 SKU 一个硬性必填项**。
+- `POST /products` 的 `name` 从必填改为可选：留空时服务端按 `货号 颜色 尺码` 生成，三者都空则用 SKU，名称永不为空（新模块 `product-name.ts`）。`PATCH` 时省略 name 保持原名；原名若正好等于当时的派生结果就随属性重算，用户自定义的名称不会被覆盖，传 `""` 表示强制改回自动生成。
+- 前端 `productErrors` 只校验 SKU/单位；新增 `previewProductName()` 在表单里实时显示「名称留空时使用：T20 黑色 L」。编辑自动命名商品时名称框留空，让规则看得见。
+- 商品列表列改为 商品货号（空则显示名称，副标题放自定义名称或规格）/ 颜色 / 尺码 / SKU 编码 / 单位 / 参考进货价（元）/ 状态；搜索占位符与详情页同步补 货号/颜色/尺码。
+- **没有新增迁移**：货号/颜色/尺码在任务 27 已是可空列，条码本就可空；本次只改必填性、名称派生与界面，不删字段、不重建库，历史数据原样可读。临时库 `migrate deploy` 后 `migrate diff` 输出「This is an empty migration.」。
+- 新增 `scripts/product-variants.test.mjs` 与 `pnpm test:variants`（纳入 `test`）：**8 通过 / 0 失败 / 0 跳过**，覆盖同货号两变体不同 SKU、自动命名、同商家 SKU 唯一与跨商家隔离、SKU/条码精确命中与货号/颜色搜索、一张采购单两种实际价、入库成本与库存均价分变体、出库按 SKU 各自扣减、改参考价与改属性后历史成本快照不变。全仓 **614 通过 / 0 失败 / 0 跳过（7 分 37 秒）**。
+- 更新 `docs/PRODUCTS.md`、`docs/WEB_CATALOG.md`、`docs/API_SPEC.md`；新增 `docs/TASK_28_REPORT.md`。
+
 ## 2026-10-23 — 用户任务 27：采购账号管理与采购单关联
 
 - 新增 `purchase_accounts` 表（平台 `TAOBAO/JD/PDD/OTHER`、别名、备注、启停用）与四个端点：`GET/POST /purchase-accounts`、`PATCH/DELETE /purchase-accounts/{id}`；同商家同平台别名唯一，服务端 trim 并拒绝控制字符。
