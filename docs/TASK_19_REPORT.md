@@ -1,5 +1,13 @@
 # 任务 19 报告 — uni-app 手机应用基础功能
 
+## 2026-10-23 补充验收（优先于下方历史结论）
+
+正常启动现有 Docker Desktop 后，真实 PostgreSQL 与 API 联调已恢复。修改 `scripts/mobile.test.mjs`，数据库连接、建库、迁移失败直接失败，移除整组联调的自动跳过；原注册正例的 11 字符密码修正为满足既有规则的测试密码，并增加原弱密码返回 400 的反例。刷新测试改为先真实消费凭证，再测试同一凭证被拒绝；退出测试修正客户端与 storage 夹具不一致，未放宽服务端规则或 401/201 断言。
+
+本轮 `node --test scripts/mobile.test.mjs`：**15 通过、0 失败、0 跳过**，含 11 个真实 API 子测试（新增任务 20 扫码联调）。首次 `pnpm test:mobile` 的注册 400，以及第一次修复后的刷新/退出夹具失败均保留在 `test-results/review-00-20-mobile*.log`；最终结果见 `review-00-20-mobile-retry2.log`。H5 构建已实际成功。
+
+`pnpm build:mobile:lan -ApiBaseUrl 'http://192.168.243.90:3000/api/v1'` 实际构建成功并检查资源包含指定地址，未覆盖任何 .env。**这不是 APK 安装或 Android 真机通过**：未检测到 HBuilderX/已连接 Android，仍需完成 [手机验收清单](MOBILE_APP.md#十一任务-20-真机验收清单2026-10-23)。完整复核与全量回归见 [阶段报告](STAGE_REVIEW_00_20.md)。下方 Docker 被策略拦截与 3 通过/1 跳过是历史记录。
+
 ## 一、结论
 
 `apps/mobile` 从"骨架页"变成了一个能登录、能切换商家、能看真实入库记录的 App 工程：
@@ -56,17 +64,17 @@
 
 处理方式：测试文件在检测不到数据库时，把真实 API 子测试标记为 `SKIP` 并打印原因，其余断言照常执行。**没有用 mock 服务替代真实认证接口，也没有把跳过报告成通过。**
 
-解除办法（任一即可）：
+当时的恢复建议（本轮正常启动已恢复，以下不再是当前阻塞）：
 
-1. 在「安全中心 → 命令安全 → 程序黑名单」里移除 `wsl.exe`，启动 Docker Desktop，然后 `pnpm db:up && pnpm test:mobile`；
+1. 若再次出现策略拦截，先记录具体错误和策略来源并向用户确认；不得自行移除黑名单、关闭防护或修改安全设置。本轮没有执行此类操作。
 2. 或者在一台能跑 Docker 的机器上执行同样两条命令。
 
 ## 六、真机验收步骤（需要人工在 HBuilderX 完成）
 
-1. `pnpm install`，再 `pnpm --filter @caicang/mobile build:app`。
-2. HBuilderX → 导入 `apps/mobile/dist/build/app`。
-3. `manifest.json` → 基础配置 → 重新获取 AppID（仓库里为空，必须本机申请）。
-4. 后端就绪：`pnpm db:up`、`pnpm start:api`；把 `.env.development` 的地址改成电脑局域网 IP 后重新构建。
+1. 先启动后端 `pnpm start:api`，手机浏览器访问电脑局域网 IP 的健康接口。
+2. 按 [MOBILE_APP.md](MOBILE_APP.md) 第七、八节配置 LAN、自己的 AppID，并选择源码或编译资源导入方式。
+3. 资源构建使用 `pnpm build:mobile:lan -ApiBaseUrl 'http://<电脑局域网IPv4>:3000/api/v1'`。只修改 .env.development 后执行默认 build:app 不会保证读到开发地址。
+4. HBuilderX 实际导入与运行仍需现场验证，不能以产物存在判定成功。
 5. 手机与电脑同一 Wi-Fi，USB 调试连接，`运行 → 运行到 Android App 基座`。
 6. 验收点：能打开登录页 → 用真实账号登录 → 首页显示商家与角色 → 四个入口可见且大按钮可点 → 切换商家生效 → 我的页显示服务地址 → 退出后回到登录页。
 

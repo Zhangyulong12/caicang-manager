@@ -33,6 +33,13 @@ await writeFile(
 const { createApiClient, ApiFailure, SESSION_KEY, TENANT_KEY } = await import(
   new URL('client.mjs', output)
 );
+await writeFile(
+  new URL('scan.mjs', output),
+  ts.transpileModule(await readFile(mobile('src/services/scan.ts'), 'utf8'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+  }).outputText,
+);
+const { lookupPackages, classifyLookup } = await import(new URL('scan.mjs', output));
 
 function memoryStorage() {
   const map = new Map();
@@ -58,8 +65,7 @@ test(
       db = new Client({ connectionString: url.toString() });
     let created = false,
       connected = false,
-      logs = '',
-      skipReason = '';
+      logs = '';
     try {
       await t.test('mobile shell and Android packaging are declared', async () => {
         const pages = JSON.parse(await readFile(mobile('src/pages.json'), 'utf8'));
@@ -115,36 +121,28 @@ test(
         assert.ok(bundle.includes(expected), '构建产物没有使用正式环境地址 ' + expected);
       });
 
-      // 只有数据库可用时才跑真实 API 用例；不可用时明确标记 skip，而不是伪装通过。
-      try {
-        await admin.connect();
-        await admin.query(`CREATE DATABASE "${name}"`);
-        created = true;
-        await run(
-          process.execPath,
-          [
-            fileURLToPath(
-              new URL('../apps/api/node_modules/prisma/build/index.js', import.meta.url),
-            ),
-            'migrate',
-            'deploy',
-          ],
-          {
-            cwd: fileURLToPath(new URL('../apps/api/', import.meta.url)),
-            env: { ...process.env, DATABASE_URL: url.toString() },
-            windowsHide: true,
-            timeout: 60000,
-          },
-        );
-        await db.connect();
-        connected = true;
-      } catch (error) {
-        skipReason =
-          'PostgreSQL 不可用，跳过真实 API 用例（请先启动 Docker Desktop）：' +
-          (error instanceof Error ? error.message : String(error));
-      }
-
-      await t.test('real API integration', { skip: skipReason || undefined }, async (http) => {
+      // 数据库连接、建库和迁移失败必须使验收失败，不能被当作跳过。
+      await admin.connect();
+      assert.match(name, /^caicang_test_[a-f0-9]{32}$/);
+      await admin.query(`CREATE DATABASE "${name}"`);
+      created = true;
+      await run(
+        process.execPath,
+        [
+          fileURLToPath(new URL('../apps/api/node_modules/prisma/build/index.js', import.meta.url)),
+          'migrate',
+          'deploy',
+        ],
+        {
+          cwd: fileURLToPath(new URL('../apps/api/', import.meta.url)),
+          env: { ...process.env, DATABASE_URL: url.toString() },
+          windowsHide: true,
+          timeout: 60000,
+        },
+      );
+      await db.connect();
+      connected = true;
+      await t.test('real API integration', async (http) => {
         const base = await startTestApi(http, {
           env: {
             DATABASE_URL: url.toString(),
@@ -179,9 +177,16 @@ test(
 
         const credentials = {
           email: 'picker@mobile.example.test',
-          password: 'Mobile!2026',
+          password: 'MobileDemo!2026',
           displayName: '仓库小李',
         };
+        const weakRegistration = await fetch(apiBase + '/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+          body: JSON.stringify({ ...credentials, password: 'Mobile!2026' }),
+        });
+        assert.equal(weakRegistration.status, 400, '11 字符密码必须被服务端拒绝');
+        assert.equal((await weakRegistration.json()).error.code, 'VALIDATION_ERROR');
         const registered = await fetch(apiBase + '/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
@@ -281,12 +286,18 @@ test(
         await http.test('05 a consumed refresh credential ends the session', async () => {
           ip = '198.51.100.15';
           const before = JSON.parse(storage.getItem(SESSION_KEY));
+          const consumed = await fetch(apiBase + '/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
+            body: JSON.stringify({ refreshToken: before.refreshToken }),
+          });
+          assert.equal(consumed.status, 200, '先真实消费旧刷新凭证，再验证重放被拒绝');
           storage.setItem(
             SESSION_KEY,
             JSON.stringify({
               ...before,
               accessExpiresAt: Date.now() - 1000,
-              refreshToken: randomUUID(),
+              refreshToken: before.refreshToken,
             }),
           );
           await assert.rejects(
@@ -305,7 +316,8 @@ test(
           '06 an expired refresh token ends the session without a request',
           async () => {
             ip = '198.51.100.16';
-            client = makeClient(memoryStorage());
+            storage = memoryStorage();
+            client = makeClient(storage);
             session = await client.login({
               email: credentials.email,
               password: credentials.password,
@@ -441,6 +453,95 @@ test(
               return true;
             },
           );
+        });
+
+        await http.test('11 scan lookup uses the real API without changing inventory', async () => {
+          ip = '198.51.100.21';
+          const reader = makeClient(memoryStorage());
+          await reader.login({ email: credentials.email, password: credentials.password });
+          const tenant = (
+            await reader.request('/tenants', { method: 'POST', body: { name: '扫码联调商家' } })
+          ).data;
+          const options = { tenantId: tenant.tenant.id };
+          const product = (
+            await reader.request('/products', {
+              ...options,
+              method: 'POST',
+              body: { name: '扫码联调商品', sku: 'SCAN-ONLY', unit: '件' },
+            })
+          ).data;
+          const order = (
+            await reader.request('/purchase-orders', {
+              ...options,
+              method: 'POST',
+              body: {
+                warehouseId: tenant.defaultWarehouse.id,
+                platform: 'TAOBAO',
+                purchaseDate: '2026-10-23',
+                recipient: { name: '测试员', phone: '13800000000', address: '虚构测试仓库' },
+                items: [{ productId: product.id, quantity: 100, unitPrice: '18.50' }],
+              },
+            })
+          ).data;
+          await reader.request('/purchase-orders/' + order.id + '/place', {
+            ...options,
+            method: 'POST',
+          });
+          const trackingNo = '0000123456789';
+          const first = (
+            await reader.request('/purchase-orders/' + order.id + '/packages', {
+              ...options,
+              method: 'POST',
+              body: { carrierCode: 'ZTO', trackingNo },
+            })
+          ).data;
+          const snapshot = async () => {
+            const result = {};
+            for (const table of ['receipts', 'receipt_items', 'stock_balances', 'stock_movements'])
+              result[table] = (await db.query(`SELECT * FROM ${table} ORDER BY id`)).rows;
+            result.packages = (
+              await db.query('SELECT id,status,receiving_closed_at FROM packages ORDER BY id')
+            ).rows;
+            result.orders = (
+              await db.query('SELECT id,status FROM purchase_orders ORDER BY id')
+            ).rows;
+            return result;
+          };
+          let before = await snapshot();
+          calls = [];
+          const single = await lookupPackages(reader, trackingNo, tenant.tenant.id);
+          assert.equal(classifyLookup(single), 'single');
+          assert.equal(single[0].packageId, first.id);
+          assert.equal(single[0].trackingNo, trackingNo);
+          const detail = await reader.request('/packages/' + first.id, options);
+          assert.equal(detail.data.trackingNo, trackingNo);
+          assert.ok(calls.every((call) => call.method === 'GET'));
+          assert.deepEqual(await snapshot(), before, '扫码与详情查询不得写库存或改变状态');
+
+          const second = (
+            await reader.request('/purchase-orders/' + order.id + '/packages', {
+              ...options,
+              method: 'POST',
+              body: { carrierCode: 'YTO', trackingNo },
+            })
+          ).data;
+          before = await snapshot();
+          calls = [];
+          const multiple = await lookupPackages(reader, trackingNo, tenant.tenant.id);
+          assert.equal(classifyLookup(multiple), 'multiple');
+          assert.deepEqual(
+            new Set(multiple.map((row) => row.packageId)),
+            new Set([first.id, second.id]),
+          );
+          assert.ok(multiple.every((row) => row.trackingNo === trackingNo));
+          assert.deepEqual(await lookupPackages(reader, 'UNKNOWN-0000', tenant.tenant.id), []);
+          assert.deepEqual(await lookupPackages(reader, trackingNo, tenantId), []);
+          await assert.rejects(
+            () => reader.request('/packages/' + first.id, { tenantId }),
+            (error) => error.status === 404 && error.code === 'NOT_FOUND',
+          );
+          assert.ok(calls.every((call) => call.method === 'GET'));
+          assert.deepEqual(await snapshot(), before, '多候选、未知及跨商家查询不得写库存');
         });
 
         assert.equal(/unhandled|bootstrap_failed/i.test(logs), false, 'API log: ' + logs);

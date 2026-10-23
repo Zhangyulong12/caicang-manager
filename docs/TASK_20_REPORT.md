@@ -1,5 +1,15 @@
 # 任务 20 报告 — Android 手机扫一扫
 
+## 2026-10-23 补充验收（优先于下方历史结论）
+
+Docker/PostgreSQL 环境已通过正常启动恢复。`pnpm test:scan` 实际 **10 通过、0 失败、0 跳过**。手机联调测试实际 **15 通过、0 失败、0 跳过**，其中新增子测试使用手机端实际 `lookupPackages` 与会话客户端调用真实 NestJS/隔离 PostgreSQL，验证：前导零单号原样返回、唯一结果、不同承运商同号的两个候选、未知单号空列表、跨商家查询空列表与详情 404。查询前后对比收货单/明细/库存余额/流水的完整数据库行，以及采购单/包裹状态，均保持不变。
+
+新增测试首次使用了错误的 lookup 字段 `id`，实际契约为 `packageId`，已修正测试接线并保留失败日志。原扫码逻辑与断言没有放宽。前述真实联调不覆盖 `uni.scanCode`、Android 相机和系统授权弹窗。
+
+实际 App 资源构建成功，资源内已核对当前电脑 LAN 地址 `http://192.168.243.90:3000/api/v1`。原 `.env.development` 的 localhost 与 `.env.production` 的示例域名均未覆盖；使用新 Windows 命令 `pnpm build:mobile:lan -ApiBaseUrl 'http://192.168.243.90:3000/api/v1'`，不会误读正式示例域名。该地址可能随 Wi-Fi/DHCP 改变，重新构建前用 `ipconfig` 核对。
+
+**Android 真机验收未完成，未构建/安装/验证签名 APK。** 未检测到 HBuilderX 或已连接 Android。导入方式与可执行的八项清单见 [手机说明](MOBILE_APP.md)。下方是任务交付时的历史记录，其中“改 .env.development 后直接 build:app”的旧步骤应由手机说明第七、八节取代；全量回归见 [阶段报告](STAGE_REVIEW_00_20.md)。
+
 ## 一、结论
 
 `apps/mobile` 新增了真正调用官方 `uni.scanCode` 的扫码页与包裹详情页，扫码结果只用于查询包裹，**不写收货单、不动库存**。
@@ -80,17 +90,16 @@
 
 前置：后端已启动、手机与电脑同一 Wi-Fi、手机开启开发者模式与 USB 调试。
 
-```bash
-pnpm install
-# 1) 真机不能用 localhost，先把 API 地址改成电脑局域网 IP
-#    apps/mobile/.env.development → VITE_API_BASE_URL=http://192.168.1.10:3000/api/v1
-pnpm --filter @caicang/mobile build:app     # 产出 apps/mobile/dist/build/app
-pnpm db:up && pnpm start:api                # 后端
+```powershell
+cd D:\Dev\caicang-manager
+pnpm start:api   # 终端一保持运行
+# 终端二，先用 ipconfig 核对 WLAN IPv4；以下为本轮实际地址
+pnpm build:mobile:lan -ApiBaseUrl 'http://192.168.243.90:3000/api/v1'
 ```
 
-1. 电脑上 `ipconfig` 查到局域网 IPv4（如 `192.168.1.10`），确认手机浏览器能打开 `http://192.168.1.10:3000/api/v1/health`。打不开先查电脑防火墙是否放行 3000。
-2. HBuilderX 4.x → `文件 → 导入 → 从本地目录导入` → 选 `apps/mobile/dist/build/app`。
-3. 双击 `manifest.json` →「基础配置」→「重新获取」DCloud AppID（仓库里是空值，必须本机申请）。
+1. 电脑上 `ipconfig` 查到局域网 IPv4，确认手机浏览器能打开 `http://<该IP>:3000/api/v1/health`。打不开先定位网络/策略；调整防火墙或安全设置前须用户确认。
+2. HBuilderX 源码 CLI 工程导入选 `apps/mobile`；编译器还提示可导入 `apps/mobile/dist/build/app` 资源。两者的配置差异和待验证边界见 MOBILE_APP 第八节，未实测 IDE，不宣称导入通过。
+3. 在源码 `src/manifest.json` 申请自己的 DCloud AppID，再重新构建需要导入的资源；源码由 IDE 重编译时还需开发本地地址覆盖，不能依赖之前终端的临时变量。
 4. 手机插 USB，授权调试；HBuilderX `运行 → 运行到手机或模拟器 → 运行到 Android App 基座`。首次会自动安装基座。
 5. App 启动 → 登录真实账号 → 首页 → 点「扫码入库」。
 6. **首次点「扫一扫」会弹系统相机授权**，选"允许"。若之前误点拒绝：系统设置 → 应用 → 采仓管家 → 权限 → 相机 → 允许，再回 App 点「我已开启，重新扫码」（页面应显示权限面板，而不是静默失败）。
@@ -102,7 +111,7 @@ pnpm db:up && pnpm start:api                # 后端
 8. 连扫同一个码两次：第二次应在 3 秒内被拦下并提示"刚刚已查询过该单号"；点「重新扫码」后可立刻再扫。
 9. 用手动输入框输入带前导零的单号（如 `000783456123`）→「查询包裹」，结果应与扫码一致。
 10. 返回首页点「入库记录」，**不应出现刚才扫码产生的新记录**——这是"扫码不写库存"的现场证据。
-11. 需要看日志时用 `adb logcat | grep -i scanCode` 观察 `uni.scanCode` 回调。
+11. 已有 adb 时可用 PowerShell `adb logcat | Select-String 'scanCode'` 辅助排查，不记录或转发 Token、密码与完整地址。本轮没有安装 adb 或执行相机日志检查。
 
 验收标准：手机对准实际一维条形码 → 能识别码值 → 显示匹配结果（唯一则进详情）。
 

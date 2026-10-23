@@ -189,3 +189,9 @@ localStorage 不是 HttpOnly 安全边界，XSS 可读取凭据；不宣称浏�
 状态更新只做两件有依据的事：采购单按全部采购行的累计实收判定 `PARTIAL_RECEIVED`/`RECEIVED`；有预计明细的包裹在计划收满时自动写 `receivingClosedAt` 与 `RECEIVED`（任务 16 已声明"按预计数量自动完成"）。没有预计明细的包裹本次只标 `PARTIAL_RECEIVED`，仍由人工调用 `complete-receiving` 结束——服务端无法判断"这箱该有多少"，自动关闭等于替验收员猜测。审计只记录单号、包裹、采购单、状态与逐行数量/成本，不复制运单、收件地址或备注，避免把个人信息写进审计。
 
 未新增表、迁移、依赖：`receipts`、`receipt_items`、`stock_balances`、`stock_movements` 及所需唯一键/CHECK 在任务 03 的初始迁移中已存在。出库扣减、库存调整、报表与手机端页面不在本任务范围。
+
+## ADR-025：手机真实联调失败必须可见，LAN 构建不覆盖环境文件（2026-10-23，00—20 阶段复核）
+
+任务 19 的测试原先将数据库连接、建库和迁移的所有异常转成整组 skip，导致无效注册夹具等错误长期未执行。复核将该组改为必须成功连接真实 PostgreSQL，任何准备失败直接报错；原 201/401 等业务断言保留。用真实轮换后的旧 Refresh Token 验证重放，不用格式不合法的 UUID 代替失效凭据。任务 20 额外复用实际手机扫码服务与客户端调用真实 API，并直接对比数据库行证明扫码只读。
+
+`uni build -p app` 默认加载 production，修改 development 地址不能保证 App 连接开发 API。新增 Windows LAN 构建命令，要求显式非 loopback IPv4 API 地址、先检查健康接口、用进程级 `VITE_API_BASE_URL` 覆盖并指定 development mode，结束恢复进程变量，保留已有环境文件。构建后检查 app-service.js 含目标地址；默认生产构建逻辑保持原样。构建资源、IDE 导入、Android 基座与签名 APK 分别记录，不以资源构建成功代替真机验收。

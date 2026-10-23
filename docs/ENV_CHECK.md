@@ -1,5 +1,33 @@
 # Windows 开发环境检查
 
+## 最新阶段复核：2026-10-23
+
+本节取代下面历史检查中的当前环境结论，完整过程见 [阶段复核](STAGE_REVIEW_00_20.md)。
+
+| 检查项 | 本轮真实结果 |
+| --- | --- |
+| Windows | Windows 11 家庭版 25H2，26200.9711；按 [Microsoft 生命周期](https://learn.microsoft.com/en-us/lifecycle/products/windows-11-home-and-pro)仍受支持 |
+| Git / Node / pnpm | 2.56.0.windows.2 / v22.22.2 / 11.25.0；实际命令成功，没有重装 |
+| WSL2 | WSL 3.0.3.0；`wsl --system --exec uname -r` 实际返回 `6.18.54.1-microsoft-standard-WSL2` |
+| Docker | Desktop 4.95.0，Server 29.8.2，Compose v5.6.0；实际 `docker run --rm hello-world` 成功 |
+| PostgreSQL | 原 `caicang-postgres` 容器 healthy，16.15-alpine，127.0.0.1:5432；原卷 `caicang-manager-dev_caicang_pgdata` 保留 |
+| 持久化盘符 | `D:\docker\DockerDesktopWSL\disk\docker_data.vhdx`，约 3.09 GiB；另有 D 盘 main/ext4.vhdx |
+| 可用空间 | 检查时 C 约 52.20 GiB、D 约 356.00 GiB，足够本阶段开发 |
+| 数据库迁移 | `prisma:migrate:status` / `prisma:migrate:deploy` 成功；6 个迁移已应用，无待执行迁移；未重放 schema.sql |
+| API | 已实际启动，电脑访问 `http://192.168.243.90:3000/api/v1/health` 返回 200、database=reachable；这不等于手机网络已验证 |
+| 手机构建配置 | 已有 .env.development 仍为 localhost，.env.production 仍为示例域名；均未覆盖。新增 `pnpm build:mobile:lan -ApiBaseUrl 'http://192.168.243.90:3000/api/v1'`，进程级覆盖后实际验证 App 资源中的地址 |
+| HBuilderX / Android | 未在 PATH、卸载注册信息中发现 HBuilderX，未检测到已连接 Android 设备；导入、基座运行、相机和签名 APK 验收未执行 |
+
+### 本轮环境恢复经过与剩余阻塞
+
+只读检查时 Docker 未运行，5432/3000/5173 均无监听。此前 Docker 日志记录调用 `wsl.exe` 时 `Access is denied`（05:31/05:35 UTC），但当前终端 WSL 命令可执行；未取得足以确认具体安全软件或策略来源的证据。正常启动现有 Docker Desktop 后 Server 与原数据库自动恢复，未出现需要更改策略的阻塞。没有关闭安全软件、修改执行策略、防火墙或黑名单，没有重装软件、移动 C 盘用户数据或删除数据库卷。
+
+当前数据库、后端集成测试的环境阻塞已解除。Android 真机验收仍需 HBuilderX、DCloud AppID、连接的 Android 手机，以及手机实际访问电脑 LAN 地址成功。若连接被防火墙或安全策略拦截，应先取得用户确认再调整，不能自行放行。
+
+本轮两次 `pnpm test` 均为 528 通过/0 失败/0 跳过；任务 17/18 专项为 22/15 通过，模型 65、手机测试 15（含 11 个真实 API 子测试）、扫码 10 均通过。typecheck/lint/format/format:check 退出码均为 0。原卷、cluster 标识及已记录的开发库计数基线不变，三个既有 .env 文件 SHA256 不变，临时测试库无残留。首次手机夹具失败和修复后的真实日志见阶段报告，未修改业务断言来掩盖失败。
+
+WSL 仍提示 localhost 代理未镜像至 NAT；本轮内核命令、Docker 和已有镜像容器成功，未据此修改代理或 WSL 网络配置。
+
 ## 最新复查：2026-10-14（用户完成环境准备后）
 
 以下结果取代本文后面的首次任务 00 检查结论。此次没有重装 Git、Node.js、pnpm、VS Code；没有安装 Ubuntu、HBuilderX 或 PowerShell 7。

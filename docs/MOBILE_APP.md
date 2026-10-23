@@ -2,7 +2,7 @@
 
 ## 一、这一版做了什么
 
-任务 19 交付的是**可登录、可切换商家、能跑在 Android 上**的 App 骨架：
+任务 19 交付的是**可登录、可切换商家、面向 Android 的 uni-app** 骨架；2026-10-23 已完成真实 API 联调与 App 资源构建，Android 安装、摄像头与权限弹窗仍未验收：
 
 | 能力 | 说明 |
 | --- | --- |
@@ -95,25 +95,33 @@ const result = await api.request<ReceiptData[]>('/receipts?page=1&pageSize=20', 
 | `.env.production` | `uni build` 打包使用，默认示例 `https://api.example.com/api/v1`，**上线前必须改成真实域名** |
 | `.env.example` | 说明如何用 `.env.development.local` 覆盖 |
 
-- Android 真机**不能用 localhost**：把 `.env.development` 改成电脑的局域网地址，例如 `http://192.168.1.10:3000/api/v1`，并确认手机与电脑同一 Wi-Fi、电脑防火墙放行 3000 端口。
+- Android 真机**不能用 localhost**。本轮检查 `.env.development` 仍是 localhost、`.env.production` 仍是示例域名，均未覆盖。**默认 `build:app` 读取 production；只改 development 后直接 build:app 仍会连接示例域名。** 使用下方 LAN 构建命令，通过进程变量覆盖并检查产物中的真实地址。
+- 手机与电脑必须在可互访的局域网，先用手机浏览器打开健康接口；本轮只验证了电脑访问自己的 LAN 地址。若有访客 Wi-Fi 隔离、防火墙或安全策略拦截，先定位并取得用户确认，不自动调整规则。
 - 代码里的兜底地址是 `https://api.invalid.local/api/v1`，故意不可解析：忘记配置时宁可连不上，也不要悄悄连到错误服务器。
 - 正式环境必须 HTTPS；`manifest.json` 里保留了 `usesCleartextTraffic: true` 以便真机调试 HTTP，上线前应改为 `false`。
 
 ## 八、在 HBuilderX 里跑 Android
 
-```bash
-pnpm install
-pnpm --filter @caicang/mobile build:app   # 产出 apps/mobile/dist/build/app
+```powershell
+cd D:\Dev\caicang-manager
+# 终端一；Docker Desktop 已运行，已有 .env 保留
+pnpm start:api
+
+# 终端二；ipconfig 核对 WLAN IPv4，以下是本轮实际地址
+ipconfig
+Invoke-RestMethod 'http://192.168.243.90:3000/api/v1/health'
+pnpm build:mobile:lan -ApiBaseUrl 'http://192.168.243.90:3000/api/v1'
 ```
 
-1. 打开 HBuilderX（4.x 及以上），`文件 → 导入 → 从本地目录导入`，选择 `apps/mobile/dist/build/app`。
-2. 双击 `manifest.json`，在「基础配置」里点「重新获取」拿到 DCloud AppID（当前仓库里是空值，必须由本机申请，不能共用）。
-3. 手机开启开发者模式与 USB 调试，用数据线连接；HBuilderX 菜单 `运行 → 运行到手机或模拟器 → 运行到 Android App 基座`。
-4. 首次运行会自动安装 HBuilderX 基座；页面出现登录界面即表示工程可用。
-5. 真机联调前先启动后端：`pnpm db:up && pnpm start:api`，并把 App 的 API 地址改成电脑局域网 IP。
-6. 打正式包：`发行 → 原生App-云打包`，选择 Android，使用自有证书。
+LAN 脚本先要求健康接口成功，再运行 `build:app --mode development`。环境变量只对该进程生效，结束恢复原值；构建后验证 `dist/build/app/app-service.js` 包含指定 URL。当前已实际构建成功，**dist/build/app 是编译资源，不是签名 APK**。默认 `build:app` 仍是 production 构建，后续执行会覆盖该目录，真机测试前应重新执行 LAN 构建。
 
-也可以直接用 HBuilderX 打开 `apps/mobile`（CLI 工程）运行，效果一致；`dist/build/app` 是编译产物，不含 `package.json`，两种方式择一即可。
+1. 安装兼容锁定编译器的 HBuilderX（本轮 CLI 输出编译器 5.24；[官方下载](https://www.dcloud.io/hbuilderx.html)）。本机尚未执行安装或验证 IDE 版本兼容性，不升级项目依赖来迁就 IDE。
+2. 在 HBuilderX「文件 → 导入 → 从本地目录导入」选择 `D:\Dev\caicang-manager\apps\mobile`，这是有 package.json/src 的 CLI 源码工程，不能多选一层项目父目录。按 [DCloud CLI 说明](https://uniapp.dcloud.io/quickstart-cli) 与 [项目类型说明](https://ask.dcloud.net.cn/article/id-35878__page-2)核对工程类型。
+3. 在 `src/manifest.json` 的基础配置申请自己的 DCloud AppID；仓库现值为空。本轮未代申请、未改 AppID。若使用编译资源导入方式，应在源码配置 AppID 后重新构建，不能依靠旧资源自动带入。
+4. 源码由 HBuilderX 运行时会重新编译，需要本地 `.env.development.local` 配置 LAN 地址。先检查该文件，保留已有内容，仅在本机配置 `VITE_API_BASE_URL=http://192.168.243.90:3000/api/v1`；不能沿用 localhost。该文件已被 Git 忽略。本轮没有创建或覆盖它。
+5. 本轮 CLI 成功后明确提示 `open HBuilderX, import dist\\build\\app run`；也可按此提示导入 `apps/mobile/dist/build/app` 编译资源。其识别、AppID、基座运行仍须在实际 HBuilderX 验证，不能宣称与源码导入“效果一致”。
+6. 手机开启开发者模式、USB 调试并授权电脑；在手机浏览器先访问 LAN 健康接口，再运行 HBuilderX「运行 → 运行到手机或模拟器 → Android App 基座」。记录 HBuilderX/基座版本、手机型号、Android 版本及实际 API 地址。
+7. 登录、扫码、拒绝权限等按第十一节逐项验证。需要签名 APK 时再走「发行 → 原生App-云打包」，使用自有证书；基座可运行也不代表签名 APK 已通过。本轮没有打包、安装或验证 APK。
 
 ## 九、扫码查包裹
 
@@ -197,7 +205,32 @@ POST /receipts { packageId, clientOperationId, items[{purchaseOrderItemId, recei
 
 `services/operation-log.ts` 在本机留最近 50 条（提交、成功、失败原因、读明细失败），收货页底部展示最近 5 条。它只用于现场追溯；库存事实以服务端入库单与 `audit_logs` 为准。
 
-## 十一、已知限制
+## 十一、任务 20 真机验收清单（2026-10-23）
+
+状态：**以下各项均未执行真机验收**。自动化的扫码逻辑 10 项与手机客户端/真实 API 15 项已通过，不能替代此表。当前代码原已含任务 21 的「确认收货」入口，本次扫码验收停留在查询与详情，**不要点击确认收货/提交入库**。
+
+准备：在专用测试商家用真实 Web/Swagger 建商品和已下单的 100 件采购单，绑定三个无预计明细的包裹：ZTO `1234567890123`、ZTO `0000123456789`、YTO `0000123456789`。准备相同内容的一维条码标签，勿使用包含真实收件地址的面单截图。另准备没有包裹的第二测试商家。自动化测试的隔离库已清理，不是手机可直接使用的测试数据。
+
+| 项目 | 实际操作 | 通过条件 |
+| --- | --- | --- |
+| 正常条码 | 授权相机，扫描 `1234567890123` | 实际打开相机并识别，唯一命中后展示对应包裹与采购单 |
+| 前导零 | 扫描 `0000123456789` | 完整 13 位显示，提交与返回都保留四个前导零 |
+| 多候选 | 扫描上述两家承运商同号条码 | 显示两个候选，展示承运商/采购单并由人选择，不自动挑第一条 |
+| 未知单号 | 扫描或输入 `UNKNOWN-0000` | 给出未找到提示，能够重新扫描；不产生业务记录 |
+| 拒绝相机权限 | 首次拒绝授权；再在系统设置禁用后重试 | 有明确权限面板、设置入口；授权后可恢复，取消扫码不被误报为成功 |
+| 重复扫描 | 同一单号在查询期间及 3 秒内重复触发，再点重新扫码 | 查询期间只发一次，重复窗口内提示已查；主动重新扫码后允许再次查询 |
+| 手动输入 | 输入/粘贴相同前导零单号；再提交空白或超长值 | 有效值与扫码结果相同；无效值有提示且不发查询 |
+| 库存不变与商家隔离 | 开始前后记录下方数据库快照；切到第二商家查询同号 | 收货单/明细/余额/流水无增减，采购单和包裹状态不变；第二商家查不到第一商家包裹 |
+
+数据库检查可在操作前后各执行并保存输出，使用专用测试商家的 UUID 替换占位符。验收期间停止其他人对该测试商家的写操作；只看入库列表“没有新增”不足以证明余额/流水未被改动。
+
+```powershell
+docker exec caicang-postgres psql -U caicang -d caicang -c "SELECT id,total_cost,quantity_on_hand FROM stock_balances WHERE tenant_id='<测试商家UUID>' ORDER BY id; SELECT id,quantity_delta,cost_delta FROM stock_movements WHERE tenant_id='<测试商家UUID>' ORDER BY id; SELECT id FROM receipts WHERE tenant_id='<测试商家UUID>' ORDER BY id; SELECT id,quantity FROM receipt_items WHERE tenant_id='<测试商家UUID>' ORDER BY id; SELECT id,status FROM purchase_orders WHERE tenant_id='<测试商家UUID>' ORDER BY id; SELECT id,status,receiving_closed_at FROM packages WHERE tenant_id='<测试商家UUID>' ORDER BY id;"
+```
+
+每项记录执行人/时间、设备、码值、结果、失败错误及重试结果；不能把“待执行”改成“通过”。相机拒绝、硬件识别、手机至电脑网络均仍待现场确认。
+
+## 十二、已知限制
 
 - 底部导航暂时只有文字没有图标（避免往仓库里塞二进制资源），后续补 81×81 PNG。
 - 断网时不做离线队列：收货、查询都要求在线，避免出现"以为收了、其实没入库"。
