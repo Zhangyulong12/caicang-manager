@@ -53,6 +53,27 @@
         "navigationBarTitleText": "扫码入库",
         "enablePullDownRefresh": false
       }
+    },
+    {
+      "path": "pages/stock/index",
+      "style": {
+        "navigationBarTitleText": "库存查询",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/stock/detail",
+      "style": {
+        "navigationBarTitleText": "库存详情",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/outbound/index",
+      "style": {
+        "navigationBarTitleText": "扫码出库",
+        "enablePullDownRefresh": false
+      }
     }
   ],
   "tabBar": {

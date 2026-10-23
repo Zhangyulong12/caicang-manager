@@ -1,5 +1,16 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 26：Android 库存查询与扫码出库
+
+- 新增 3 个页面：`pages/stock/index`（库存查询）、`pages/stock/detail`（SKU 库存详情）、`pages/outbound/index`（扫码出库）；首页「库存查询」「扫码出库」入口接上 url，权限分别为 `products:read` / `outbound:write`。
+- 库存查询：手输名称/SKU 走 `?search=`；扫码走「条码精确 → SKU 精确 → 子串」三层只读查询并标注命中方式；结果按仓库分组显示数量、条码、均价、待入库、最近入库；详情页展示各仓余额与最近 20 条流水。
+- 扫码出库：选仓库（换仓重查可用量）→ 扫条码或手动搜索加行（无条码商品也可）→ 改数量（1–2147483647，超可用量标红）→ 收件人/电话/地址 + 快递公司 + 运单号 + 备注 → `POST /outbound-orders` 建草稿 → 二次确认 → `POST /outbound-orders/{id}/ship` → 结果页。
+- 重复扫码只累加待发数量（纯内存），发货前不产生任何写请求；前端不出现 `stock_balances` / `quantityOnHand =`，库存数字全部来自接口。
+- 幂等：`OutboundShipSubmitting` 把 `clientOperationId` 与指纹落盘（`caicang.mobile.outbound-pending.v1`），网络失败/5xx 复用同一操作号（App 重启仍复用），库存不足/状态冲突等 4xx 明确拒绝则丢弃，改完再发为新操作；指纹 = 出库单 + 快递公司 + 运单号 + 备注。
+- 新增 `scripts/mobile-outbound.test.mjs` 与 `pnpm test:mobile-outbound`（纳入 `test`），**7 通过 / 0 失败 / 0 跳过**：单元（条码/数量/合并/草稿/幂等/错误文案）+ 页面静态断言 + 真实 PostgreSQL 与 API 验收（10 → 发 3 → 7 → 重放仍 7 → 发 8 被拒 → 改 2 件发 → 5），并用 admin-web 的库存客户端交叉核对 App 与 Web 读到同一数字。
+- 顺带修正 `scripts/mobile.test.mjs` 的页面清单断言（加 3 个新页面）；`eslint.config.mjs` 为 `.vue` 声明 `Event` 全局。
+- 新增 `docs/MOBILE_STOCK_OUTBOUND.md` 与 `docs/TASK_26_REPORT.md`。
+
 ## 2026-10-23 — 用户任务 25：电脑端出库页面
 
 - 新增 4 个页面：出库单列表 `/outbound`、新建草稿 `/outbound/new`、修改草稿 `/outbound/:id/edit`、出库详情 `/outbound/:id`；「出库管理」导航项去掉「待开放」，权限 `products:read`（新建/修改需 `outbound:write`，路由守卫同步拦截）。

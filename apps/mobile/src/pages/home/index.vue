@@ -32,6 +32,7 @@ const entries: Entry[] = [
     glyph: '存',
     hint: '查看实时库存数量',
     permission: 'products:read',
+    url: '/pages/stock/index',
   },
   {
     key: 'outbound',
@@ -39,6 +40,7 @@ const entries: Entry[] = [
     glyph: '出',
     hint: '扫描商品完成出库',
     permission: 'outbound:write',
+    url: '/pages/outbound/index',
   },
   {
     key: 'records',
