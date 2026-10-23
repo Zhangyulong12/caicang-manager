@@ -1,5 +1,15 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 22：库存查询系统
+
+- 新增 `GET /api/v1/inventory/balances`：按商家隔离，每行返回现存数量（读 `stock_balances`）、采购待入库数量（`PLACED`/`PARTIAL_RECEIVED` 采购行减去已入库量，按商品+仓库聚合）、移动加权平均成本（账面总成本 ÷ 现存数量，四位小数）、库存账面总成本；只有待入库、一件未到的商品也会出现在列表（`quantityOnHand = 0`），待入库用 `GREATEST(... , 0)` 夹到非负，部分收货不会重复计算。
+- 新增 `GET /api/v1/inventory/movements`：读不可变的 `stock_movements`，按时间倒序分页，每笔含发生时间、类型（`RECEIPT`/`OUTBOUND`/`ADJUSTMENT`）与方向、数量变动、操作前后库存与成本、单位成本、来源单据号（入库单号/出库单号）、来源行 ID、备注（入库备注/出库备注/盘点原因）、操作人。
+- 筛选与分页：`warehouseId`、`productId`、`sku`、`barcode`（精确，保留前导零）、`search`（SKU/名称/条码字面子串，`%`/`_` 已转义）；余额按 `updatedFrom`/`updatedTo`，流水按 `from`/`to` 与 `type`；只写日期时上界补到当天 23:59:59.999Z，反向区间返回 422 并带 `details.field`。金额统一走 `Prisma.Decimal`（precision 60、HALF_UP）以四位小数字符串返回。
+- **库存仍是只读模块**：`/inventory/*` 只有 GET，没有 POST/PUT/PATCH/DELETE；数量只能由收货等业务事务经"写流水 + 改余额"改变。测试断言四个写方法全部 404、OpenAPI 中这两个 path 只有 `get`，且调用前后 `stock_balances.quantity_on_hand` 不变。
+- 新增 `scripts/inventory.test.mjs` 与 `pnpm test:inventory`，在一次性 PostgreSQL 库 + 真实 API 进程上执行，**10 通过 / 0 失败 / 0 跳过**：入库 20 件 → 显示 20 件（总成本 370.0000、均价 18.5000、条码前导零保留）→ 出库 8 件 → 显示 12 件（222.0000），流水链 0→20→12 首尾相接、数量合计等于当前余额；另覆盖待入库 6/4、六种筛选与分页、跨商家隔离（另一商家按 SKU、按别人 productId 查都为空）、只读角色可读、时间/类型筛选与反向区间 422。
+- 契约新增 `STOCK_MOVEMENT_TYPES`、`InventoryBalanceData`、`InventoryMovementData` 等类型；无新依赖、无新表、无迁移。
+- 详见 `docs/TASK_22_REPORT.md`（含数据口径、接口契约与"为什么没有写接口"）。
+
 ## 2026-10-23 — 用户任务 21：手机扫码验收入库全流程
 
 - 新增收货页 `pages/receiving/index`：展示采购单/采购状态、承运商与完整运单号、每个 SKU 的名称与编码，以及订购、已入库、剩余（有包裹计划时另示本包裹待收）；每行输入本次实际到货数量，支持一个包裹多 SKU、部分收货（留空即未到）与 2000 字收货备注。

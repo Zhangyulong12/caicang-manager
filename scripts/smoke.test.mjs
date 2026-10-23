@@ -41,8 +41,11 @@ test('built NestJS serves real PostgreSQL health, OpenAPI and CORS policy', asyn
       assert.equal((await response.json()).error.code, 'UNAUTHENTICATED');
       // /receipts now exists (task 17) and must reject anonymous callers like every business route.
       assert.equal((await fetch(`${base}/api/v1/receipts`)).status, 401);
-      for (const route of ['/inventory/balances', '/outbound-orders'])
-        assert.equal((await fetch(`${base}/api/v1${route}`)).status, 404);
+      // /inventory/* exists too (task 22): a read-only route that still requires a tenant + token.
+      for (const route of ['/inventory/balances', '/inventory/movements'])
+        assert.equal((await fetch(`${base}/api/v1${route}`)).status, 401);
+      // 出库仍是计划中的端点，路由不存在。
+      assert.equal((await fetch(`${base}/api/v1/outbound-orders`)).status, 404);
     },
   );
 });

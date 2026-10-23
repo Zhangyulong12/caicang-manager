@@ -343,3 +343,56 @@ export interface ReceiptData {
   totalCost: string;
   items: ReceiptItemData[];
 }
+
+export const STOCK_MOVEMENT_TYPES = ['RECEIPT', 'OUTBOUND', 'ADJUSTMENT'] as const;
+export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
+export type StockMovementDirection = 'IN' | 'OUT';
+/** 库存余额快照行：现存数量来自 stock_balances，待入库来自未收完的采购行。 */
+export interface InventoryBalanceData {
+  warehouseId: string;
+  warehouseName: string;
+  productId: string;
+  sku: string;
+  barcode: string | null;
+  name: string;
+  specification: string | null;
+  unit: string;
+  quantityOnHand: number;
+  /** 已下单但还没入库的数量（整单未收数量之和，按商品+仓库聚合）。 */
+  pendingInboundQuantity: number;
+  /** 移动加权平均成本 = 账面总成本 / 现存数量，四位小数；无库存时为 0.0000。 */
+  averageCost: string;
+  /** 库存账面总成本，四位小数。 */
+  totalCost: string;
+  updatedAt: string | null;
+}
+/** 一条不可变库存流水，含操作前后数量与来源单据。 */
+export interface InventoryMovementData {
+  id: string;
+  occurredAt: string;
+  type: StockMovementType;
+  direction: StockMovementDirection;
+  quantityDelta: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  costDelta: string;
+  /** |成本变动| / |数量变动|，四位小数；数量变动为 0 时为 0.0000。 */
+  unitCost: string;
+  totalCostBefore: string;
+  totalCostAfter: string;
+  warehouseId: string;
+  warehouseName: string;
+  productId: string;
+  sku: string;
+  productName: string;
+  unit: string;
+  /** 来源单据类型；目前为 RECEIPT / OUTBOUND / ADJUSTMENT。 */
+  sourceType: string;
+  /** 来源单号（入库单号、出库单号；调整单没有编号时为 null）。 */
+  sourceNo: string | null;
+  /** 来源单据行 ID，便于追溯具体凭证。 */
+  sourceId: string;
+  note: string | null;
+  operatorId: string;
+  operatorName: string;
+}

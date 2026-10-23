@@ -174,6 +174,8 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 |GET|`/reports/export/stock-movements.csv`|导出库存流水|OWNER/ADMIN|
 |GET|`/health`|存活检查，生产避免暴露秘钥|公开|
 
+任务 22 已实现表中两个库存查询端点（`GET /inventory/balances`、`GET /inventory/movements`，权限 `products:read`，字段与口径见 `docs/INVENTORY.md`）。**`/inventory/*` 目前只有 GET，没有任何写动词**——库存数量只能由收货等业务事务在同一个数据库事务里"写 `stock_movements` + 改 `stock_balances`"来改变，不存在直接改余额的 CRUD 接口。`POST /inventory/adjustments`（盘点差异）仍是计划项：将来实现时也必须走同一路径（写一条 `ADJUSTMENT` 流水并同步成本池），并记录审计，而不是 `PATCH stock_balances`。
+
 ## 5. 关键请求示例
 
 任务 12 已实现采购表中六个端点。创建成功 201，其余五个操作成功 200；所有端点需 Bearer+X-Tenant-Id。新增 purchase:read 全角色权限，写入限 OWNER/ADMIN/BUYER。输入 purchaseDate 为必填 YYYY-MM-DD，金额为十进制字符串；recipient 须完整对象，items 1–100 行且商品不可重复。PATCH 仅无后续单据的草稿，items 若提供为完整替换；确认/取消正文为空或 `{}`，禁止通过客户端 status/成本字段强改。

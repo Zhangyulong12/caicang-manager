@@ -1,5 +1,23 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 2026-10-23 阶段复核（任务 00—20）
+
+Docker/PostgreSQL 已正常恢复，任务 17 入库事务 22 项、任务 18 安全专项 15 项、手机测试 15 项（含 11 个真实 API 子测试）、扫码专项 10 项均已本轮实际通过，0 跳过。完整结果、失败修复记录与剩余问题见 [阶段复核报告](docs/STAGE_REVIEW_00_20.md)。
+
+本轮两次 `pnpm test` 均为 **528 通过、0 失败、0 跳过**，另有模型/重复 seed 专项 65 项通过；typecheck、lint、format、format:check 均通过。
+
+Android 真机、相机权限与签名 APK **尚未验收**。真机准备使用 `pnpm build:mobile:lan -ApiBaseUrl 'http://<电脑局域网IPv4>:3000/api/v1'`，不会覆盖已有 .env；默认 `build:app` 仍读取 production 示例域名，不能直接用于本地手机联调。HBuilderX 导入与八项实机清单见 [手机说明](docs/MOBILE_APP.md)。
+
+当前基线已经包含任务 21 提交；本次仅复核 00—20、修复验收环境与测试，没有开发任务 21，也没有提交或推送。下方各任务小节保留历史交付状态，当前环境与本轮结果以上述报告为准。
+
+## 任务 22：库存查询系统
+
+新增两个**只读**接口。`GET /api/v1/inventory/balances` 每行给出：现存数量（`stock_balances.quantity_on_hand`）、采购待入库数量（`PLACED`/`PARTIAL_RECEIVED` 采购行减去已收量，按商品+仓库聚合，只有待入库、一件未到的商品也会出现在列表里）、移动加权平均成本（账面总成本 ÷ 现存数量，四位小数）、库存账面总成本；`GET /api/v1/inventory/movements` 给出不可变流水，每笔含时间、类型与方向、数量变动、操作前后库存、成本变动与单位成本、来源单据号与来源行 ID、备注、操作人。两者都按 `X-Tenant-Id` 隔离，支持 `warehouseId`/`productId`/`sku`/`barcode`/`search` 以及时间区间（余额按 `updated_at`，流水按 `created_at`，`type` 可选）筛选与统一分页，`from > to` 返回 422。
+
+库存只能由收货等业务事务写入（`INSERT stock_movements` + `UPDATE stock_balances`），**本模块只有 GET**：POST/PUT/PATCH/DELETE 一律 404，OpenAPI 里这两个路径只有 `get`，测试会在调用前后比对余额确认没被改动。只读角色（VIEWER）凭 `products:read` 即可查询。
+
+`pnpm test:inventory` 在一次性 PostgreSQL 库上跑真实 API：**入库 20 件 → 查询显示 20 件（总成本 370.0000、均价 18.5000）→ 出库 8 件 → 显示 12 件（222.0000）**，流水链 0→20→12 首尾相接、数量合计等于余额；另覆盖待入库、条码前导零、六种筛选、分页、跨商家隔离与"无写接口"。**10 通过 / 0 失败 / 0 跳过**。出库 API 尚未实现（属阶段 06 剩余部分），测试里的出库由同一事务模拟。字段、口径与对账 SQL 见 [库存说明](docs/INVENTORY.md)，结果与未验证项见 [任务 22 报告](docs/TASK_22_REPORT.md)。
+
 ## 任务 21：手机扫码验收入库全流程
 
 扫码命中包裹后，详情页「确认收货」进入收货页（`pages/receiving/index`），逐 SKU 展示订购 / 已入库 / 剩余与本次最多可收，默认带出可收数量，可改成实际到货（留空即"这件没到"），支持一个包裹多个 SKU、部分收货、2000 字备注；点确认先弹二次确认框（列出商品 × 数量与总件数），确认后调任务 17 的真实事务 `POST /receipts`，成功页展示服务端返回的入库单号与**本次入库件数**，并可「继续扫下一包裹」。
@@ -86,9 +104,9 @@ PowerShell 先 `pnpm db:up`、`pnpm prisma:migrate:deploy`，再 `pnpm start:api
 
 已接入真实注册、登录、/me、刷新与退出，提供商家选择、用户信息、加载/错误提示及路由权限。任务 11 新增仓库入口，现为十个导航；采购和出入库等后续页面明确待开放，无模拟业务数据。详见 [Web 使用说明](docs/WEB_AUTHENTICATION.md) 与 [任务 10 历史报告](docs/TASK_10_REPORT.md)。
 
-## 当前工作区与环境（任务 01）
+## 当前工作区与环境
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app 首页；现已完成真实数据库、认证、商家/成员权限、商品/仓库/采购 API、Web 登录及商品仓库页面。采购管理页面、包裹、入库、库存与出库业务仍待后续任务。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app；已有真实数据库、认证、商家/成员权限、商品/仓库/采购及包裹 API、Web 商品/仓库/采购/包裹页面，以及入库事务、账本、库存余额与流水查询接口和手机扫码查询。出库、盘点、统计页面与库存 Web/App 视图仍属后续任务，Android 真机验收待完成。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 
