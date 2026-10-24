@@ -11,6 +11,7 @@ import type {
 import { usePurchases } from '../composables/purchases';
 import { useTenantStore } from '../stores/tenant';
 import { failureMessage } from '../utils/feedback';
+import { ApiFailure } from '../api/client';
 import { platformNames, statusNames } from '../api/purchase-form';
 const route = useRoute(),
   router = useRouter(),
@@ -41,7 +42,7 @@ async function load() {
   rows.value = [];
   try {
     if (dateFrom.value && dateTo.value && dateFrom.value > dateTo.value)
-      throw new Error('采购开始日期不能晚于结束日期');
+      throw new ApiFailure(400, 'BAD_REQUEST', '采购开始日期不能晚于结束日期');
     const result = await api.list({
       page: page.value,
       pageSize: size.value,
