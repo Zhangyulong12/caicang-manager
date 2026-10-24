@@ -12,6 +12,7 @@ import { PurchaseAccountsModule } from './modules/purchase-accounts/purchase-acc
 import { PackagesModule } from './modules/packages/packages.module.js';
 import { ReceiptsModule } from './modules/receipts/receipts.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
+import { AdjustmentsModule } from './modules/adjustments/adjustments.module.js';
 import { OutboundOrdersModule } from './modules/outbound/outbound.module.js';
 
 @Module({
@@ -28,6 +29,7 @@ import { OutboundOrdersModule } from './modules/outbound/outbound.module.js';
     PackagesModule,
     ReceiptsModule,
     InventoryModule,
+    AdjustmentsModule,
     OutboundOrdersModule,
   ],
   controllers: [HealthController],

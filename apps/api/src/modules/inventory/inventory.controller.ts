@@ -17,8 +17,9 @@ import {
 
 /**
  * 库存是只读视图：这里只有 GET，没有 POST/PATCH/PUT/DELETE。
- * 库存数量只能由收货等业务事务改变（写 stock_movements 并同步 stock_balances），
- * 不提供任何直接改余额的 CRUD 接口。
+ * 库存数量只能由收货/出库/调整等业务事务改变（写 stock_movements 并同步 stock_balances）。
+ * 直接改数量的入口只有 POST /inventory/adjustments：它写调整单 + 流水 + 余额 + 审计，
+ * 仍然不存在任何可以提交 quantityOnHand/totalCost 覆盖余额的接口。
  */
 @ApiTags('inventory')
 @Controller('inventory')

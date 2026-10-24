@@ -2,6 +2,8 @@
 
 任务 22 交付 `GET /inventory/balances`、`GET /inventory/movements`；任务 23 为 Web 页面补了 `GET /inventory/summary`、`GET /inventory/pending` 两个聚合查询与若干字段。四个端点**全部只有 GET**。
 
+任务 29 增加了库存调整 `POST /inventory/adjustments`（另有列表与详情两个 GET），它是唯一允许改数量的写入口，但改的仍不是余额本身——每次调整都在同一事务里写调整单 + 流水 + 余额 + 审计。原因、方向、成本规则与错误码见 [库存调整说明](ADJUSTMENTS.md)。
+
 页面侧的说明、截图路径与手工验收步骤见 [Web 库存说明](WEB_INVENTORY.md)。
 
 ## 一、定位
@@ -9,7 +11,7 @@
 库存是**只读视图**，不是可编辑的数据表：
 
 ```
-业务动作（收货、出库、将来的盘点）
+业务动作（收货、出库、库存调整）
     └─ 一个事务内：INSERT stock_movements（quantity_before/after、cost_before/after）
                    UPDATE stock_balances（quantity_on_hand、total_cost）
                    ↑ 唯一写入口
@@ -78,10 +80,10 @@
 | `warehouseId` / `warehouseName` | 仓库 |
 | `productId` / `sku` / `productName` / `unit` | 商品 |
 | `sourceType` | 来源单据类型 |
-| `sourceNo` | 来源单号：入库单号 / 出库单号；调整单没有编号时为 `null` |
+| `sourceNo` | 来源单号：入库单号 / 出库单号 / 调整单号；任务 29 之前的调整流水没有单号，为 `null` |
 | `sourceId` | 来源**行** ID，可追到具体凭证 |
-| `sourceDocumentId` | 来源**单据头** ID（入库单 / 出库单 / 盘点单）。用 `sourceId` 去查 `GET /receipts/{id}` 会 404，跳转要用这个字段 |
-| `note` | 入库备注 / 出库备注 / 盘点原因 |
+| `sourceDocumentId` | 来源**单据头** ID（入库单 / 出库单 / 调整单）。用 `sourceId` 去查 `GET /receipts/{id}` 会 404，跳转要用这个字段 |
+| `note` | 入库备注 / 出库备注 / 调整备注；调整没写备注时回退为原因中文名（如「盘点盘亏」），不返回裸枚举值 |
 | `operatorId` / `operatorName` | 操作人；`display_name` 为空时回落 `email` |
 
 ### 2.3 `GET /api/v1/inventory/summary`
@@ -130,7 +132,7 @@
 | 非 ISO 时间 | 400 `VALIDATION_FAILED` |
 | `from > to` 或 `updatedFrom > updatedTo` | 422 `BUSINESS_VALIDATION_FAILED`，`details.field` 指出是哪个字段 |
 | `type` 不在枚举内 | 400 `VALIDATION_FAILED` |
-| POST/PUT/PATCH/DELETE `/inventory/*` | 404（路由不存在，是设计而不是遗漏） |
+| `POST/PUT/PATCH/DELETE /inventory/balances`、`/inventory/movements`、`/inventory/summary`、`/inventory/pending` | 404（路由不存在，是设计而不是遗漏）；写数量只能走 `POST /inventory/adjustments` |
 
 ## 四、跨商家隔离
 
@@ -169,6 +171,7 @@ HAVING b.quantity_on_hand <> SUM(m.quantity_delta);  -- 有差异才会返回行
 ## 六、已知边界
 
 - **出库已实现（任务 24）**：`POST /outbound-orders/{id}/ship` 在同一事务里"写 `OUTBOUND` 流水 + 改余额 + 回写成本快照"，所以本模块的余额与流水始终自洽；`scripts/inventory.test.mjs` 已改为调用真实出库接口发货。发货事务细节见 `docs/OUTBOUND.md`。
+- **库存调整已实现（任务 29）**：`POST /inventory/adjustments` 是唯一能手改数量的入口，同样写 `ADJUSTMENT` 流水并同步成本池；成本按「有库存用均价、零库存用参考进货价、都没有记 0」推导，规则与异常见 `docs/ADJUSTMENTS.md`。
 - **零库存不保留历史均价**：全部出清后 `averageCost` 返回 `0.0000`。若业务需要"参考成本"，要另存一列最近均价。
 - **待入库每次实时聚合**：当前规模毫秒级；采购明细量级上来后应改为增量维护。
 - **时间筛选按 UTC 比较**：服务端只接受 ISO 8601 或纯日期，页面按本地时区展示时需自行换算边界。

@@ -1,5 +1,15 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 29：库存调整 API
+
+库存调整是系统里唯一允许「直接改数量」的入口，但改的仍不是余额本身：每次调整在一个事务里写「调整单 + 库存流水 + 库存余额 + 审计」，余额只是流水的结果。三个端点：`POST /api/v1/inventory/adjustments`（首次 201 / 幂等重放 200）、`GET /api/v1/inventory/adjustments`（仓库/商品/原因/日期/关键字筛选 + 分页）、`GET /api/v1/inventory/adjustments/{id}`；复用任务 18 就存在的 `stock_adjustments` 表，**没有新建表**，只加四个可空列。
+
+原因限 **盘点盘盈 / 盘点盘亏 / 商品损坏 / 商品丢失 / 其他原因**，盘盈只能为正、盘亏损坏丢失只能为负，方向不符 422；选择「其他原因」必须写备注。数量正数增加、负数减少，减少后不能为负（409 `OUT_OF_STOCK` 并整体回滚）。客户端提交 `quantityOnHand` / `totalCost` / `unitCost` / `adjustmentNo` 一律 400 —— 余额和成本只由服务端推导。
+
+成本规则写在文档里：有库存时按移动加权平均（`AVERAGE`），零库存盘盈用商品参考进货价（`REFERENCE`），两者都没有记 0（`ZERO`）；减少一律按均价，**减到 0 时成本池整体清零**，不留尾差。`clientOperationId` 幂等：同号同内容返回原单、不再扣减，同号改内容 409。权限新增 `inventory:write`（OWNER/ADMIN/WAREHOUSE），采购与只读角色不能改库存，跨商家 404。
+
+验收按题目跑通：**入库 10 件 @18.50 → 盘亏 2 件 → 余额 8、流水 -2（成本 185.0000 → 148.0000）→ 同操作号重放仍 8、不重复扣减 → 4 件时调整 -6 被拒且数据不变**。`pnpm test:adjustments` **8 通过 / 0 失败 / 0 跳过**，全仓 **626 通过 / 0 失败 / 0 跳过（8 分 04 秒）**，`pnpm test:models` 66 通过且 `migrate diff` 无漂移；覆盖成本四场景、五角色权限、跨商家隔离、数据库 CHECK 与 OpenAPI 契约。规则与错误码见 [库存调整说明](docs/ADJUSTMENTS.md)，逐条对照见 [任务 29 报告](docs/TASK_29_REPORT.md)。
+
 ## 任务 28：精简商品管理字段
 
 商品建档只剩业务真正要填的六项：**货号、颜色、尺码、SKU、参考进货价、名称（选填）**。条码、规格、单位、备注、启用状态收进「高级选项」，单位默认「件」，**全表唯一硬性必填项是 SKU**。名称留空时由服务端按 `货号 颜色 尺码` 生成（三者都空则用 SKU），表单会实时显示“留空时会叫什么”；自己填了名称就以填的为准，改属性不会把它冲掉。
@@ -158,7 +168,7 @@ PowerShell 先 `pnpm db:up`、`pnpm prisma:migrate:deploy`，再 `pnpm start:api
 
 ## 当前工作区与环境
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app；已有真实数据库、认证、商家/成员权限、商品/仓库/采购及包裹 API、Web 商品/仓库/采购/包裹页面，以及入库事务、账本、库存余额与流水查询接口和手机扫码查询。出库发货 API（任务 24）已实现，出库/盘点/统计页面与手机端出库视图仍属后续任务，Android 真机验收待完成。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app；已有真实数据库、认证、商家/成员权限、商品/仓库/采购及包裹 API、Web 商品/仓库/采购/包裹页面，以及入库事务、账本、库存余额与流水查询接口、出库发货（任务 24）与库存调整（任务 29）和手机扫码查询。出库/盘点/统计页面与手机端出库视图仍属后续任务，Android 真机验收待完成。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 

@@ -37,6 +37,7 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   PURCHASE_ACCOUNT_HAS_ORDERS: { status: 409, message: '该账号已有采购记录，不能删除；可改为停用' },
   PACKAGE_TRACKING_ALREADY_EXISTS: { status: 409, message: '当前商家此快递公司和运单号已绑定包裹' },
   PACKAGE_EXPECTED_QTY_EXCEEDED: { status: 409, message: '全部包裹预计数量超过采购明细数量' },
+  ADJUSTMENT_REASON_MISMATCH: { status: 422, message: '调整原因与数量方向不一致' },
 };
 export class BusinessException extends HttpException {
   constructor(

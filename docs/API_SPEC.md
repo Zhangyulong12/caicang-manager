@@ -165,9 +165,11 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 | Method | Endpoint                                   | 用途                         | 角色                     |
 | ------ | ------------------------------------------ | ---------------------------- | ------------------------ |
-| GET    | `/inventory/balances`                      | 按仓库、SKU 搜现存和成本     | 所有成员                 |
-| GET    | `/inventory/movements`                     | 库存流水、分页/筛选          | 所有成员                 |
-| POST   | `/inventory/adjustments`                   | 管理员盘点差异调整，审计必需 | OWNER/ADMIN              |
+| GET    | `/inventory/balances`                      | 按仓库、SKU 搜现存和成本     | 所有成员                     |
+| GET    | `/inventory/movements`                     | 库存流水、分页/筛选          | 所有成员                     |
+| POST   | `/inventory/adjustments`                   | 盘点/损坏/丢失/其他数量调整，幂等+审计 | OWNER/ADMIN/WAREHOUSE |
+| GET    | `/inventory/adjustments`                   | 调整单分页列表与筛选         | 所有成员                     |
+| GET    | `/inventory/adjustments/{id}`              | 调整单详情（前后数量与成本） | 所有成员                     |
 | GET    | `/outbound-orders`                         | 出库单列表                   | 所有成员                 |
 | POST   | `/outbound-orders`                         | 创建待发货草稿               | OWNER/ADMIN/WAREHOUSE    |
 | GET    | `/outbound-orders/{id}`                    | 出库单详情                   | 所有成员                 |
@@ -178,9 +180,9 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 | GET    | `/reports/export/stock-movements.csv`      | 导出库存流水                 | OWNER/ADMIN              |
 | GET    | `/health`                                  | 存活检查，生产避免暴露秘钥   | 公开                     |
 
-任务 24 已实现表中 6 个出库端点（`GET/POST /outbound-orders`、`GET/PATCH /outbound-orders/{id}`、`POST /outbound-orders/{id}/ship`、`POST /outbound-orders/{id}/cancel`），字段、事务顺序、成本口径、错误码与核对 SQL 见 `docs/OUTBOUND.md`。`POST /inventory/adjustments`（盘点差异）仍是计划项。
+任务 24 已实现表中 6 个出库端点（`GET/POST /outbound-orders`、`GET/PATCH /outbound-orders/{id}`、`POST /outbound-orders/{id}/ship`、`POST /outbound-orders/{id}/cancel`），字段、事务顺序、成本口径、错误码与核对 SQL 见 `docs/OUTBOUND.md`。
 
-任务 22 已实现表中两个库存查询端点（`GET /inventory/balances`、`GET /inventory/movements`，权限 `products:read`，字段与口径见 `docs/INVENTORY.md`）。**`/inventory/*` 目前只有 GET，没有任何写动词**——库存数量只能由收货等业务事务在同一个数据库事务里"写 `stock_movements` + 改 `stock_balances`"来改变，不存在直接改余额的 CRUD 接口。`POST /inventory/adjustments`（盘点差异）仍是计划项：将来实现时也必须走同一路径（写一条 `ADJUSTMENT` 流水并同步成本池），并记录审计，而不是 `PATCH stock_balances`。
+任务 22 已实现表中两个库存查询端点（`GET /inventory/balances`、`GET /inventory/movements`，权限 `products:read`，字段与口径见 `docs/INVENTORY.md`）。查询侧仍然**只有 GET**；唯一能改数量的入口是任务 29 的 `POST /inventory/adjustments`，它在同一事务里"写调整单 + 写 `ADJUSTMENT` 流水 + 改 `stock_balances` + 写审计"，不存在任何可以直接提交 `quantityOnHand`/`totalCost` 覆盖余额的接口。调整的原因、方向、成本规则与错误码见 `docs/ADJUSTMENTS.md`。
 
 ## 5. 关键请求示例
 
@@ -393,6 +395,27 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 ```
 
 只存平台、别名、备注、启停用；平台限 `TAOBAO/JD/PDD/OTHER`，同商家同平台别名唯一。请求体里的未知字段（例如 `password`）被白名单拒绝为 400。采购单可选 `purchaseAccountId`，草稿显示账号当前别名，确认下单时冻结 `purchaseAccountAliasSnapshot`；已有采购记录的账号不能改平台、不能删除（409），停用后不能用于新采购或确认下单，但历史仍可查询。
+
+### 5.10 库存调整（任务 29 已实现）
+
+`POST /inventory/adjustments`
+
+```json
+{
+  "warehouseId": "6f1d2c3b-4a5e-4b7c-8d9e-0f1a2b3c4d5e",
+  "productId": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "quantityDelta": -2,
+  "reason": "STOCKTAKE_LOSS",
+  "remark": "月末盘点少 2 件",
+  "clientOperationId": "9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e"
+}
+```
+
+原因限 `STOCKTAKE_GAIN`（盘盈，只能为正）、`STOCKTAKE_LOSS`（盘亏）、`DAMAGED`（损坏）、`LOST`（丢失）——后三者只能为负——以及 `OTHER`（正负皆可，**备注必填**）。方向不符返回 `422 ADJUSTMENT_REASON_MISMATCH`。
+
+首次登记 `201`，同一 `clientOperationId` + 同一内容的重放 `200` 并返回原单（不再扣减）；同号不同内容 `409 IDEMPOTENCY_CONFLICT`；减后为负 `409 OUT_OF_STOCK`，`details` 带 `available`/`requested`/`sku`，整个事务回滚、余额与流水都不变。客户端提交 `quantityOnHand`/`totalCost`/`unitCost`/`adjustmentNo` 一律 400。
+
+成本由服务端推导：有库存时用移动加权平均（`AVERAGE`），零库存盘盈用商品参考进货价（`REFERENCE`），都没有则记 0（`ZERO`）；减少一律按均价，减到 0 时成本池整体清零。完整的成本示例、错误码与核对 SQL 见 [ADJUSTMENTS.md](ADJUSTMENTS.md)。
 
 ## 6. 验证规则 / 约定
 

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ADJUSTMENT_REASON_LABELS,
   STOCK_MOVEMENT_TYPES,
+  type AdjustmentReason,
   type InventoryBalanceData,
   type InventoryMovementData,
   type InventoryPendingData,
@@ -91,6 +93,8 @@ interface MovementRow {
   sourceId: string;
   sourceDocumentId: string | null;
   note: string | null;
+  /** 调整流水的来源原因；用于在备注为空时显示可读的原因而不是空白。 */
+  adjustmentReason: string | null;
   operatorId: string;
   operatorName: string;
 }
@@ -184,10 +188,11 @@ export class InventoryService {
           p.sku,
           p.name AS "productName",
           p.unit,
-          COALESCE(r.receipt_no, o.outbound_no) AS "sourceNo",
+          COALESCE(r.receipt_no, o.outbound_no, sa.adjustment_no) AS "sourceNo",
           m.source_item_id::text AS "sourceId",
           COALESCE(r.id, o.id, sa.id)::text AS "sourceDocumentId",
-          COALESCE(r.remark, o.remark, sa.reason) AS "note",
+          COALESCE(r.remark, o.remark, sa.remark) AS "note",
+          sa.reason AS "adjustmentReason",
           m.created_by::text AS "operatorId",
           COALESCE(NULLIF(u.display_name, ''), u.email) AS "operatorName"
         ${this.movementFrom(tenantId)}
@@ -557,7 +562,13 @@ export class InventoryService {
       sourceNo: row.sourceNo,
       sourceId: row.sourceId,
       sourceDocumentId: row.sourceDocumentId,
-      note: row.note,
+      // 调整单常没有备注，回退到原因中文名，避免列表里出现空白说明或裸枚举值。
+      note:
+        row.note ??
+        (row.adjustmentReason
+          ? (ADJUSTMENT_REASON_LABELS[row.adjustmentReason as AdjustmentReason] ??
+            row.adjustmentReason)
+          : null),
       operatorId: row.operatorId,
       operatorName: row.operatorName,
     };

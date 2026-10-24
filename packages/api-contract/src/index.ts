@@ -57,6 +57,7 @@ export const API_ERROR_CODES = [
   'PURCHASE_ACCOUNT_HAS_ORDERS',
   'PACKAGE_TRACKING_ALREADY_EXISTS',
   'PACKAGE_EXPECTED_QTY_EXCEEDED',
+  'ADJUSTMENT_REASON_MISMATCH',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -105,8 +106,62 @@ export const TENANT_PERMISSIONS = [
   'packages:lookup',
   'receiving:confirm',
   'outbound:write',
+  'inventory:write',
 ] as const;
 export type TenantPermission = (typeof TENANT_PERMISSIONS)[number];
+
+/** 库存调整原因：只允许这五类，方向规则见 ADJUSTMENT_REASON_DIRECTION。 */
+export const ADJUSTMENT_REASONS = [
+  'STOCKTAKE_GAIN',
+  'STOCKTAKE_LOSS',
+  'DAMAGED',
+  'LOST',
+  'OTHER',
+] as const;
+export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
+export const ADJUSTMENT_REASON_LABELS: Readonly<Record<AdjustmentReason, string>> = Object.freeze({
+  STOCKTAKE_GAIN: '盘点盘盈',
+  STOCKTAKE_LOSS: '盘点盘亏',
+  DAMAGED: '商品损坏',
+  LOST: '商品丢失',
+  OTHER: '其他原因',
+});
+/** 盘盈只能加、盘亏/损坏/丢失只能减；其他原因两个方向都允许。 */
+export const ADJUSTMENT_REASON_DIRECTION: Readonly<Record<AdjustmentReason, 1 | -1 | 0>> =
+  Object.freeze({ STOCKTAKE_GAIN: 1, STOCKTAKE_LOSS: -1, DAMAGED: -1, LOST: -1, OTHER: 0 });
+/**
+ * 调整成本的来源：减少一律按移动加权平均；增加在有库存时同样用平均成本，
+ * 零库存盘盈先看商品参考进货价，两者都没有才记 0（成本未知，不应据此估值）。
+ */
+export const ADJUSTMENT_COST_SOURCES = ['AVERAGE', 'REFERENCE', 'ZERO'] as const;
+export type AdjustmentCostSource = (typeof ADJUSTMENT_COST_SOURCES)[number];
+export interface StockAdjustmentData {
+  id: string;
+  tenantId: string;
+  adjustmentNo: string;
+  warehouseId: string;
+  warehouseName: string;
+  productId: string;
+  sku: string;
+  productName: string;
+  unit: string;
+  quantityDelta: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  reason: AdjustmentReason;
+  reasonLabel: string;
+  remark: string | null;
+  /** 本次调整采用的单位成本，四位小数字符串。 */
+  unitCost: string;
+  costDelta: string;
+  totalCostBefore: string;
+  totalCostAfter: string;
+  costSource: AdjustmentCostSource;
+  clientOperationId: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+}
 export interface TenantData {
   id: string;
   name: string;
@@ -504,7 +559,7 @@ export interface InventoryMovementData {
   unit: string;
   /** 来源单据类型；目前为 RECEIPT / OUTBOUND / ADJUSTMENT。 */
   sourceType: string;
-  /** 来源单号（入库单号、出库单号；调整单没有编号时为 null）。 */
+  /** 来源单号（入库单号、出库单号、调整单号；历史调整行没有单号时为 null）。 */
   sourceNo: string | null;
   /** 来源单据行 ID，便于追溯具体凭证。 */
   sourceId: string;

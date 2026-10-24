@@ -26,6 +26,7 @@ const ROLE_PERMISSIONS: Readonly<Record<TenantRole, readonly TenantPermission[]>
     'receiving:confirm',
     'warehouses:read',
     'outbound:write',
+    'inventory:write',
     'purchase:read',
     'packages:read',
     'packages:lookup',

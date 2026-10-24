@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { readdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { loadEnvFile } from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,7 @@ const tables = [
   'tenant_memberships',
   'warehouses',
   'products',
+  'purchase_accounts',
   'purchase_orders',
   'purchase_order_items',
   'packages',
@@ -87,7 +89,14 @@ test(
               'SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations',
             )
           ).rows;
-          assert.equal(rows.length, 6);
+          assert.equal(
+            rows.length,
+            (
+              await readdir(new URL('../apps/api/prisma/migrations/', import.meta.url), {
+                withFileTypes: true,
+              })
+            ).filter((entry) => entry.isDirectory()).length,
+          );
           for (const row of rows) {
             assert.ok(row.finished_at);
             assert.equal(row.rolled_back_at, null);
@@ -101,7 +110,7 @@ test(
         },
       );
       await t.test(
-        '17 original tables plus 2 authentication tables, UUID keys and 15 tenant scoped tables exist',
+        '18 business tables plus 2 authentication tables, UUID keys and tenant scoped data exist',
         async () => {
           const actual = (
             await db.query(
@@ -149,7 +158,10 @@ test(
               "SELECT conname FROM pg_constraint WHERE contype='c' AND connamespace='public'::regnamespace",
             )
           ).rows;
-          assert.equal(checks.length, 38);
+          assert.equal(checks.length, 41);
+          assert.ok(checks.some((check) => check.conname === 'stock_adjustments_reason_known'));
+          assert.ok(checks.some((check) => check.conname === 'ck_purchase_account_platform'));
+          assert.ok(checks.some((check) => check.conname === 'ck_purchase_account_alias'));
           assert.ok(checks.some((check) => check.conname === 'ck_po_item_line_no'));
           assert.ok(checks.some((check) => check.conname === 'ck_po_item_freight_allocated'));
           assert.ok(checks.some((check) => check.conname === 'ck_warehouse_remark_length'));
@@ -160,7 +172,7 @@ test(
               "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tr_%_updated_at'",
             )
           ).rows;
-          assert.equal(triggers.length, 19);
+          assert.equal(triggers.length, 20);
           const indexes = (
             await db.query("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
           ).rows.map((r) => r.indexname);
@@ -170,6 +182,9 @@ test(
             'idx_product_tenant_active_time',
             'idx_po_tenant_status_time',
             'idx_po_platform_order',
+            'idx_po_account_date',
+            'idx_po_purchase_date',
+            'idx_purchase_account_active',
             'idx_po_item_po',
             'idx_pkg_scan',
             'idx_pkg_order',
@@ -267,6 +282,7 @@ test(
         ).rows[0];
       };
       await db.query('BEGIN');
+      await insert('purchase_accounts', { tenant_id: a, platform: 'JD', alias: '模型测试采购号' });
       const poData = {
         tenant_id: a,
         warehouse_id: whA,
@@ -359,7 +375,7 @@ test(
         warehouse_id: whA,
         product_id: prodA,
         quantity_delta: 1,
-        reason: 'constraint test',
+        reason: 'OTHER',
         unit_cost_snapshot: '12.3401',
         client_operation_id: randomUUID(),
         created_by: userA,
@@ -398,7 +414,7 @@ test(
           }
         });
       await t.test(
-        'all 17 tables accept valid rows; NUMERIC retains exact decimal values',
+        'all 18 business tables accept valid rows; NUMERIC retains exact decimal values',
         async () => {
           for (const table of tables)
             assert.ok(
@@ -568,6 +584,13 @@ test(
           ...adjData,
           client_operation_id: randomUUID(),
           unit_cost_snapshot: '-1',
+        }),
+      );
+      await rejected('unknown adjustment reason', '23514', () =>
+        insert('stock_adjustments', {
+          ...adjData,
+          client_operation_id: randomUUID(),
+          reason: 'constraint test',
         }),
       );
       await rejected('cross tenant adjustment product', '23503', () =>

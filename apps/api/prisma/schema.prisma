@@ -422,6 +422,11 @@ model StockAdjustment {
   reason              String           @db.VarChar(100)
   unitCostSnapshot    Decimal          @map("unit_cost_snapshot") @db.Decimal(20, 4)
   clientOperationId   String           @map("client_operation_id") @db.Uuid
+  // 以下四列是任务 29 的增量：老行允许为 null，新行全部由服务端写入。
+  adjustmentNo        String?          @map("adjustment_no") @db.VarChar(32)
+  remark              String?          @map("remark") @db.VarChar(500)
+  requestHash         String?          @map("request_hash") @db.VarChar(64)
+  costSource          String?          @map("cost_source") @db.VarChar(20)
   createdBy           String           @map("created_by") @db.Uuid
   createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -432,6 +437,8 @@ model StockAdjustment {
 
   @@unique([tenantId, id])
   @@unique([tenantId, clientOperationId])
+  @@unique([tenantId, adjustmentNo])
+  @@index([tenantId, createdAt(sort: Desc)], map: "idx_adjustment_tenant_time")
   @@map("stock_adjustments")
 }
 

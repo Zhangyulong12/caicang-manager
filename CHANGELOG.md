@@ -1,5 +1,18 @@
 # 更新记录
 
+## 2026-10-23 — 用户任务 29：库存调整 API
+
+- 新增 3 个端点：`POST /api/v1/inventory/adjustments`（首次 201 / 幂等重放 200）、`GET /api/v1/inventory/adjustments`（分页 + 仓库/商品/原因/日期/关键字筛选）、`GET /api/v1/inventory/adjustments/{id}`。复用既有 `stock_adjustments` 表，**没有新建表**。
+- 原因限五类：盘点盘盈 `STOCKTAKE_GAIN`、盘点盘亏 `STOCKTAKE_LOSS`、商品损坏 `DAMAGED`、商品丢失 `LOST`、其他原因 `OTHER`（正负皆可、**备注必填**）。方向规则：盘盈只能加，盘亏/损坏/丢失只能减，不符返回 `422 ADJUSTMENT_REASON_MISMATCH`。
+- 一次调整是单事务：锁租户行 → 操作号查重 → 校验仓库/商品归属 → `INSERT ... ON CONFLICT` + `SELECT ... FOR UPDATE` 锁余额行 → 再查重 → 推导成本 → 写调整单 + `ADJUSTMENT` 流水 + 更新余额 + 写 `STOCK_ADJUSTED` 审计。**余额永远由流水推导**，减后为负返回 `409 OUT_OF_STOCK` 并整体回滚；不存在可提交 `quantityOnHand`/`totalCost` 覆盖余额的接口。
+- 成本规则（服务端推导，客户端不可指定）：有库存的调整按移动加权平均（`AVERAGE`）；零库存盘盈用商品参考进货价（`REFERENCE`）；两者都没有记 0（`ZERO`）；减少一律按均价，**减到 0 时成本池整体清零**，不留尾差。逐条示例与"为什么盘亏不用参考价"见 `docs/ADJUSTMENTS.md`。
+- 幂等：`stock_adjustments.(tenant_id, client_operation_id)` 唯一键 + `request_hash`（只含仓库/商品/数量/原因/备注，不含派生值）。同号同内容返回原单且不重复扣减、不重复写审计；同号改数量/备注/商品返回 `409 IDEMPOTENCY_CONFLICT`；并发双发只有一个 201、库存只减一次。
+- 权限：新增 `inventory:write`，授予 OWNER / ADMIN / WAREHOUSE；BUYER / VIEWER 写操作 403。读列表/详情用 `products:read`（含 VIEWER）。仓库与商品用 `(tenant_id, id)` 复合键校验，跨商家一律 404。审计 `metadata` 只记结构化事实，**不写备注**。
+- 迁移 `20261023150000_stock_adjustment_api`：`stock_adjustments` 增 4 个可空列（`adjustment_no` / `remark` / `request_hash` / `cost_source`）、单号唯一索引、商家+时间倒序索引，以及 `reason` 枚举 CHECK（`NOT VALID`，只约束新行，历史自由文本原因不受影响）。历史行无单号时 API 退回 `ADJ-<ID 前缀>`。
+- 库存流水顺带修正：`sourceNo` 现在带出调整单号（原来调整流水是 `null`），`note` 在没有备注时回退为原因中文名而不是裸枚举值。
+- 新增 `scripts/stock-adjustments.test.mjs` 与 `pnpm test:adjustments`（纳入 `test`）：**8 通过 / 0 失败 / 0 跳过**，覆盖验收路径 **10 件盘亏 2 → 余额 8、流水 -2**、幂等重放/冲突/并发、库存不足数据不变、四种成本场景、五角色权限与跨商家隔离、列表筛选与详情、数据库 CHECK 兜底与 OpenAPI 契约。全仓 **626 通过 / 0 失败 / 0 跳过（8 分 04 秒）**，`pnpm test:models` 66 通过且 `migrate diff` 无漂移。
+- `scripts/database-models.test.mjs` 的调整行原因改为 `OTHER` 并补「未知原因 23514」用例。新增 `docs/ADJUSTMENTS.md`、`docs/TASK_29_REPORT.md`；更新 `docs/INVENTORY.md`、`docs/API_SPEC.md`。
+
 ## 2026-10-23 — 用户任务 28：精简商品管理字段
 
 - 商品主字段收敛为 **商品货号 / 颜色 / 尺码 / SKU 编码 / 参考进货价 / 商品名称（选填）**；条码、规格、单位、备注、启用状态收进「高级选项」，单位默认「件」，**全表只剩 SKU 一个硬性必填项**。
