@@ -417,6 +417,18 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 
 成本由服务端推导：有库存时用移动加权平均（`AVERAGE`），零库存盘盈用商品参考进货价（`REFERENCE`），都没有则记 0（`ZERO`）；减少一律按均价，减到 0 时成本池整体清零。完整的成本示例、错误码与核对 SQL 见 [ADJUSTMENTS.md](ADJUSTMENTS.md)。
 
+### 5.11 供应商采购退货（任务 31）
+
+任务 32 补充只读响应：主单及逐行 `estimatedRefundAmount`，确认人 `confirmedByName`，returnable 来源中的 `orderedQuantity` 与 `purchaseNetAmount`。预计退款＝各原采购行（原价×原数量−行优惠）按退货数量比例分摊、每行四舍五入到分后合计，不含运费。实际 `refundAmount` 仍由业务登记并在确认冻结；不自动支付退款，不把退款金额作为库存成本。Web 流程见 [WEB_PURCHASE_RETURNS.md](WEB_PURCHASE_RETURNS.md)。无写接口/数据库结构变更。
+
+`GET /purchase-orders/{id}/returnable` 查询实际入库及剩余可退来源；`GET/POST /purchase-returns`、`GET/PATCH /purchase-returns/{id}` 管理草稿和查询；`POST /purchase-returns/{id}/confirm` 提交 `{ "clientOperationId": "UUID" }` 确认扣库存，首次 201、原号原单重放 200；`POST /purchase-returns/{id}/cancel` 仅取消草稿、不改库存。
+
+创建含 purchaseOrderId、reason、returnDate（YYYY-MM-DD）、refundAmount（非负金额字符串，可选）、remark 和 items（purchaseOrderItemId、正整数 quantity、可选 receiptItemId）。来源是原采购行，不是商品 ID。未指定入库时由确认事务分配来源，响应包含 allocations、独立 stockCost / receivedCost / refundAmount、创建及确认人/时间。原采购单价、数量、费用、已收量和单据状态均不改写。
+
+全角色 purchase:read；OWNER/ADMIN/BUYER 草稿写；OWNER/ADMIN/WAREHOUSE 确认。无成员 403，跨商家或错误来源 ID 404。超退 `409 PURCHASE_RETURN_QTY_EXCEEDED`；缺货 `409 OUT_OF_STOCK`；状态非法 `409 STATUS_CONFLICT`；操作号用于其他单 `409 IDEMPOTENCY_CONFLICT`。确认的余额、入库分配、PURCHASE_RETURN 负向流水和审计同事务，失败全部回滚。`GET /inventory/movements?type=PURCHASE_RETURN` 返回退货来源单号、单据 ID 和明细 ID。
+
+完整字段、示例、权限及成本规则见 [PURCHASE_RETURNS.md](PURCHASE_RETURNS.md)。仅供应商退货，不代表客户退货或执行退款支付。
+
 ## 6. 验证规则 / 约定
 
 - 码值去首尾空格，不随意删除前导零/改写内部字符；最大长度 128，不能根据扫码文本直接构造 SQL。

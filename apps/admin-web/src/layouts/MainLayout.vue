@@ -74,7 +74,9 @@ function switchTenant() {
           :class="{
             active:
               route.path === item.path ||
-              (['/products', '/purchases', '/inventory', '/receipts'].includes(item.path) &&
+              (['/products', '/purchases', '/purchase-returns', '/inventory', '/receipts'].includes(
+                item.path,
+              ) &&
                 route.path.startsWith(item.path + '/')),
           }"
           @click="mobileOpen = false"

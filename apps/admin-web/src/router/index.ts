@@ -7,6 +7,7 @@ import {
   inventoryPath,
   navigation,
   outboundPath,
+  purchaseReturnPath,
   receiptPath,
   safeRedirect,
 } from './policy';
@@ -33,26 +34,43 @@ export const router = createRouter({
                 ? () => import('../views/ProductsView.vue')
                 : item.path === '/purchases'
                   ? () => import('../views/PurchasesView.vue')
-                  : item.path === '/purchase-accounts'
-                    ? () => import('../views/PurchaseAccountsView.vue')
-                    : item.path === '/packages'
-                      ? () => import('../views/PackagesView.vue')
-                      : item.path === '/inventory'
-                        ? () => import('../views/InventoryOverviewView.vue')
-                        : item.path === '/receipts'
-                          ? () => import('../views/ReceiptsView.vue')
-                          : item.path === '/outbound'
-                            ? () => import('../views/OutboundView.vue')
-                            : item.path === '/warehouses'
-                              ? () => import('../views/WarehousesView.vue')
-                              : item.path === '/settings'
-                                ? () => import('../views/SettingsView.vue')
-                                : () => import('../views/ModuleView.vue'),
+                  : item.path === '/purchase-returns'
+                    ? () => import('../views/PurchaseReturnsView.vue')
+                    : item.path === '/purchase-accounts'
+                      ? () => import('../views/PurchaseAccountsView.vue')
+                      : item.path === '/packages'
+                        ? () => import('../views/PackagesView.vue')
+                        : item.path === '/inventory'
+                          ? () => import('../views/InventoryOverviewView.vue')
+                          : item.path === '/receipts'
+                            ? () => import('../views/ReceiptsView.vue')
+                            : item.path === '/outbound'
+                              ? () => import('../views/OutboundView.vue')
+                              : item.path === '/warehouses'
+                                ? () => import('../views/WarehousesView.vue')
+                                : item.path === '/settings'
+                                  ? () => import('../views/SettingsView.vue')
+                                  : () => import('../views/ModuleView.vue'),
         })),
         {
           path: 'inventory/balances',
           component: () => import('../views/InventoryBalancesView.vue'),
           meta: { title: '商品库存' },
+        },
+        {
+          path: 'inventory/adjustments',
+          component: () => import('../views/AdjustmentsView.vue'),
+          meta: { title: '库存调整' },
+        },
+        {
+          path: 'inventory/adjustments/new',
+          component: () => import('../views/AdjustmentFormView.vue'),
+          meta: { title: '新建库存调整' },
+        },
+        {
+          path: 'inventory/adjustments/:id',
+          component: () => import('../views/AdjustmentDetailView.vue'),
+          meta: { title: '库存调整详情' },
         },
         {
           path: 'inventory/movements',
@@ -78,6 +96,16 @@ export const router = createRouter({
           path: 'purchases/new',
           component: () => import('../views/PurchaseFormView.vue'),
           meta: { title: '新建采购单' },
+        },
+        {
+          path: 'purchase-returns/new',
+          component: () => import('../views/PurchaseReturnFormView.vue'),
+          meta: { title: '新建采购退货' },
+        },
+        {
+          path: 'purchase-returns/:id',
+          component: () => import('../views/PurchaseReturnDetailView.vue'),
+          meta: { title: '采购退货详情' },
         },
         {
           path: 'purchases/:id/edit',
@@ -145,7 +173,8 @@ router.beforeEach(async (to) => {
       to.path.startsWith('/purchases/') ||
       inventoryPath(to.path) ||
       receiptPath(to.path) ||
-      outboundPath(to.path)) &&
+      outboundPath(to.path) ||
+      purchaseReturnPath(to.path)) &&
     !allowed(to.path, tenants.current?.permissions ?? [])
   )
     return '/forbidden';

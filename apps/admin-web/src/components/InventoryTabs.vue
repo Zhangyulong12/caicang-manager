@@ -7,8 +7,11 @@ const tabs = [
   { path: '/inventory/balances', label: '商品库存' },
   { path: '/inventory/movements', label: '变动流水' },
   { path: '/inventory/pending', label: '待入库采购' },
+  { path: '/inventory/adjustments', label: '库存调整' },
 ] as const;
-const active = computed(() => route.path);
+const active = computed(() =>
+  route.path.startsWith('/inventory/adjustments') ? '/inventory/adjustments' : route.path,
+);
 </script>
 <template>
   <nav class="inventory-tabs" aria-label="库存子页面">

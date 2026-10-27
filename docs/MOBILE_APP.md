@@ -1,5 +1,7 @@
 # 手机端 App（uni-app）
 
+任务 34 最新现场状态（2026-10-27）：小米 13 / Android 16 已运行官方标准基座 14.76，用户实际扫描真实圆通面单并确认两 SKU 入库，再扫码出库充电器 2 件。数据库核实余额为充电器 3 件 / 55.5000、数据线 2 条 / 16.0000，原入库/出库操作号 API 重放均不重复修改库存，超库存返回 409、只读账号写入返回 403。独立 APK 已生成并保留在 `artifacts/android/caicang-manager-test-0.2.0-200-20261027.apk`（Git 忽略），签名和包内容检查通过；首次安装被手机取消，2026-10-27 14:48 重试安装成功；用户确认独立包扫码查询及库存搜索3/2正确，独立包新增入出库事务仍未验收。AppID 已为用户授权申请的 `__UNI__D5AEA8E`；源码 manifest 已声明 Barcode 模块。首次白屏的 `URL is not defined` 及库存查询 URLSearchParams 依赖已修复，运行时回归与真实 API 自动化共 46 项通过。详细证据及逐项待测内容见 `TASK_34_REPORT.md`。下文任务 19/20 的未验收描述是对应历史任务记录，不能作为当前整体状态。
+
 ## 一、这一版做了什么
 
 任务 19 交付的是**可登录、可切换商家、面向 Android 的 uni-app** 骨架；2026-10-23 已完成真实 API 联调与 App 资源构建，Android 安装、摄像头与权限弹窗仍未验收：
@@ -18,7 +20,7 @@
 | 扫码查包裹 | 官方 `uni.scanCode` 扫一维码/二维码，调 `GET /packages/lookup`，唯一进详情、多候选手动选、未知给异常提示 |
 | 扫码验收入库 | 收货页按 SKU 填实际到货数、写备注、二次确认后调 `POST /receipts` 真实事务；断网未提交、重试复用同一操作号不重复入库 |
 
-**尚未实现**：库存查询、扫码出库的真实业务页面（点击入口会提示"将在下一阶段开放"）。入库记录已接 `GET /receipts`，可翻页、下拉刷新。
+任务 26 已增加库存查询、库存详情与扫码出库真实业务页面，见 `MOBILE_STOCK_OUTBOUND.md`。此前的 Node/真实 API 验证不等于相机或 Android 安装验收。任务 34 的现场状态与完整验收清单见 `TASK_34_REPORT.md`。
 
 ## 二、目录结构
 
@@ -32,6 +34,8 @@ apps/mobile/
     services/network.ts       网络状态监听
     services/scan.ts          扫码结果清洗、lookup 请求、去重闸门（框架无关，可单测）
     services/receiving.ts     收货草稿、幂等 UUID 闸门、错误文案（框架无关，可单测）
+    services/stock.ts         库存查询、商品码匹配
+    services/outbound.ts      出库草稿、数量与幂等提交
     services/operation-log.ts 本机操作日志（50 条环形缓冲）
     stores/session.ts         登录态、商家列表、当前商家、本地缓存
     utils/feedback.ts         错误文案、toast、确认框
@@ -39,6 +43,7 @@ apps/mobile/
     utils/package.ts          包裹/收货状态中文名、时间格式化
     components/NetworkBanner.vue
     pages/login|home|records|account|tenant|scan|package|receiving/index.vue
+    pages/stock/index.vue / pages/stock/detail.vue / pages/outbound/index.vue
     pages.json / manifest.json
 ```
 
@@ -56,6 +61,8 @@ apps/mobile/
 | `pages/scan/index` | 扫一扫：相机扫码 / 手动输入，查包裹 | 否（首页「扫码入库」进入） |
 | `pages/package/index` | 包裹详情：采购单、预计明细、入库单；有权限时可进收货 | 否（扫码命中后进入） |
 | `pages/receiving/index` | 扫码验收入库：按 SKU 填到货数、备注、二次确认、提交事务 | 否（详情页「确认收货」进入） |
+| `pages/stock/index` / `pages/stock/detail` | 查询真实库存与流水，支持商品码与手动搜索 | 否 |
+| `pages/outbound/index` | 扫码选商品、保存草稿、二次确认发货 | 否 |
 
 四个入口按权限判断：`receiving:confirm`（扫码入库）、`products:read`（库存查询）、`outbound:write`（扫码出库）、`packages:read`（入库记录）。没有权限的入口置灰并提示原因，而不是点了报 403。扫码页还额外校验 `packages:lookup`（服务端同样会校验）。
 
@@ -96,7 +103,7 @@ const result = await api.request<ReceiptData[]>('/receipts?page=1&pageSize=20', 
 | `.env.example` | 说明如何用 `.env.development.local` 覆盖 |
 
 - Android 真机**不能用 localhost**。本轮检查 `.env.development` 仍是 localhost、`.env.production` 仍是示例域名，均未覆盖。**默认 `build:app` 读取 production；只改 development 后直接 build:app 仍会连接示例域名。** 使用下方 LAN 构建命令，通过进程变量覆盖并检查产物中的真实地址。
-- 手机与电脑必须在可互访的局域网，先用手机浏览器打开健康接口；本轮只验证了电脑访问自己的 LAN 地址。若有访客 Wi-Fi 隔离、防火墙或安全策略拦截，先定位并取得用户确认，不自动调整规则。
+- 手机与电脑必须在可互访的局域网，先用手机浏览器打开健康接口。任务 34 于 2026-10-26 通过 ADB 在真实手机内执行 curl，经 WLAN 请求 `http://192.168.243.90:3000/api/v1/health` 返回 HTTP 200，未使用端口转发；浏览器/App 请求仍需分别验收。现有 Node 防火墙规则已允许本轮访问，无需更改安全策略。IP 改变后须重新检查与构建。
 - 代码里的兜底地址是 `https://api.invalid.local/api/v1`，故意不可解析：忘记配置时宁可连不上，也不要悄悄连到错误服务器。
 - 正式环境必须 HTTPS；`manifest.json` 里保留了 `usesCleartextTraffic: true` 以便真机调试 HTTP，上线前应改为 `false`。
 
@@ -115,13 +122,13 @@ pnpm build:mobile:lan -ApiBaseUrl 'http://192.168.243.90:3000/api/v1'
 
 LAN 脚本先要求健康接口成功，再运行 `build:app --mode development`。环境变量只对该进程生效，结束恢复原值；构建后验证 `dist/build/app/app-service.js` 包含指定 URL。当前已实际构建成功，**dist/build/app 是编译资源，不是签名 APK**。默认 `build:app` 仍是 production 构建，后续执行会覆盖该目录，真机测试前应重新执行 LAN 构建。
 
-1. 安装兼容锁定编译器的 HBuilderX（本轮 CLI 输出编译器 5.24；[官方下载](https://www.dcloud.io/hbuilderx.html)）。本机尚未执行安装或验证 IDE 版本兼容性，不升级项目依赖来迁就 IDE。
+1. 使用兼容锁定编译器的 HBuilderX（CLI 输出编译器 5.24；[官方下载](https://www.dcloud.io/hbuilderx.html)）。任务 34 本机 IDE 位于 `D:\HBuilderX\HBuilderX`、版本 4.76，官方真机运行插件现已安装，基座 14.76 的真实扫码入库已验证。版本不同仍有未覆盖的兼容风险，不能据此宣称独立 APK 完全兼容；不自动升级 IDE 或项目依赖。
 2. 在 HBuilderX「文件 → 导入 → 从本地目录导入」选择 `D:\Dev\caicang-manager\apps\mobile`，这是有 package.json/src 的 CLI 源码工程，不能多选一层项目父目录。按 [DCloud CLI 说明](https://uniapp.dcloud.io/quickstart-cli) 与 [项目类型说明](https://ask.dcloud.net.cn/article/id-35878__page-2)核对工程类型。
-3. 在 `src/manifest.json` 的基础配置申请自己的 DCloud AppID；仓库现值为空。本轮未代申请、未改 AppID。若使用编译资源导入方式，应在源码配置 AppID 后重新构建，不能依靠旧资源自动带入。
+3. `src/manifest.json` 已保存用户授权首次申请的 AppID `__UNI__D5AEA8E`，重新 LAN 构建后的资源亦已核对。后续不要随意更换已有 AppID。
 4. 源码由 HBuilderX 运行时会重新编译，需要本地 `.env.development.local` 配置 LAN 地址。先检查该文件，保留已有内容，仅在本机配置 `VITE_API_BASE_URL=http://192.168.243.90:3000/api/v1`；不能沿用 localhost。该文件已被 Git 忽略。本轮没有创建或覆盖它。
-5. 本轮 CLI 成功后明确提示 `open HBuilderX, import dist\\build\\app run`；也可按此提示导入 `apps/mobile/dist/build/app` 编译资源。其识别、AppID、基座运行仍须在实际 HBuilderX 验证，不能宣称与源码导入“效果一致”。
+5. 本轮按 CLI 提示导入 `apps/mobile/dist/build/app` 编译资源，HBuilderX 识别为 app(App)，实际同步到标准基座运行并完成扫码入库。运行前须让 app 工程的文件成为当前编辑文件，核对对话框为运行项目 app，避免误运行会重新编译 localhost 地址的 mobile 源码工程。
 6. 手机开启开发者模式、USB 调试并授权电脑；在手机浏览器先访问 LAN 健康接口，再运行 HBuilderX「运行 → 运行到手机或模拟器 → Android App 基座」。记录 HBuilderX/基座版本、手机型号、Android 版本及实际 API 地址。
-7. 登录、扫码、拒绝权限等按第十一节逐项验证。需要签名 APK 时再走「发行 → 原生App-云打包」，使用自有证书；基座可运行也不代表签名 APK 已通过。本轮没有打包、安装或验证 APK。
+7. 按 TASK_34_REPORT 逐项继续真机验收。官方 App 云打包插件已安装，用户已自行绑定手机号。公共测试证书被 DCloud 拒绝后，改用仓库外 `D:\CaicangSigning\caicang-task34-test.keystore` 的自有测试证书、包名 `com.caicang.manager.test`、快速安心打包，取消默认广告；APK 已生成且 v1/v2/v3 签名验证通过，首次手机安装被取消，后续重试已成功，仍须在独立包重测核心流程。正式发布仍需管理自有生产证书，基座通过不能代替 APK 验收。
 
 ## 九、扫码查包裹
 
@@ -166,7 +173,7 @@ LAN 脚本先要求健康接口成功，再运行 `build:app --mode development`
 
 ## 十、扫码验收入库
 
-`pages/package/index` 点「确认收货」→ `pages/receiving/index?id=…`。这一页是**唯一会写库存的地方**，调的是任务 17 的真实事务接口。
+`pages/package/index` 点「确认收货」→ `pages/receiving/index?id=…`。收货通过任务 17 的真实事务接口写库存；任务 26 的出库页通过独立出库事务扣库存。扫码查询与详情读取本身均不改库存。
 
 ```
 GET /packages/:id            → 采购单、承运商、运单号、包裹状态

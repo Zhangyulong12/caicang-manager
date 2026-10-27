@@ -14,8 +14,8 @@
 - Prisma 7 配置：`prisma-client` generator 明确 output、`@prisma/adapter-pg` 驱动适配器、Prisma Client ESM，按选定的具体版本固定 lockfile。
 - 保持一致的 DTO 与 OpenAPI 文档；校验用户输入、规范错误码。
 - 所有业务数据以 `tenant_id` 隔离；服务端每次验证用户 membership + role，不允许仅用 `id` 查询暴露跨租户对象。
-- 库存余额不允许直接 CRUD；仅服务端 receipt、outbound、adjustment 事务修改。并发收货需锁采购主单，禁止超收；库存余额不为负。
-- 收货 `clientOperationId` 与出库 `confirmOperationId` 要幂等；输入不变的重试返回原操作，不同内容复用相同 ID 返回冲突。
+- 库存余额不允许直接 CRUD；仅服务端 receipt、outbound、adjustment、purchase-return 事务修改。并发收货/采购退货需锁原采购主单，禁止超收/超退；库存余额不为负。
+- 收货 `clientOperationId`、出库 `confirmOperationId` 与采购退货确认操作号要幂等；输入不变的重试返回原操作，不同内容复用相同 ID 返回冲突。
 - 订单/包裹/收货/发货状态机必须限制合法状态转换；重要事件应有审计日志。
 - 金额用数据库 NUMERIC/TS Decimal 或字符串，不能用 JS float 实现会计运算。
 

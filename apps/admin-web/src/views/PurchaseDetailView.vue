@@ -124,6 +124,19 @@ onBeforeUnmount(() => {
           >
         </div>
         <div class="purchase-actions">
+          <el-button
+            :disabled="!canWrite || !order.items.some((i) => i.receivedQuantity > 0) || busy"
+            @click="
+              router.push({ path: '/purchase-returns/new', query: { purchaseOrderId: order.id } })
+            "
+            >创建采购退货</el-button
+          >
+          <el-button
+            @click="
+              router.push({ path: '/purchase-returns', query: { purchaseOrderId: order.id } })
+            "
+            >关联退货记录</el-button
+          >
           <el-button :icon="Refresh" :disabled="busy" @click="load">刷新</el-button
           ><el-button
             :icon="Edit"

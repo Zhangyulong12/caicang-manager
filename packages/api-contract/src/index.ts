@@ -58,6 +58,7 @@ export const API_ERROR_CODES = [
   'PACKAGE_TRACKING_ALREADY_EXISTS',
   'PACKAGE_EXPECTED_QTY_EXCEEDED',
   'ADJUSTMENT_REASON_MISMATCH',
+  'PURCHASE_RETURN_QTY_EXCEEDED',
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 export interface ApiErrorResponse {
@@ -107,8 +108,58 @@ export const TENANT_PERMISSIONS = [
   'receiving:confirm',
   'outbound:write',
   'inventory:write',
+  'reports:read',
+  'reports:export',
 ] as const;
 export type TenantPermission = (typeof TENANT_PERMISSIONS)[number];
+
+export const REPORT_DATASETS = [
+  'accounts',
+  'platforms',
+  'daily',
+  'purchase-lines',
+  'pending',
+  'inventory',
+  'outbound',
+  'returns',
+] as const;
+export type ReportDataset = (typeof REPORT_DATASETS)[number];
+export interface ReportColumn {
+  key: string;
+  label: string;
+  kind: 'text' | 'money' | 'quantity';
+  digits?: 2 | 4;
+}
+export interface ReportTableData {
+  dataset: ReportDataset;
+  columns: ReportColumn[];
+  rows: Record<string, string | null>[];
+  pagination: Pagination;
+  generatedAt: string;
+  scopeNote: string;
+}
+export interface ReportOverviewData {
+  purchaseAmount: string;
+  purchaseQuantity: string;
+  purchaseOrderCount: string;
+  pendingQuantity: string;
+  pendingAmount: string;
+  inventoryQuantity: string;
+  inventoryCost: string;
+  outboundQuantity: string;
+  outboundCost: string;
+  returnRefundAmount: string;
+  returnStockCost: string;
+  returnQuantity: string;
+  generatedAt: string;
+  timeZone: 'Asia/Shanghai';
+}
+export interface ReportExportData {
+  fileName: string;
+  csv: string;
+  rowCount: number;
+  generatedAt: string;
+}
 
 /** 库存调整原因：只允许这五类，方向规则见 ADJUSTMENT_REASON_DIRECTION。 */
 export const ADJUSTMENT_REASONS = [
@@ -423,8 +474,91 @@ export interface ReceiptData {
   items: ReceiptItemData[];
 }
 
-export const STOCK_MOVEMENT_TYPES = ['RECEIPT', 'OUTBOUND', 'ADJUSTMENT'] as const;
+export const STOCK_MOVEMENT_TYPES = [
+  'RECEIPT',
+  'OUTBOUND',
+  'ADJUSTMENT',
+  'PURCHASE_RETURN',
+] as const;
 export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
+export const PURCHASE_RETURN_STATUSES = ['DRAFT', 'CONFIRMED', 'CANCELLED'] as const;
+export type PurchaseReturnStatus = (typeof PURCHASE_RETURN_STATUSES)[number];
+export interface PurchaseReturnAllocationData {
+  id: string;
+  receiptId: string;
+  receiptNo: string;
+  receiptItemId: string;
+  quantity: number;
+  receivedUnitCost: string;
+  receivedCost: string;
+}
+export interface PurchaseReturnItemData {
+  estimatedRefundAmount: string;
+  id: string;
+  purchaseOrderItemId: string;
+  productId: string;
+  requestedReceiptItemId: string | null;
+  sku: string;
+  name: string;
+  unit: string;
+  quantity: number;
+  stockUnitCost: string | null;
+  stockCost: string | null;
+  allocations: PurchaseReturnAllocationData[];
+}
+export interface PurchaseReturnData {
+  confirmedByName: string | null;
+  estimatedRefundAmount: string;
+  id: string;
+  tenantId: string;
+  purchaseOrderId: string;
+  purchaseOrderNo: string;
+  warehouseId: string;
+  warehouseName: string;
+  returnNo: string;
+  status: PurchaseReturnStatus;
+  reason: string;
+  returnDate: string;
+  refundAmount: string;
+  stockCost: string | null;
+  receivedCost: string | null;
+  remark: string | null;
+  createdBy: string;
+  createdByName: string;
+  confirmedBy: string | null;
+  confirmedAt: string | null;
+  confirmOperationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: PurchaseReturnItemData[];
+}
+export interface PurchaseReturnableData {
+  purchaseOrderId: string;
+  orderNo: string;
+  warehouseId: string;
+  items: {
+    purchaseOrderItemId: string;
+    productId: string;
+    sku: string;
+    name: string;
+    unit: string;
+    orderedQuantity: number;
+    purchaseNetAmount: string;
+    receivedQuantity: number;
+    returnedQuantity: number;
+    availableQuantity: number;
+    stockQuantity: number;
+    receipts: {
+      receiptId: string;
+      receiptNo: string;
+      receiptItemId: string;
+      receivedAt: string;
+      receivedQuantity: number;
+      returnedQuantity: number;
+      availableQuantity: number;
+    }[];
+  }[];
+}
 export type StockMovementDirection = 'IN' | 'OUT';
 
 export const OUTBOUND_STATUSES = ['DRAFT', 'SHIPPED', 'CANCELLED'] as const;

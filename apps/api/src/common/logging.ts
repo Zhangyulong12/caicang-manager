@@ -21,6 +21,78 @@ export function redactSensitive(value: unknown, depth = 0): unknown {
     );
   return value;
 }
+
+/** Startup-only diagnostics. HTTP/framework free-text logging stays disabled. */
+export function formatBootstrapFailure(
+  error: unknown,
+  environment: NodeJS.ProcessEnv = process.env,
+): Record<string, unknown> {
+  const entry: Record<string, unknown> = {
+    event: 'bootstrap_failed',
+    message:
+      error instanceof Error && /^Invalid configuration: [A-Z_]+$/.test(error.message)
+        ? error.message
+        : 'API startup failed',
+  };
+  if ((environment.NODE_ENV ?? 'development') !== 'development' || !(error instanceof Error))
+    return entry;
+
+  const secrets = new Set<string>();
+  for (const [key, value] of Object.entries(environment)) {
+    if (!value) continue;
+    if (sensitiveKey.test(key.replace(/[^a-z]/gi, ''))) secrets.add(value);
+    if (/url|connectionstring/i.test(key)) {
+      try {
+        const password = new URL(value).password;
+        if (password) {
+          secrets.add(password);
+          secrets.add(decodeURIComponent(password));
+        }
+      } catch {
+        // Invalid configuration must not make the diagnostic formatter throw.
+      }
+    }
+  }
+  for (const value of [...secrets]) {
+    try {
+      secrets.add(encodeURIComponent(value));
+    } catch {
+      // A malformed Unicode value is still masked in its original form.
+    }
+  }
+  const scrub = (value: string, limit: number): string => {
+    let safe = value;
+    for (const secret of [...secrets].sort((a, b) => b.length - a.length))
+      safe = safe.replaceAll(secret, '[REDACTED]');
+    safe = safe
+      .replace(
+        /\b(?:https?|postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|rediss?|sqlserver):\/\/[^\s"'<>]+/gi,
+        '[REDACTED_URL]',
+      )
+      .replace(/\bBearer\s+[^\s"',;]+/gi, 'Bearer [REDACTED]')
+      .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '[REDACTED_TOKEN]')
+      .replace(
+        /(\b[\w-]*(?:password|passwd|pwd|token|authorization|cookie|secret|recipient|address|phone|email)[\w-]*["']?\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/gi,
+        '$1[REDACTED]',
+      )
+      .replace(
+        /(\b[\w-]*(?:password|passwd|pwd|token|authorization|cookie|secret|recipient|address|phone|email)[\w-]*["']?\s*[:=]\s*)[^\r\n]+/gi,
+        '$1[REDACTED]',
+      );
+    return safe.length > limit ? safe.slice(0, limit) + '[TRUNCATED]' : safe;
+  };
+  const describe = (current: Error, depth = 0): Record<string, unknown> => ({
+    name: scrub(current.name, 128),
+    message: scrub(current.message, 4096),
+    stack: typeof current.stack === 'string' ? scrub(current.stack, 16384) : undefined,
+    code:
+      'code' in current && typeof current.code === 'string' ? scrub(current.code, 64) : undefined,
+    cause:
+      depth < 2 && current.cause instanceof Error ? describe(current.cause, depth + 1) : undefined,
+  });
+  entry.exception = describe(error);
+  return entry;
+}
 /** Never writes free text, payloads, headers, exception messages or stacks. */
 @Injectable()
 export class SafeLogger implements LoggerService {

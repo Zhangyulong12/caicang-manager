@@ -52,10 +52,17 @@ export interface StockLookupResult {
   query: string;
 }
 
-function withFilters(params: URLSearchParams, warehouseId?: string): URLSearchParams {
-  if (warehouseId) params.set('warehouseId', warehouseId);
-  params.set('pageSize', '50');
-  return params;
+// App JS service 不保证提供 URLSearchParams；逐项编码，商品码中的 +、& 和前导零原样传递。
+function queryString(params: Record<string, string>): string {
+  return Object.entries(params)
+    .map(([key, value]) => encodeURIComponent(key) + '=' + encodeURIComponent(value))
+    .join('&');
+}
+
+function withFilters(params: Record<string, string>, warehouseId?: string): string {
+  if (warehouseId) params.warehouseId = warehouseId;
+  params.pageSize = '50';
+  return queryString(params);
 }
 
 /** 手输：名称 / SKU / 条码的子串搜索，交给服务端匹配，前端不做模糊排序。 */
@@ -64,7 +71,7 @@ export async function searchStock(
   input: { text: string; warehouseId?: string; tenantId?: string },
 ): Promise<StockLookupResult> {
   const query = normalizeQuery(input.text);
-  const params = withFilters(new URLSearchParams({ page: '1', search: query }), input.warehouseId);
+  const params = withFilters({ page: '1', search: query }, input.warehouseId);
   const response = await api.request<InventoryBalanceData[]>('/inventory/balances?' + params, {
     tenantId: input.tenantId,
   });
@@ -85,20 +92,17 @@ export async function findByCode(
     {
       match: 'barcode',
       build: () =>
-        '/inventory/balances?' +
-        withFilters(new URLSearchParams({ page: '1', barcode: code }), options.warehouseId),
+        '/inventory/balances?' + withFilters({ page: '1', barcode: code }, options.warehouseId),
     },
     {
       match: 'sku',
       build: () =>
-        '/inventory/balances?' +
-        withFilters(new URLSearchParams({ page: '1', sku: code }), options.warehouseId),
+        '/inventory/balances?' + withFilters({ page: '1', sku: code }, options.warehouseId),
     },
     {
       match: 'search',
       build: () =>
-        '/inventory/balances?' +
-        withFilters(new URLSearchParams({ page: '1', search: code }), options.warehouseId),
+        '/inventory/balances?' + withFilters({ page: '1', search: code }, options.warehouseId),
     },
   ];
   for (const attempt of attempts) {
@@ -115,7 +119,7 @@ export async function loadProductStock(
   api: ApiClient,
   input: { productId: string; tenantId?: string },
 ): Promise<{ balances: InventoryBalanceData[] }> {
-  const params = new URLSearchParams({ page: '1', pageSize: '50', productId: input.productId });
+  const params = queryString({ page: '1', pageSize: '50', productId: input.productId });
   const response = await api.request<InventoryBalanceData[]>('/inventory/balances?' + params, {
     tenantId: input.tenantId,
   });
@@ -126,15 +130,18 @@ export async function loadRecentMovements(
   api: ApiClient,
   input: { productId: string; warehouseId?: string; tenantId?: string; limit?: number },
 ): Promise<InventoryMovementData[]> {
-  const params = new URLSearchParams({
+  const params: Record<string, string> = {
     page: '1',
     pageSize: String(input.limit ?? RECENT_MOVEMENT_LIMIT),
     productId: input.productId,
-  });
-  if (input.warehouseId) params.set('warehouseId', input.warehouseId);
-  const response = await api.request<InventoryMovementData[]>('/inventory/movements?' + params, {
-    tenantId: input.tenantId,
-  });
+  };
+  if (input.warehouseId) params.warehouseId = input.warehouseId;
+  const response = await api.request<InventoryMovementData[]>(
+    '/inventory/movements?' + queryString(params),
+    {
+      tenantId: input.tenantId,
+    },
+  );
   return response.data;
 }
 

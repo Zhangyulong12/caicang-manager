@@ -10,6 +10,7 @@ const ROLE_PERMISSIONS: Readonly<Record<TenantRole, readonly TenantPermission[]>
   OWNER: TENANT_PERMISSIONS,
   ADMIN: TENANT_PERMISSIONS,
   BUYER: Object.freeze([
+    'reports:read',
     'tenant:read',
     'products:read',
     'products:write',
@@ -32,6 +33,7 @@ const ROLE_PERMISSIONS: Readonly<Record<TenantRole, readonly TenantPermission[]>
     'packages:lookup',
   ] as const),
   VIEWER: Object.freeze([
+    'reports:read',
     'tenant:read',
     'products:read',
     'warehouses:read',

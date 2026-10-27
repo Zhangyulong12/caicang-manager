@@ -1,4 +1,20 @@
-import type { InventoryBalanceData, StockMovementType } from '@caicang/api-contract';
+import type {
+  InventoryBalanceData,
+  InventoryMovementData,
+  StockMovementType,
+} from '@caicang/api-contract';
+
+export function movementSourcePath(
+  row: Pick<InventoryMovementData, 'type' | 'sourceDocumentId'>,
+): string | null {
+  const id = row.sourceDocumentId;
+  if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+    return null;
+  if (row.type === 'ADJUSTMENT') return '/inventory/adjustments/' + id;
+  if (row.type === 'RECEIPT') return '/receipts/' + id;
+  if (row.type === 'PURCHASE_RETURN') return '/purchase-returns/' + id;
+  return null;
+}
 
 /** 数量：整数加千分位；负数保留符号（出库时前端要看得清）。 */
 export function formatQuantity(value: number): string {
@@ -33,6 +49,7 @@ export const movementTypeNames: Record<StockMovementType, string> = {
   RECEIPT: '验收入库',
   OUTBOUND: '出库发货',
   ADJUSTMENT: '库存调整',
+  PURCHASE_RETURN: '采购退货',
 };
 
 /** 模板里 row.type 是 any，这里用接受 string 的包装，避免索引类型报错。 */

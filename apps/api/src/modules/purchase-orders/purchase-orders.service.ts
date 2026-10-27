@@ -98,6 +98,9 @@ function auditState(order: PurchaseOrderData) {
     purchaseAccountId: order.purchaseAccountId,
     purchaseAccountAlias: order.purchaseAccountAlias,
     totalCost: order.totalCost,
+    freightAmount: order.freightAmount,
+    goodsAmount: order.goodsAmount,
+    discountAmount: order.discountAmount,
     items: order.items.map((row) => ({
       id: row.id,
       productId: row.productId,
@@ -563,7 +566,13 @@ export class PurchaseOrdersService {
       const result = mapOrder(
         await tx.purchaseOrder.update({
           where: { tenantId_id: { tenantId: current.tenantId, id } },
-          data: { status: 'CANCELLED' },
+          data: {
+            status: 'CANCELLED',
+            purchaseAccountAliasSnapshot:
+              order.status === 'DRAFT'
+                ? (order.purchaseAccount?.alias ?? null)
+                : order.purchaseAccountAliasSnapshot,
+          },
           include,
         }),
         current.role,

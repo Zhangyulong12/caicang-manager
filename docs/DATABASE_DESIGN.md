@@ -1,5 +1,13 @@
 # 数据库设计（PostgreSQL）
 
+## 任务 31：供应商采购退货增量
+
+第十个迁移 `20261025090000_purchase_returns` 新增三表：purchase_returns（原采购/仓库、单号、DRAFT/CONFIRMED/CANCELLED、原因/日期/退款、创建及确认信息、幂等号/摘要）；purchase_return_items（原采购行/商品、可选指定入库行、数量、商品快照、实际库存扣减成本）；purchase_return_allocations（原入库行、分配数量及历史单位成本）。三表 UUID 主键、tenant_id、创建/更新时间，全部关联通过复合外键验证同商家、同原采购和商品，RESTRICT 保留历史。
+
+新增正数量、非负有限金额、状态及确认字段完整性 CHECK、更新时间触发器、商家内单号/操作号唯一约束和查询索引。receipt_items 增加含原行 ID/采购/商品的复合唯一键，库存流水 CHECK 保留原类型并增加 PURCHASE_RETURN。无旧数据回填或结构删除，不重复执行参考 schema.sql。
+
+确认时按商家→原采购单→退货单→有序余额加锁，校验实际入库减已退和当前库存后，同事务写退货来源分配、余额、流水及审计。移动加权库存成本、原入库追溯成本和实际退款独立；不修改原采购成本、已收量或状态。升级兼容与回滚风险详见 [PURCHASE_RETURNS.md](PURCHASE_RETURNS.md)。
+
 任务 14 沿用现有 packages、package_expected_items、receipts 及复合外键，无迁移/回填。包裹绑定和计划变更在商家→采购主单→包裹锁内计算所有包裹预计量，不能超过对应采购行数量；跨单改绑按 UUID 顺序锁两张主单并显式替换新计划。存在任何收货头记录即限制核心修改，取消和物流状态不删除历史计划。物流 ARRIVED 不写 receipts、stock_balances 或 stock_movements；API 另按真实明细计算 receivingStatus。接口限制及事务细节见 PACKAGES.md。
 
 可执行建表参考：`../database/schema.sql`。本文件解释表之间的关系、业务约束、成本计算和事务实现要求。schema 是初稿，编码时以 Prisma Migrate 产生可追踪 migration；不能在已有真实数据库直接重放 SQL。

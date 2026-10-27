@@ -15,26 +15,29 @@ datasource db {
 // CHECK constraints and timestamp triggers live in the tracked SQL migration.
 
 model Tenant {
-  id                           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                         String                @db.VarChar(150)
-  createdAt                    DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                    DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  tenantMembership_tenantId    TenantMembership[]    @relation("TenantMembership_tenantId")
-  warehouse_tenantId           Warehouse[]           @relation("Warehouse_tenantId")
-  product_tenantId             Product[]             @relation("Product_tenantId")
-  purchaseOrder_tenantId       PurchaseOrder[]       @relation("PurchaseOrder_tenantId")
-  purchaseOrderItem_tenantId   PurchaseOrderItem[]   @relation("PurchaseOrderItem_tenantId")
-  package_tenantId             Package[]             @relation("Package_tenantId")
-  packageExpectedItem_tenantId PackageExpectedItem[] @relation("PackageExpectedItem_tenantId")
-  receipt_tenantId             Receipt[]             @relation("Receipt_tenantId")
-  receiptItem_tenantId         ReceiptItem[]         @relation("ReceiptItem_tenantId")
-  stockBalance_tenantId        StockBalance[]        @relation("StockBalance_tenantId")
-  outboundOrder_tenantId       OutboundOrder[]       @relation("OutboundOrder_tenantId")
-  outboundOrderItem_tenantId   OutboundOrderItem[]   @relation("OutboundOrderItem_tenantId")
-  stockAdjustment_tenantId     StockAdjustment[]     @relation("StockAdjustment_tenantId")
-  stockMovement_tenantId       StockMovement[]       @relation("StockMovement_tenantId")
-  auditLog_tenantId            AuditLog[]            @relation("AuditLog_tenantId")
-  purchaseAccounts            PurchaseAccount[]
+  id                           String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                         String                     @db.VarChar(150)
+  createdAt                    DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenantMembership_tenantId    TenantMembership[]         @relation("TenantMembership_tenantId")
+  warehouse_tenantId           Warehouse[]                @relation("Warehouse_tenantId")
+  product_tenantId             Product[]                  @relation("Product_tenantId")
+  purchaseOrder_tenantId       PurchaseOrder[]            @relation("PurchaseOrder_tenantId")
+  purchaseOrderItem_tenantId   PurchaseOrderItem[]        @relation("PurchaseOrderItem_tenantId")
+  package_tenantId             Package[]                  @relation("Package_tenantId")
+  packageExpectedItem_tenantId PackageExpectedItem[]      @relation("PackageExpectedItem_tenantId")
+  receipt_tenantId             Receipt[]                  @relation("Receipt_tenantId")
+  receiptItem_tenantId         ReceiptItem[]              @relation("ReceiptItem_tenantId")
+  stockBalance_tenantId        StockBalance[]             @relation("StockBalance_tenantId")
+  outboundOrder_tenantId       OutboundOrder[]            @relation("OutboundOrder_tenantId")
+  outboundOrderItem_tenantId   OutboundOrderItem[]        @relation("OutboundOrderItem_tenantId")
+  stockAdjustment_tenantId     StockAdjustment[]          @relation("StockAdjustment_tenantId")
+  stockMovement_tenantId       StockMovement[]            @relation("StockMovement_tenantId")
+  auditLog_tenantId            AuditLog[]                 @relation("AuditLog_tenantId")
+  purchaseAccounts             PurchaseAccount[]
+  purchaseReturns              PurchaseReturn[]
+  purchaseReturnItems          PurchaseReturnItem[]
+  purchaseReturnAllocations    PurchaseReturnAllocation[]
 
   @@map("tenants")
 }
@@ -98,6 +101,8 @@ model TenantMembership {
   stockAdjustment_createdBy StockAdjustment[] @relation("StockAdjustment_tenantId_createdBy")
   stockMovement_createdBy   StockMovement[]   @relation("StockMovement_tenantId_createdBy")
   auditLog_actorId          AuditLog[]        @relation("AuditLog_tenantId_actorId")
+  createdPurchaseReturns    PurchaseReturn[]  @relation("PurchaseReturnCreator")
+  confirmedPurchaseReturns  PurchaseReturn[]  @relation("PurchaseReturnConfirmer")
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -106,6 +111,7 @@ model TenantMembership {
 }
 
 model Warehouse {
+  purchaseReturns             PurchaseReturn[]
   id                          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId                    String            @map("tenant_id") @db.Uuid
   code                        String            @db.VarChar(40)
@@ -129,28 +135,29 @@ model Warehouse {
 }
 
 model Product {
-  id                          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                    String              @map("tenant_id") @db.Uuid
-  sku                         String              @db.VarChar(80)
-  barcode                     String?             @db.VarChar(128)
-  name                        String              @db.VarChar(200)
-  specification               String?             @db.VarChar(200)
-  articleNo                   String?             @map("article_no") @db.VarChar(80)
-  color                       String?             @db.VarChar(80)
-  size                        String?             @db.VarChar(80)
-  unit                        String              @default("件") @db.VarChar(20)
-  referencePurchasePrice      Decimal?            @map("reference_purchase_price") @db.Decimal(18, 2)
-  remark                      String?             @db.Text
-  isActive                    Boolean             @default(true) @map("is_active")
-  createdAt                   DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                   DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  tenant                      Tenant              @relation("Product_tenantId", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  purchaseOrderItem_productId PurchaseOrderItem[] @relation("PurchaseOrderItem_tenantId_productId")
-  receiptItem_productId       ReceiptItem[]       @relation("ReceiptItem_tenantId_productId")
-  stockBalance_productId      StockBalance[]      @relation("StockBalance_tenantId_productId")
-  outboundOrderItem_productId OutboundOrderItem[] @relation("OutboundOrderItem_tenantId_productId")
-  stockAdjustment_productId   StockAdjustment[]   @relation("StockAdjustment_tenantId_productId")
-  stockMovement_productId     StockMovement[]     @relation("StockMovement_tenantId_productId")
+  purchaseReturnItems         PurchaseReturnItem[]
+  id                          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                    String               @map("tenant_id") @db.Uuid
+  sku                         String               @db.VarChar(80)
+  barcode                     String?              @db.VarChar(128)
+  name                        String               @db.VarChar(200)
+  specification               String?              @db.VarChar(200)
+  articleNo                   String?              @map("article_no") @db.VarChar(80)
+  color                       String?              @db.VarChar(80)
+  size                        String?              @db.VarChar(80)
+  unit                        String               @default("件") @db.VarChar(20)
+  referencePurchasePrice      Decimal?             @map("reference_purchase_price") @db.Decimal(18, 2)
+  remark                      String?              @db.Text
+  isActive                    Boolean              @default(true) @map("is_active")
+  createdAt                   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant                      Tenant               @relation("Product_tenantId", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  purchaseOrderItem_productId PurchaseOrderItem[]  @relation("PurchaseOrderItem_tenantId_productId")
+  receiptItem_productId       ReceiptItem[]        @relation("ReceiptItem_tenantId_productId")
+  stockBalance_productId      StockBalance[]       @relation("StockBalance_tenantId_productId")
+  outboundOrderItem_productId OutboundOrderItem[]  @relation("OutboundOrderItem_tenantId_productId")
+  stockAdjustment_productId   StockAdjustment[]    @relation("StockAdjustment_tenantId_productId")
+  stockMovement_productId     StockMovement[]      @relation("StockMovement_tenantId_productId")
 
   @@unique([tenantId, id])
   @@unique([tenantId, sku])
@@ -161,15 +168,15 @@ model Product {
 }
 
 model PurchaseAccount {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
-  platform  String   @db.VarChar(20)
-  alias     String   @db.VarChar(100)
-  remark    String?  @db.Text
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  id        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String          @map("tenant_id") @db.Uuid
+  platform  String          @db.VarChar(20)
+  alias     String          @db.VarChar(100)
+  remark    String?         @db.Text
+  isActive  Boolean         @default(true) @map("is_active")
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   orders    PurchaseOrder[]
 
   @@unique([tenantId, id])
@@ -179,6 +186,7 @@ model PurchaseAccount {
 }
 
 model PurchaseOrder {
+  purchaseReturns                   PurchaseReturn[]
   id                                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId                          String              @map("tenant_id") @db.Uuid
   warehouseId                       String              @map("warehouse_id") @db.Uuid
@@ -218,29 +226,31 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id                                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId                            String                @map("tenant_id") @db.Uuid
-  purchaseOrderId                     String                @map("purchase_order_id") @db.Uuid
-  productId                           String                @map("product_id") @db.Uuid
+  purchaseReturnItems                 PurchaseReturnItem[]
+  purchaseReturnAllocations           PurchaseReturnAllocation[]
+  id                                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                            String                     @map("tenant_id") @db.Uuid
+  purchaseOrderId                     String                     @map("purchase_order_id") @db.Uuid
+  productId                           String                     @map("product_id") @db.Uuid
   quantity                            Int
-  unitPrice                           Decimal               @map("unit_price") @db.Decimal(18, 2)
-  discountAmount                      Decimal               @default(0) @map("discount_amount") @db.Decimal(18, 2)
-  landedUnitCost                      Decimal?              @map("landed_unit_cost") @db.Decimal(20, 4)
-  freightAllocated                    Decimal?              @map("freight_allocated") @db.Decimal(18, 2)
-  lineNo                              Int?                  @map("line_no")
-  skuSnapshot                         String?               @map("sku_snapshot") @db.VarChar(80)
-  articleNoSnapshot                   String?               @map("article_no_snapshot") @db.VarChar(80)
-  colorSnapshot                       String?               @map("color_snapshot") @db.VarChar(80)
-  sizeSnapshot                        String?               @map("size_snapshot") @db.VarChar(80)
-  nameSnapshot                        String?               @map("name_snapshot") @db.VarChar(200)
-  unitSnapshot                        String?               @map("unit_snapshot") @db.VarChar(20)
-  createdAt                           DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                           DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  purchaseOrder                       PurchaseOrder         @relation("PurchaseOrderItem_tenantId_purchaseOrderId", fields: [tenantId, purchaseOrderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  product                             Product               @relation("PurchaseOrderItem_tenantId_productId", fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  tenant                              Tenant                @relation("PurchaseOrderItem_tenantId", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  packageExpectedItem_purchaseOrderId PackageExpectedItem[] @relation("PackageExpectedItem_tenantId_purchaseOrderItemId_purchaseOrderId")
-  receiptItem_productId               ReceiptItem[]         @relation("ReceiptItem_tenantId_purchaseOrderItemId_purchaseOrderId_productId")
+  unitPrice                           Decimal                    @map("unit_price") @db.Decimal(18, 2)
+  discountAmount                      Decimal                    @default(0) @map("discount_amount") @db.Decimal(18, 2)
+  landedUnitCost                      Decimal?                   @map("landed_unit_cost") @db.Decimal(20, 4)
+  freightAllocated                    Decimal?                   @map("freight_allocated") @db.Decimal(18, 2)
+  lineNo                              Int?                       @map("line_no")
+  skuSnapshot                         String?                    @map("sku_snapshot") @db.VarChar(80)
+  articleNoSnapshot                   String?                    @map("article_no_snapshot") @db.VarChar(80)
+  colorSnapshot                       String?                    @map("color_snapshot") @db.VarChar(80)
+  sizeSnapshot                        String?                    @map("size_snapshot") @db.VarChar(80)
+  nameSnapshot                        String?                    @map("name_snapshot") @db.VarChar(200)
+  unitSnapshot                        String?                    @map("unit_snapshot") @db.VarChar(20)
+  createdAt                           DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                           DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  purchaseOrder                       PurchaseOrder              @relation("PurchaseOrderItem_tenantId_purchaseOrderId", fields: [tenantId, purchaseOrderId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  product                             Product                    @relation("PurchaseOrderItem_tenantId_productId", fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  tenant                              Tenant                     @relation("PurchaseOrderItem_tenantId", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  packageExpectedItem_purchaseOrderId PackageExpectedItem[]      @relation("PackageExpectedItem_tenantId_purchaseOrderItemId_purchaseOrderId")
+  receiptItem_productId               ReceiptItem[]              @relation("ReceiptItem_tenantId_purchaseOrderItemId_purchaseOrderId_productId")
 
   @@unique([tenantId, id])
   @@unique([tenantId, purchaseOrderId, productId])
@@ -324,24 +334,114 @@ model Receipt {
 }
 
 model ReceiptItem {
-  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId            String            @map("tenant_id") @db.Uuid
-  receiptId           String            @map("receipt_id") @db.Uuid
-  purchaseOrderItemId String            @map("purchase_order_item_id") @db.Uuid
-  productId           String            @map("product_id") @db.Uuid
-  quantity            Int
-  landedUnitCost      Decimal           @map("landed_unit_cost") @db.Decimal(20, 4)
-  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  purchaseOrderId     String            @map("purchase_order_id") @db.Uuid
-  receipt             Receipt           @relation("ReceiptItem_tenantId_receiptId_purchaseOrderId", fields: [tenantId, receiptId, purchaseOrderId], references: [tenantId, id, purchaseOrderId], onDelete: Restrict, onUpdate: Restrict)
-  purchaseOrderItem   PurchaseOrderItem @relation("ReceiptItem_tenantId_purchaseOrderItemId_purchaseOrderId_productId", fields: [tenantId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
-  product             Product           @relation("ReceiptItem_tenantId_productId", fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
-  tenant              Tenant            @relation("ReceiptItem_tenantId", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  requestedPurchaseReturns  PurchaseReturnItem[]       @relation("PurchaseReturnRequestedReceipt")
+  purchaseReturnAllocations PurchaseReturnAllocation[]
+  id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                  String                     @map("tenant_id") @db.Uuid
+  receiptId                 String                     @map("receipt_id") @db.Uuid
+  purchaseOrderItemId       String                     @map("purchase_order_item_id") @db.Uuid
+  productId                 String                     @map("product_id") @db.Uuid
+  quantity                  Int
+  landedUnitCost            Decimal                    @map("landed_unit_cost") @db.Decimal(20, 4)
+  createdAt                 DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  purchaseOrderId           String                     @map("purchase_order_id") @db.Uuid
+  receipt                   Receipt                    @relation("ReceiptItem_tenantId_receiptId_purchaseOrderId", fields: [tenantId, receiptId, purchaseOrderId], references: [tenantId, id, purchaseOrderId], onDelete: Restrict, onUpdate: Restrict)
+  purchaseOrderItem         PurchaseOrderItem          @relation("ReceiptItem_tenantId_purchaseOrderItemId_purchaseOrderId_productId", fields: [tenantId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
+  product                   Product                    @relation("ReceiptItem_tenantId_productId", fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  tenant                    Tenant                     @relation("ReceiptItem_tenantId", fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([tenantId, id])
   @@unique([tenantId, receiptId, purchaseOrderItemId])
+  @@unique([tenantId, id, purchaseOrderItemId, purchaseOrderId, productId])
   @@map("receipt_items")
+}
+
+model PurchaseReturn {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String               @map("tenant_id") @db.Uuid
+  purchaseOrderId    String               @map("purchase_order_id") @db.Uuid
+  warehouseId        String               @map("warehouse_id") @db.Uuid
+  returnNo           String               @map("return_no") @db.VarChar(50)
+  status             String               @default("DRAFT") @db.VarChar(20)
+  reason             String               @db.VarChar(500)
+  returnDate         DateTime             @map("return_date") @db.Date
+  refundAmount       Decimal              @default(0) @map("refund_amount") @db.Decimal(18, 2)
+  remark             String?              @db.VarChar(2000)
+  createdBy          String               @map("created_by") @db.Uuid
+  confirmedBy        String?              @map("confirmed_by") @db.Uuid
+  confirmedAt        DateTime?            @map("confirmed_at") @db.Timestamptz(6)
+  confirmOperationId String?              @map("confirm_operation_id") @db.Uuid
+  confirmRequestHash String?              @map("confirm_request_hash") @db.Char(64)
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  purchaseOrder      PurchaseOrder        @relation(fields: [tenantId, purchaseOrderId, warehouseId], references: [tenantId, id, warehouseId], onDelete: Restrict, onUpdate: Restrict)
+  warehouse          Warehouse            @relation(fields: [tenantId, warehouseId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  creator            TenantMembership     @relation("PurchaseReturnCreator", fields: [tenantId, createdBy], references: [tenantId, userId], onDelete: Restrict, onUpdate: Restrict)
+  confirmer          TenantMembership?    @relation("PurchaseReturnConfirmer", fields: [tenantId, confirmedBy], references: [tenantId, userId], onDelete: Restrict, onUpdate: Restrict)
+  items              PurchaseReturnItem[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, id, purchaseOrderId])
+  @@unique([tenantId, returnNo])
+  @@unique([tenantId, confirmOperationId])
+  @@index([tenantId, purchaseOrderId, status], map: "idx_purchase_return_order")
+  @@index([tenantId, status, returnDate], map: "idx_purchase_return_date")
+  @@map("purchase_returns")
+}
+
+model PurchaseReturnItem {
+  id                     String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String                     @map("tenant_id") @db.Uuid
+  purchaseReturnId       String                     @map("purchase_return_id") @db.Uuid
+  purchaseOrderId        String                     @map("purchase_order_id") @db.Uuid
+  purchaseOrderItemId    String                     @map("purchase_order_item_id") @db.Uuid
+  productId              String                     @map("product_id") @db.Uuid
+  requestedReceiptItemId String?                    @map("requested_receipt_item_id") @db.Uuid
+  quantity               Int
+  skuSnapshot            String                     @map("sku_snapshot") @db.VarChar(80)
+  nameSnapshot           String                     @map("name_snapshot") @db.VarChar(200)
+  unitSnapshot           String                     @map("unit_snapshot") @db.VarChar(20)
+  stockUnitCost          Decimal?                   @map("stock_unit_cost") @db.Decimal(20, 4)
+  stockCost              Decimal?                   @map("stock_cost") @db.Decimal(20, 4)
+  createdAt              DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant                 Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  purchaseReturn         PurchaseReturn             @relation(fields: [tenantId, purchaseReturnId, purchaseOrderId], references: [tenantId, id, purchaseOrderId], onDelete: Restrict, onUpdate: Restrict)
+  purchaseOrderItem      PurchaseOrderItem          @relation(fields: [tenantId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
+  product                Product                    @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict, onUpdate: Restrict)
+  requestedReceiptItem   ReceiptItem?               @relation("PurchaseReturnRequestedReceipt", fields: [tenantId, requestedReceiptItemId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderItemId, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
+  allocations            PurchaseReturnAllocation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, purchaseReturnId, purchaseOrderItemId])
+  @@unique([tenantId, id, purchaseOrderItemId, purchaseOrderId, productId])
+  @@index([tenantId, purchaseOrderItemId], map: "idx_purchase_return_item_source")
+  @@map("purchase_return_items")
+}
+
+model PurchaseReturnAllocation {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String             @map("tenant_id") @db.Uuid
+  purchaseReturnItemId String             @map("purchase_return_item_id") @db.Uuid
+  purchaseOrderId      String             @map("purchase_order_id") @db.Uuid
+  purchaseOrderItemId  String             @map("purchase_order_item_id") @db.Uuid
+  productId            String             @map("product_id") @db.Uuid
+  receiptItemId        String             @map("receipt_item_id") @db.Uuid
+  quantity             Int
+  receivedUnitCost     Decimal            @map("received_unit_cost") @db.Decimal(20, 4)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  purchaseReturnItem   PurchaseReturnItem @relation(fields: [tenantId, purchaseReturnItemId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderItemId, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
+  purchaseOrderItem    PurchaseOrderItem  @relation(fields: [tenantId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
+  receiptItem          ReceiptItem        @relation(fields: [tenantId, receiptItemId, purchaseOrderItemId, purchaseOrderId, productId], references: [tenantId, id, purchaseOrderItemId, purchaseOrderId, productId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, purchaseReturnItemId, receiptItemId])
+  @@index([tenantId, receiptItemId], map: "idx_purchase_return_allocation_receipt")
+  @@map("purchase_return_allocations")
 }
 
 model StockBalance {

@@ -27,6 +27,9 @@ const tables = [
   'warehouses',
   'products',
   'purchase_accounts',
+  'purchase_returns',
+  'purchase_return_items',
+  'purchase_return_allocations',
   'purchase_orders',
   'purchase_order_items',
   'packages',
@@ -110,7 +113,7 @@ test(
         },
       );
       await t.test(
-        '18 business tables plus 2 authentication tables, UUID keys and tenant scoped data exist',
+        '21 business tables plus 2 authentication tables, UUID keys and tenant scoped data exist',
         async () => {
           const actual = (
             await db.query(
@@ -158,7 +161,8 @@ test(
               "SELECT conname FROM pg_constraint WHERE contype='c' AND connamespace='public'::regnamespace",
             )
           ).rows;
-          assert.equal(checks.length, 41);
+          assert.equal(checks.length, 49);
+          assert.ok(checks.some((check) => check.conname === 'ck_purchase_return_confirmation'));
           assert.ok(checks.some((check) => check.conname === 'stock_adjustments_reason_known'));
           assert.ok(checks.some((check) => check.conname === 'ck_purchase_account_platform'));
           assert.ok(checks.some((check) => check.conname === 'ck_purchase_account_alias'));
@@ -172,7 +176,7 @@ test(
               "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname LIKE 'tr_%_updated_at'",
             )
           ).rows;
-          assert.equal(triggers.length, 20);
+          assert.equal(triggers.length, 23);
           const indexes = (
             await db.query("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
           ).rows.map((r) => r.indexname);
@@ -348,6 +352,37 @@ test(
         landed_unit_cost: '12.3401',
       };
       const ri = await insert('receipt_items', receiptItemData);
+      const supplierReturn = await insert('purchase_returns', {
+        tenant_id: a,
+        purchase_order_id: po.id,
+        warehouse_id: whA,
+        return_no: 'MODEL-RETURN',
+        reason: '模型约束测试',
+        return_date: '2026-10-25',
+        created_by: userA,
+      });
+      const supplierLine = await insert('purchase_return_items', {
+        tenant_id: a,
+        purchase_return_id: supplierReturn.id,
+        purchase_order_id: po.id,
+        purchase_order_item_id: item.id,
+        product_id: prodA,
+        requested_receipt_item_id: ri.id,
+        quantity: 1,
+        sku_snapshot: 'MODEL',
+        name_snapshot: 'model',
+        unit_snapshot: '件',
+      });
+      await insert('purchase_return_allocations', {
+        tenant_id: a,
+        purchase_return_item_id: supplierLine.id,
+        purchase_order_id: po.id,
+        purchase_order_item_id: item.id,
+        product_id: prodA,
+        receipt_item_id: ri.id,
+        quantity: 1,
+        received_unit_cost: '12.3401',
+      });
       const balanceData = {
         tenant_id: a,
         warehouse_id: whA,
@@ -414,7 +449,7 @@ test(
           }
         });
       await t.test(
-        'all 18 business tables accept valid rows; NUMERIC retains exact decimal values',
+        'all 21 business tables accept valid rows; NUMERIC retains exact decimal values',
         async () => {
           for (const table of tables)
             assert.ok(

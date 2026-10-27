@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { useRoute } from 'vue-router';
 import { Search, Refresh } from '@element-plus/icons-vue';
 import type {
   InventoryMovementData,
@@ -15,6 +16,7 @@ import {
   formatUnitCost,
   movementLabel,
   movementTone,
+  movementSourcePath,
   pageSummary,
   rangeProblem,
 } from '../api/inventory-format';
@@ -22,6 +24,7 @@ import { formatTime } from '../api/package-status';
 import { failureMessage } from '../utils/feedback';
 const api = useInventory(),
   catalog = useCatalog();
+const route = useRoute();
 const rows = ref<InventoryMovementData[]>([]),
   warehouses = ref<WarehouseData[]>([]),
   loading = ref(false),
@@ -30,14 +33,24 @@ const rows = ref<InventoryMovementData[]>([]),
   size = ref(20),
   total = ref(0);
 const search = ref(''),
-  warehouseId = ref(''),
-  type = ref<StockMovementType | ''>(''),
+  warehouseId = ref(typeof route.query.warehouseId === 'string' ? route.query.warehouseId : ''),
+  productId = ref(typeof route.query.productId === 'string' ? route.query.productId : ''),
+  type = ref<StockMovementType | ''>(
+    STOCK_MOVEMENT_TYPES.includes(route.query.type as StockMovementType)
+      ? (route.query.type as StockMovementType)
+      : '',
+  ),
   range = ref<[string, string] | null>(null);
 const rangeError = computed(() => rangeProblem(range.value?.[0] ?? '', range.value?.[1] ?? ''));
 let applied = '',
   sequence = 0;
 const filtered = computed(
-  () => applied !== '' || warehouseId.value !== '' || type.value !== '' || range.value !== null,
+  () =>
+    applied !== '' ||
+    warehouseId.value !== '' ||
+    productId.value !== '' ||
+    type.value !== '' ||
+    range.value !== null,
 );
 async function load() {
   const version = ++sequence;
@@ -50,6 +63,7 @@ async function load() {
       pageSize: size.value,
       search: applied,
       warehouseId: warehouseId.value,
+      productId: productId.value,
       ...(type.value ? { type: type.value } : {}),
       from: range.value?.[0],
       to: range.value?.[1],
@@ -75,6 +89,7 @@ function searchNow() {
 function resetFilters() {
   search.value = '';
   warehouseId.value = '';
+  productId.value = '';
   type.value = '';
   range.value = null;
   searchNow();
@@ -213,10 +228,10 @@ onBeforeUnmount(() => sequence++);
           <el-table-column label="来源单据" min-width="160">
             <template #default="{ row }">
               <router-link
-                v-if="row.type === 'RECEIPT' && row.sourceDocumentId"
-                :to="'/receipts/' + row.sourceDocumentId"
+                v-if="movementSourcePath(row)"
+                :to="movementSourcePath(row)!"
                 class="catalog-item-link"
-                >{{ row.sourceNo || '入库单' }}</router-link
+                >{{ row.sourceNo || '来源单据' }}</router-link
               >
               <span v-else>{{ row.sourceNo || '—' }}</span>
               <small class="catalog-item-sub">{{ row.note || row.sourceType }}</small>

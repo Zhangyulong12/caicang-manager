@@ -188,10 +188,10 @@ export class InventoryService {
           p.sku,
           p.name AS "productName",
           p.unit,
-          COALESCE(r.receipt_no, o.outbound_no, sa.adjustment_no) AS "sourceNo",
+          COALESCE(r.receipt_no, o.outbound_no, sa.adjustment_no, pr.return_no) AS "sourceNo",
           m.source_item_id::text AS "sourceId",
-          COALESCE(r.id, o.id, sa.id)::text AS "sourceDocumentId",
-          COALESCE(r.remark, o.remark, sa.remark) AS "note",
+          COALESCE(r.id, o.id, sa.id, pr.id)::text AS "sourceDocumentId",
+          COALESCE(r.remark, o.remark, sa.remark, pr.remark) AS "note",
           sa.reason AS "adjustmentReason",
           m.created_by::text AS "operatorId",
           COALESCE(NULLIF(u.display_name, ''), u.email) AS "operatorName"
@@ -468,7 +468,10 @@ export class InventoryService {
         ON m.source_type = 'OUTBOUND' AND oi.tenant_id = ${tenantId}::uuid AND oi.id = m.source_item_id
       LEFT JOIN outbound_orders o ON o.tenant_id = ${tenantId}::uuid AND o.id = oi.outbound_order_id
       LEFT JOIN stock_adjustments sa
-        ON m.source_type = 'ADJUSTMENT' AND sa.tenant_id = ${tenantId}::uuid AND sa.id = m.source_item_id`;
+        ON m.source_type = 'ADJUSTMENT' AND sa.tenant_id = ${tenantId}::uuid AND sa.id = m.source_item_id
+      LEFT JOIN purchase_return_items pri
+        ON m.source_type = 'PURCHASE_RETURN' AND pri.tenant_id = ${tenantId}::uuid AND pri.id = m.source_item_id
+      LEFT JOIN purchase_returns pr ON pr.tenant_id = ${tenantId}::uuid AND pr.id = pri.purchase_return_id`;
   }
 
   private movementFilter(
@@ -542,7 +545,7 @@ export class InventoryService {
     return {
       id: row.id,
       occurredAt: row.occurredAt.toISOString(),
-      // 目前只有三种来源；将来新增类型时这里会跟着枚举一起扩。
+      // Supplier returns remain a separate source type, never an adjustment or customer return.
       type: (known.includes(row.sourceType) ? row.sourceType : 'ADJUSTMENT') as StockMovementType,
       direction: row.quantityDelta >= 0 ? 'IN' : 'OUT',
       quantityDelta: row.quantityDelta,

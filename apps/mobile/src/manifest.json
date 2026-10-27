@@ -1,12 +1,14 @@
 {
   "name": "采仓管家",
-  "appid": "",
+  "appid": "__UNI__D5AEA8E",
   "description": "采购到仓库再出库发货",
   "versionName": "0.2.0",
   "versionCode": "200",
   "transformPx": false,
   "vueVersion": "3",
-  "uniStatistics": { "enable": false },
+  "uniStatistics": {
+    "enable": false
+  },
   "networkTimeout": {
     "request": 15000,
     "connectSocket": 15000,
@@ -17,6 +19,9 @@
     "usingComponents": true,
     "compilerVersion": 3,
     "nvueStyleCompiler": "uni-app",
+    "modules": {
+      "Barcode": {}
+    },
     "splashscreen": {
       "alwaysShowBeforeRender": true,
       "waiting": true,
@@ -39,5 +44,10 @@
       "sdkConfigs": {}
     }
   },
-  "h5": { "router": { "mode": "hash" }, "title": "采仓管家" }
+  "h5": {
+    "router": {
+      "mode": "hash"
+    },
+    "title": "采仓管家"
+  }
 }

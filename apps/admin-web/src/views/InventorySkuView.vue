@@ -11,6 +11,7 @@ import {
   formatUnitCost,
   movementLabel,
   movementTone,
+  movementSourcePath,
   pageSummary,
   stockState,
 } from '../api/inventory-format';
@@ -234,7 +235,14 @@ void load();
             >
           </el-table-column>
           <el-table-column label="来源单据" width="160">
-            <template #default="{ row }">{{ row.sourceNo || '—' }}</template>
+            <template #default="{ row }"
+              ><router-link
+                v-if="movementSourcePath(row)"
+                :to="movementSourcePath(row)!"
+                class="catalog-item-link"
+                >{{ row.sourceNo || '来源单据' }}</router-link
+              ><span v-else>{{ row.sourceNo || '—' }}</span></template
+            >
           </el-table-column>
           <el-table-column label="操作人" width="120" prop="operatorName" />
         </el-table>

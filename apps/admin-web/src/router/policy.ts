@@ -43,6 +43,13 @@ export const navigation: {
     description: '管理平台账号别名与采购对账来源',
   },
   {
+    path: '/purchase-returns',
+    title: '采购退货',
+    permission: 'purchase:read',
+    icon: 'ShoppingCart',
+    description: '已入库商品退给供应商与退款登记',
+  },
+  {
     path: '/packages',
     title: '快递包裹',
     permission: 'packages:read',
@@ -100,7 +107,8 @@ export function safeRedirect(value: unknown): string {
       purchasePath(value) ||
       inventoryPath(value) ||
       receiptPath(value) ||
-      outboundPath(value))
+      outboundPath(value) ||
+      purchaseReturnPath(value))
   )
     return value;
   return typeof value === 'string' &&
@@ -109,6 +117,11 @@ export function safeRedirect(value: unknown): string {
     : '/';
 }
 export function allowed(path: string, permissions: readonly TenantPermission[]): boolean {
+  if (purchaseReturnPath(path))
+    return permissions.includes(
+      path === '/purchase-returns/new' ? 'purchase:write' : 'purchase:read',
+    );
+  if (path === '/inventory/adjustments/new') return permissions.includes('inventory:write');
   if (path === '/purchases/new' || (purchasePath(path) && path.endsWith('/edit')))
     return permissions.includes('purchase:write');
   if (purchasePath(path)) return permissions.includes('purchase:read');
@@ -126,6 +139,13 @@ export function allowed(path: string, permissions: readonly TenantPermission[]):
 export function productDetailPath(path: string): boolean {
   return /^\/products\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path);
 }
+export function purchaseReturnPath(path: string): boolean {
+  return (
+    path === '/purchase-returns' ||
+    path === '/purchase-returns/new' ||
+    /^\/purchase-returns\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
+  );
+}
 
 export function purchasePath(path: string): boolean {
   return (
@@ -141,12 +161,17 @@ const inventoryPages = [
   '/inventory/balances',
   '/inventory/movements',
   '/inventory/pending',
+  '/inventory/adjustments',
+  '/inventory/adjustments/new',
 ];
 
 /** 库存子页面：固定四个列表页 + SKU 详情。 */
 export function inventoryPath(path: string): boolean {
   return (
     inventoryPages.includes(path) ||
+    /^\/inventory\/adjustments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      path,
+    ) ||
     /^\/inventory\/sku\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
   );
 }

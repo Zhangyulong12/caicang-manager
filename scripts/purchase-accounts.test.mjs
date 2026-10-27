@@ -660,6 +660,48 @@ test(
             );
           },
         );
+        await http.test(
+          'cancelled draft keeps its account alias and audit cost breakdown',
+          async () => {
+            const draft = (
+              await request('/purchase-orders', {
+                method: 'POST',
+                body: {
+                  ...input,
+                  platform: 'JD',
+                  purchaseAccountId: jd.id,
+                  items: [input.items[1]],
+                },
+                status: 201,
+              })
+            ).data;
+            const cancelled = (
+              await request('/purchase-orders/' + draft.id + '/cancel', {
+                method: 'POST',
+                body: {},
+              })
+            ).data;
+            assert.equal(cancelled.purchaseAccountAlias, '京东采购号');
+            await request('/purchase-accounts/' + jd.id, {
+              method: 'PATCH',
+              body: { alias: '京东号改名' },
+            });
+            assert.equal(
+              (await request('/purchase-orders/' + draft.id)).data.purchaseAccountAlias,
+              '京东采购号',
+            );
+            const audit = (
+              await db.query(
+                "SELECT metadata FROM audit_logs WHERE object_id=$1 AND action='PURCHASE_ORDER_CANCELLED'",
+                [draft.id],
+              )
+            ).rows[0].metadata;
+            assert.equal(audit.after.freightAmount, '10.00');
+            assert.equal(audit.after.goodsAmount, '16.50');
+            assert.equal(audit.after.discountAmount, '1.00');
+            assert.equal(audit.after.totalCost, '25.50');
+          },
+        );
         await http.test('pre-migration rows stay readable and untouched', async () => {
           const legacy = (
             await request('/purchase-orders', {
@@ -715,6 +757,72 @@ test(
             0,
           );
           assert.equal((await db.query('SELECT count(*)::int n FROM stock_balances')).rows[0].n, 0);
+        });
+        await http.test('account changes serialize with order creation and placement', async () => {
+          const racing = (
+            await request('/purchase-accounts', {
+              method: 'POST',
+              body: { platform: 'OTHER', alias: '并发变更账号' },
+              status: 201,
+            })
+          ).data;
+          const raceRequest = async (path, method, body) => {
+            const response = await fetch(base + '/api/v1' + path, {
+              method,
+              headers: {
+                Authorization: 'Bearer ' + actors.owner.accessToken,
+                'X-Tenant-Id': a.tenant.id,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(body),
+            });
+            return { status: response.status, body: await response.json() };
+          };
+          const draftInput = {
+            ...input,
+            platform: 'OTHER',
+            purchaseAccountId: racing.id,
+            items: [input.items[1]],
+          };
+          const [disabled, created] = await Promise.all([
+            raceRequest('/purchase-accounts/' + racing.id, 'PATCH', { isActive: false }),
+            raceRequest('/purchase-orders', 'POST', draftInput),
+          ]);
+          assert.equal(disabled.status, 200);
+          assert.ok([201, 409].includes(created.status));
+          if (created.status === 409)
+            assert.equal(created.body.error.code, 'PURCHASE_ACCOUNT_INACTIVE');
+          else
+            await request('/purchase-orders/' + created.body.data.id + '/place', {
+              method: 'POST',
+              body: {},
+              status: 409,
+              code: 'PURCHASE_ACCOUNT_INACTIVE',
+            });
+          await request('/purchase-accounts/' + racing.id, {
+            method: 'PATCH',
+            body: { isActive: true },
+          });
+          const draft = (
+            await request('/purchase-orders', { method: 'POST', body: draftInput, status: 201 })
+          ).data;
+          const [placed, renamed] = await Promise.all([
+            raceRequest('/purchase-orders/' + draft.id + '/place', 'POST', {}),
+            raceRequest('/purchase-accounts/' + racing.id, 'PATCH', { alias: '并发变更账号改名' }),
+          ]);
+          assert.equal(placed.status, 200);
+          assert.equal(renamed.status, 200);
+          assert.ok(
+            ['并发变更账号', '并发变更账号改名'].includes(placed.body.data.purchaseAccountAlias),
+          );
+          await request('/purchase-accounts/' + racing.id, {
+            method: 'PATCH',
+            body: { alias: '最终账号别名' },
+          });
+          assert.equal(
+            (await request('/purchase-orders/' + draft.id)).data.purchaseAccountAlias,
+            placed.body.data.purchaseAccountAlias,
+          );
         });
         if (process.env.PURCHASE_ACCOUNTS_BROWSER_CHECK === '1') {
           const { createServer } = await import(

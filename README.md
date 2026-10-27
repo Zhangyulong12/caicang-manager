@@ -1,5 +1,31 @@
 # 采仓管家 V1.0 | 开发工作区
 
+## 任务 34：Android 真机验收与测试 APK（进行中）
+
+小米 13 / Android 16 的标准基座已实测真实面单扫码入库和商品扫码出库，Web/API/数据库核对余额与成本一致；修复 App service 缺少 URL/URLSearchParams 的兼容问题，补齐独立 APK 的 Barcode 模块。相关自动化 46 项通过。自有测试签名 APK 已在本地生成、校验并安装，用户确认独立包扫码查询和库存搜索正确；独立包新增入出库事务及部分异常场景仍待验收，详细结果见 [任务 34 报告](docs/TASK_34_REPORT.md) 与 [手机端运行说明](docs/MOBILE_APP.md)。APK、签名密钥和本机测试凭据保留本地。
+
+任务 33 的统计模块目前只有未完成源码草稿，未注册到 AppModule，也未完成页面和验收；不作为可用功能发布。
+
+## 任务 32：采购退货 Web 页面
+
+电脑后台“采购退货”提供列表、真实采购记录选择、多 SKU 部分退货草稿、详情、确认和取消；可按单号/SKU、退货日期和状态查询，并从采购详情及库存流水追溯。预计退款按原采购商品实付价比例估算、不含运费，实际退款业务登记金额单独显示；确认成功后再读取真实库存，原采购价格保持。
+
+运行 `pnpm start:api`、另一个终端 `pnpm dev:web`，打开 `http://127.0.0.1:5173/purchase-returns`。验证命令 `pnpm test:web-purchase-returns`、`pnpm typecheck`、`pnpm lint`、`pnpm format:check`。使用和权限说明见 [采购退货 Web](docs/WEB_PURCHASE_RETURNS.md)，实际测试与修改文件见 [任务 32 报告](docs/TASK_32_REPORT.md)。
+
+## 任务 31：采购退货 API
+
+已实际入库的采购商品可建立供应商退货草稿、多 SKU 部分退货、编辑和取消；确认时校验原采购明细可退量及原仓库库存，同事务扣库存、写独立 `PURCHASE_RETURN` 流水、原入库分配及审计。同一确认操作号重试不重复扣库存，退款与库存成本分开保存，历史采购价格保持。
+
+运行 `pnpm prisma:migrate:deploy` 应用第十个增量迁移，再 `pnpm prisma:generate`、`pnpm start:api`。Swagger 位于 `http://localhost:3000/api/docs`，接口顺序为 `GET /purchase-orders/{id}/returnable` → `POST /purchase-returns` → `POST /purchase-returns/{id}/confirm`。测试命令 `pnpm test:purchase-returns`、`pnpm test:models`。权限、示例与兼容风险见 [采购退货 API](docs/PURCHASE_RETURNS.md)，实际验证见 [任务 31 报告](docs/TASK_31_REPORT.md)。本阶段不含退货页面或客户退货。
+
+## 任务 30：库存调整 Web 页面
+
+电脑后台「库存管理 → 库存调整」提供列表、创建和详情；可选择仓库、商品、带符号的数量差、原因和备注。显示服务器返回的调整前后数量、操作人与时间，并从库存流水的调整单号跳转到来源详情。OWNER / ADMIN / WAREHOUSE 可执行，BUYER / VIEWER 只读；所有提交调用任务 29 的真实事务 API，不直接修改余额。
+
+Windows 启动：`pnpm db:up` → `pnpm prisma:migrate:deploy`，一个终端 `pnpm start:api`，另一个终端 `pnpm dev:web`。打开 `http://127.0.0.1:5173/inventory/adjustments`。检查命令：`pnpm test:web-adjustments`、`pnpm test:adjustments`、`pnpm typecheck`、`pnpm lint`、`pnpm format:check`。
+
+网络结果不明时保留原操作号和内容，当前标签页刷新可恢复并安全重试。真实浏览器验收：10 件减 2 后为 8，再增 3 后为 11，余额和两条调整流水一致。操作与重试边界见 [库存调整 Web 说明](docs/WEB_ADJUSTMENTS.md)，文件及实际验证见 [任务 30 报告](docs/TASK_30_REPORT.md)。
+
 ## 任务 29：库存调整 API
 
 库存调整是系统里唯一允许「直接改数量」的入口，但改的仍不是余额本身：每次调整在一个事务里写「调整单 + 库存流水 + 库存余额 + 审计」，余额只是流水的结果。三个端点：`POST /api/v1/inventory/adjustments`（首次 201 / 幂等重放 200）、`GET /api/v1/inventory/adjustments`（仓库/商品/原因/日期/关键字筛选 + 分页）、`GET /api/v1/inventory/adjustments/{id}`；复用任务 18 就存在的 `stock_adjustments` 表，**没有新建表**，只加四个可空列。

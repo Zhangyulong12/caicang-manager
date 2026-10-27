@@ -38,6 +38,7 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   PACKAGE_TRACKING_ALREADY_EXISTS: { status: 409, message: '当前商家此快递公司和运单号已绑定包裹' },
   PACKAGE_EXPECTED_QTY_EXCEEDED: { status: 409, message: '全部包裹预计数量超过采购明细数量' },
   ADJUSTMENT_REASON_MISMATCH: { status: 422, message: '调整原因与数量方向不一致' },
+  PURCHASE_RETURN_QTY_EXCEEDED: { status: 409, message: '退货数量超过实际入库后的剩余可退数量' },
 };
 export class BusinessException extends HttpException {
   constructor(

@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
 import { loadEnvFile } from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { test } from 'node:test';
 import { startTestApi, projectRoot } from './api-test-server.mjs';
 import { validateEnvironment } from '../apps/api/dist/config/env.js';
-import { SafeLogger, redactSensitive } from '../apps/api/dist/common/logging.js';
+import {
+  SafeLogger,
+  redactSensitive,
+  formatBootstrapFailure,
+} from '../apps/api/dist/common/logging.js';
 
 loadEnvFile(new URL('../.env', import.meta.url));
 const runFile = promisify(execFile);
@@ -163,6 +169,81 @@ test('logger drops free text, exceptions and unsafe context; nested sensitive fi
     PASSWORD: '[REDACTED]',
     nested: [{ access_token: '[REDACTED]', recipient_address: '[REDACTED]', count: 2 }],
   });
+});
+
+test('development startup diagnostics preserve the error while masking credentials and PII', () => {
+  const password = 'private db pass!2026';
+  const environment = {
+    NODE_ENV: 'development',
+    DATABASE_URL: 'postgresql://dbuser:' + encodeURIComponent(password) + '@db:5432/caicang',
+    JWT_ACCESS_SECRET: 'private-jwt-signing-value-2026',
+    REFRESH_TOKEN: 'private-refresh-value-2026',
+  };
+  const error = Object.assign(new Error('listen EADDRINUSE: address already in use 0.0.0.0:3000'), {
+    code: 'EADDRINUSE',
+    cause: new Error('password="not-in-env-value"; shipping_address="完整测试收货地址"'),
+  });
+  error.stack +=
+    '\n    at bootstrap (file:///D:/Dev/caicang-manager/apps/api/dist/main.js:8:3)\n' +
+    [
+      environment.DATABASE_URL,
+      password,
+      encodeURIComponent(password),
+      environment.JWT_ACCESS_SECRET,
+      environment.REFRESH_TOKEN,
+      'Bearer arbitrary-private-value',
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature123',
+      'redis://cacheuser:unconfigured-password@cache:6379/0',
+      'refreshToken=unknown-refresh-value',
+    ].join('\n');
+  const result = formatBootstrapFailure(error, environment);
+  const output = JSON.stringify(result);
+  for (const value of [
+    password,
+    encodeURIComponent(password),
+    environment.JWT_ACCESS_SECRET,
+    environment.REFRESH_TOKEN,
+    'not-in-env-value',
+    '完整测试收货地址',
+    'arbitrary-private-value',
+    'eyJhbGciOiJIUzI1NiJ9',
+    'unconfigured-password',
+    'unknown-refresh-value',
+    'dbuser',
+  ])
+    assert.equal(output.includes(value), false, 'diagnostic leaked a protected value');
+  assert.equal(result.exception.name, 'Error');
+  assert.equal(result.exception.code, 'EADDRINUSE');
+  assert.match(result.exception.message, /EADDRINUSE.*0\.0\.0\.0:3000/);
+  assert.match(result.exception.stack, /apps\/api\/dist\/main\.js:8:3/);
+  assert.equal(result.exception.cause.name, 'Error');
+});
+
+test('production and non-development startup logging stays generic and never serializes objects', () => {
+  const error = new Error('PASSWORD_SECRET', { cause: new Error('TOKEN_SECRET') });
+  for (const mode of ['production', 'test', 'invalid'])
+    assert.deepEqual(formatBootstrapFailure(error, { NODE_ENV: mode }), {
+      event: 'bootstrap_failed',
+      message: 'API startup failed',
+    });
+  assert.deepEqual(formatBootstrapFailure({ password: 'PASSWORD_SECRET' }, {}), {
+    event: 'bootstrap_failed',
+    message: 'API startup failed',
+  });
+  assert.equal(
+    formatBootstrapFailure(new Error('Invalid configuration: DATABASE_URL'), {
+      NODE_ENV: 'production',
+    }).message,
+    'Invalid configuration: DATABASE_URL',
+  );
+  const circular = new Error('cycle');
+  circular.cause = circular;
+  assert.doesNotThrow(() => JSON.stringify(formatBootstrapFailure(circular, {})));
+  assert.doesNotThrow(() =>
+    formatBootstrapFailure(new Error('malformed Unicode configuration'), {
+      JWT_ACCESS_SECRET: '\ud800',
+    }),
+  );
 });
 
 test('all controllers inherit global HTTP foundations', async (t) => {
@@ -468,4 +549,47 @@ test('invalid production configuration exits nonzero before listening and hides 
       return true;
     },
   );
+});
+
+test('real bootstrap reports an occupied port safely and exits nonzero', async () => {
+  const occupied = createServer();
+  occupied.listen(0, '127.0.0.1');
+  await once(occupied, 'listening');
+  try {
+    await assert.rejects(
+      () =>
+        runFile(process.execPath, ['apps/api/dist/main.js'], {
+          cwd: projectRoot,
+          windowsHide: true,
+          timeout: 20000,
+          env: {
+            ...process.env,
+            NODE_ENV: 'development',
+            API_HOST: '127.0.0.1',
+            API_PORT: String(occupied.address().port),
+            JWT_ACCESS_SECRET: 'private-startup-test-key-longer-than-thirty-two-bytes',
+          },
+        }),
+      (error) => {
+        assert.equal(error.code, 1);
+        const failure = error.stderr
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .map((line) => JSON.parse(line))
+          .find((line) => line.event === 'bootstrap_failed');
+        assert.ok(failure, 'the real startup catch must emit diagnostic JSON');
+        assert.equal(failure.exception.name, 'Error');
+        assert.equal(failure.exception.code, 'EADDRINUSE');
+        assert.match(failure.exception.message, /listen EADDRINUSE/);
+        assert.ok(failure.exception.message.includes(String(occupied.address().port)));
+        assert.match(failure.exception.stack, /node:net/);
+        assert.equal((error.stdout + error.stderr).includes('private-startup-test-key'), false);
+        return true;
+      },
+    );
+  } finally {
+    await new Promise((resolve, reject) =>
+      occupied.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
 });

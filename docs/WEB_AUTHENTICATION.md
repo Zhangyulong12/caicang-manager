@@ -23,6 +23,8 @@ pnpm dev:web
 
 打开 http://localhost:5173。Vite 严格绑定 5173，端口占用时失败，不静默换端口。开发请求默认 `/api/v1`，Vite 代理 `/api` 到 127.0.0.1:3000，WEB_API_PROXY_TARGET 可指定另一本地 API。VITE_* 不能放服务端密码/密钥。
 
+也可使用当前开发命令监听的 `http://127.0.0.1:5173/register?redirect=/`。2026-10-23 修复代理 Host 被改写导致注册 403 的问题：同源 `/api` 转发保留原 Host/Origin，不扩大 API CORS 白名单或取消认证。修改配置后刷新页面；若仍保留旧错误，Ctrl+F5，或在原 Web 终端 Ctrl+C 后重新 `pnpm dev:web`，不要重复启动 API。注册使用新邮箱、至少 12 位且包含大小写/数字/符号的密码；成功后先登录，再创建商家或请管理员加入已有商家。排查记录见 [REGISTRATION_FIX_REPORT.md](REGISTRATION_FIX_REPORT.md)。
+
 生产需 HTTPS、反代 `/api` 到 NestJS，SPA 路径回退 index.html；不使用 Vite dev server 对公网部署。当前 Web 要求支持 Web Locks 的新版 Chrome/Edge，localhost 或 HTTPS 安全上下文可用。[Web Locks 官方说明](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)。
 
 ## 用户流程
@@ -48,6 +50,7 @@ GET /api/v1/tenants?page=1&pageSize=20：Bearer，无需商家头，只返回本
 
 ```powershell
 pnpm test:web
+pnpm test:registration
 pnpm typecheck
 pnpm lint
 pnpm format:check
