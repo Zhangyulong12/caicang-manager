@@ -48,9 +48,11 @@ export const router = createRouter({
                               ? () => import('../views/OutboundView.vue')
                               : item.path === '/warehouses'
                                 ? () => import('../views/WarehousesView.vue')
-                                : item.path === '/settings'
-                                  ? () => import('../views/SettingsView.vue')
-                                  : () => import('../views/ModuleView.vue'),
+                                : item.path === '/reports'
+                                  ? () => import('../views/ReportsView.vue')
+                                  : item.path === '/settings'
+                                    ? () => import('../views/SettingsView.vue')
+                                    : () => import('../views/ModuleView.vue'),
         })),
         {
           path: 'inventory/balances',

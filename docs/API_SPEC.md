@@ -163,28 +163,32 @@ SKU/条码区分大小写，商家内唯一；SKU 去首尾空格后最长 80，
 
 ## 4. 库存/出库/报表
 
-| Method | Endpoint                                   | 用途                         | 角色                     |
-| ------ | ------------------------------------------ | ---------------------------- | ------------------------ |
-| GET    | `/inventory/balances`                      | 按仓库、SKU 搜现存和成本     | 所有成员                     |
-| GET    | `/inventory/movements`                     | 库存流水、分页/筛选          | 所有成员                     |
-| POST   | `/inventory/adjustments`                   | 盘点/损坏/丢失/其他数量调整，幂等+审计 | OWNER/ADMIN/WAREHOUSE |
-| GET    | `/inventory/adjustments`                   | 调整单分页列表与筛选         | 所有成员                     |
-| GET    | `/inventory/adjustments/{id}`              | 调整单详情（前后数量与成本） | 所有成员                     |
-| GET    | `/outbound-orders`                         | 出库单列表                   | 所有成员                 |
-| POST   | `/outbound-orders`                         | 创建待发货草稿               | OWNER/ADMIN/WAREHOUSE    |
-| GET    | `/outbound-orders/{id}`                    | 出库单详情                   | 所有成员                 |
-| PATCH  | `/outbound-orders/{id}`                    | 修改未确认草稿               | OWNER/ADMIN/WAREHOUSE    |
-| POST   | `/outbound-orders/{id}/ship`               | 确认发货并扣库存，幂等       | OWNER/ADMIN/WAREHOUSE    |
-| POST   | `/outbound-orders/{id}/cancel`             | 仅取消未确认草稿             | OWNER/ADMIN/WAREHOUSE    |
-| GET    | `/reports/overview?from=&to=&warehouseId=` | 采购额、库存价值、已收统计   | OWNER/ADMIN/BUYER/VIEWER |
-| GET    | `/reports/export/stock-movements.csv`      | 导出库存流水                 | OWNER/ADMIN              |
-| GET    | `/health`                                  | 存活检查，生产避免暴露秘钥   | 公开                     |
+| Method | Endpoint                                   | 用途                                   | 角色                     |
+| ------ | ------------------------------------------ | -------------------------------------- | ------------------------ |
+| GET    | `/inventory/balances`                      | 按仓库、SKU 搜现存和成本               | 所有成员                 |
+| GET    | `/inventory/movements`                     | 库存流水、分页/筛选                    | 所有成员                 |
+| POST   | `/inventory/adjustments`                   | 盘点/损坏/丢失/其他数量调整，幂等+审计 | OWNER/ADMIN/WAREHOUSE    |
+| GET    | `/inventory/adjustments`                   | 调整单分页列表与筛选                   | 所有成员                 |
+| GET    | `/inventory/adjustments/{id}`              | 调整单详情（前后数量与成本）           | 所有成员                 |
+| GET    | `/outbound-orders`                         | 出库单列表                             | 所有成员                 |
+| POST   | `/outbound-orders`                         | 创建待发货草稿                         | OWNER/ADMIN/WAREHOUSE    |
+| GET    | `/outbound-orders/{id}`                    | 出库单详情                             | 所有成员                 |
+| PATCH  | `/outbound-orders/{id}`                    | 修改未确认草稿                         | OWNER/ADMIN/WAREHOUSE    |
+| POST   | `/outbound-orders/{id}/ship`               | 确认发货并扣库存，幂等                 | OWNER/ADMIN/WAREHOUSE    |
+| POST   | `/outbound-orders/{id}/cancel`             | 仅取消未确认草稿                       | OWNER/ADMIN/WAREHOUSE    |
+| GET    | `/reports/overview?from=&to=&warehouseId=` | 采购额、库存价值、已收统计             | OWNER/ADMIN/BUYER/VIEWER |
+| GET    | `/reports/table?dataset=accounts`          | 统计表格、筛选、分页                   | OWNER/ADMIN/BUYER/VIEWER |
+| GET    | `/reports/export?dataset=accounts`         | 服务端 CSV 内容及文件名                | OWNER/ADMIN              |
+| GET    | `/reports/export.csv?dataset=accounts`     | UTF-8 BOM CSV 文件                     | OWNER/ADMIN              |
+| GET    | `/health`                                  | 存活检查，生产避免暴露秘钥             | 公开                     |
 
 任务 24 已实现表中 6 个出库端点（`GET/POST /outbound-orders`、`GET/PATCH /outbound-orders/{id}`、`POST /outbound-orders/{id}/ship`、`POST /outbound-orders/{id}/cancel`），字段、事务顺序、成本口径、错误码与核对 SQL 见 `docs/OUTBOUND.md`。
 
 任务 22 已实现表中两个库存查询端点（`GET /inventory/balances`、`GET /inventory/movements`，权限 `products:read`，字段与口径见 `docs/INVENTORY.md`）。查询侧仍然**只有 GET**；唯一能改数量的入口是任务 29 的 `POST /inventory/adjustments`，它在同一事务里"写调整单 + 写 `ADJUSTMENT` 流水 + 改 `stock_balances` + 写审计"，不存在任何可以直接提交 `quantityOnHand`/`totalCost` 覆盖余额的接口。调整的原因、方向、成本规则与错误码见 `docs/ADJUSTMENTS.md`。
 
 ## 5. 关键请求示例
+
+任务33统计契约、各 dataset 的筛选限制与金额口径见 [REPORTS.md](REPORTS.md)。`GET /reports/overview` 支持 from/to、warehouseId、purchaseAccountId、platform、sku、articleNo；库存不回溯日期或归属采购账号，整单退款不按 SKU 分摊。表格分页最大100，导出最大10000行且超限返回422；旧明细无法可靠分摊的金额为 null。Swagger `/api/docs`、运行时 `/api/docs-json` 与共享 API 类型同步，专项测试核验参数及响应 schema。所有端点只读，沿用租户 Guard、权限 Decorator、统一响应和错误。
 
 任务 12 已实现采购表中六个端点。创建成功 201，其余五个操作成功 200；所有端点需 Bearer+X-Tenant-Id。新增 purchase:read 全角色权限，写入限 OWNER/ADMIN/BUYER。输入 purchaseDate 为必填 YYYY-MM-DD，金额为十进制字符串；recipient 须完整对象，items 1–100 行且商品不可重复。PATCH 仅无后续单据的草稿，items 若提供为完整替换；确认/取消正文为空或 `{}`，禁止通过客户端 status/成本字段强改。
 

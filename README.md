@@ -4,7 +4,11 @@
 
 2026-10-28 已在小米 13 / Android 16 的独立测试 APK 完成扫码入库 1 件、扫码出库 1 件和权限检查。Web、手机与数据库最终一致：充电器 3 件 / 55.50 元、数据线 2 件 / 16.00 元；库存流水、历史采购价及真实 API 幂等重放均核对通过。移动端自动化重跑 46 项通过。用户决定不再继续剩余手机异常场景，未执行项单独记录，没有声称全部用例通过。详细结果见 [任务 34 报告](docs/TASK_34_REPORT.md) 与 [手机端运行说明](docs/MOBILE_APP.md)。APK、签名密钥和本机测试凭据保留本地。
 
-任务 33 的统计模块目前只有未完成源码草稿，未注册到 AppModule，也未完成页面和验收；不作为可用功能发布。
+## 任务 33：数据统计与采购对账
+
+统计 API 与 Web `/reports` 已完成真实采购账号、采购单、收货和库存流水接入，提供账号/平台/日期/商品对账、待入库、库存平均成本、出库和退款分口径查询、安全 CSV 导出与原单追溯。专项22项、全量696项通过，均无失败或跳过，类型检查、Lint、格式和构建通过。实际结果见 [任务33报告](docs/TASK_33_REPORT.md)；金额口径、字段、权限及浏览器验收步骤见 [统计使用说明](docs/REPORTS.md)。
+
+PowerShell：`pnpm db:up`，随后两个终端分别 `pnpm start:api` 和 `pnpm dev:web`，打开 `http://127.0.0.1:5173/reports`。专项测试 `pnpm test:reports` 使用真实 PostgreSQL 独立测试库。测试 APK 使用局域网开发 API，不能视为正式公网部署。
 
 ## 任务 32：采购退货 Web 页面
 
@@ -94,7 +98,7 @@ Docker/PostgreSQL 已正常恢复，任务 17 入库事务 22 项、任务 18 �
 
 本轮两次 `pnpm test` 均为 **528 通过、0 失败、0 跳过**，另有模型/重复 seed 专项 65 项通过；typecheck、lint、format、format:check 均通过。
 
-Android 真机、相机权限与签名 APK **尚未验收**。真机准备使用 `pnpm build:mobile:lan -ApiBaseUrl 'http://<电脑局域网IPv4>:3000/api/v1'`，不会覆盖已有 .env；默认 `build:app` 仍读取 production 示例域名，不能直接用于本地手机联调。HBuilderX 导入与八项实机清单见 [手机说明](docs/MOBILE_APP.md)。
+Android 独立签名测试 APK 的核心真机验收已由任务34按用户确认范围完成，剩余异常场景保留未执行清单，见任务34报告。真机准备使用 `pnpm build:mobile:lan -ApiBaseUrl 'http://<电脑局域网IPv4>:3000/api/v1'`，不会覆盖已有 .env；默认 `build:app` 仍读取 production 示例域名，不能直接用于本地手机联调。HBuilderX 导入与八项实机清单见 [手机说明](docs/MOBILE_APP.md)。
 
 当前基线已经包含任务 21 提交；本次仅复核 00—20、修复验收环境与测试，没有开发任务 21，也没有提交或推送。下方各任务小节保留历史交付状态，当前环境与本轮结果以上述报告为准。
 
@@ -194,7 +198,7 @@ PowerShell 先 `pnpm db:up`、`pnpm prisma:migrate:deploy`，再 `pnpm start:api
 
 ## 当前工作区与环境
 
-正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。已建立 pnpm workspace、NestJS API、Vue3 管理后台与 uni-app；已有真实数据库、认证、商家/成员权限、商品/仓库/采购及包裹 API、Web 商品/仓库/采购/包裹页面，以及入库事务、账本、库存余额与流水查询接口、出库发货（任务 24）与库存调整（任务 29）和手机扫码查询。出库/盘点/统计页面与手机端出库视图仍属后续任务，Android 真机验收待完成。
+正式工作区为 `D:\Dev\caicang-manager`，原始资料包保留在 `D:\import and export\introduce\caicang-manager`。pnpm workspace 包含真实 NestJS API、Vue3 Web 后台与 uni-app；已实现采购账号、商品/仓库、采购/包裹、事务入库、库存/流水、出库、调整、供应商采购退货及对应 Web 页面，手机独立测试 APK 核心入出库已按用户确认范围验收。任务33统计本轮补齐真实 API、Web、对账与导出，结果以专项报告为准；生产部署尚未进行。
 
 2026-10-14 实测 Git 2.56.0.windows.2、Node 22.22.2 LTS、pnpm 11.25.0、Corepack 0.34.6、VS Code 1.141.0、Windows PowerShell 5.1 可执行。普通 PowerShell 已可调用 pnpm；Codex 内置 PowerShell 为 7.6.5。
 
@@ -242,11 +246,11 @@ pnpm --filter @caicang/mobile build:app
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-db.ps1
 ```
 
-`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`pnpm test:scan` 只校验手机扫码逻辑与路由，不需要数据库；`pnpm test:mobile-receiving` 的纯逻辑用例同样不需要数据库，其中的真实验收用例在 PostgreSQL 不可用时显式跳过。`build:app` 只生成 uni-app 的 App 资源，不签名、不生成可安装 APK。实际执行记录和未解决事项见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)。
+`pnpm test` 启动自己的临时 API 进程，测试真实 PostgreSQL 查询、OpenAPI、CORS 和前端构建资源；要求 PostgreSQL 已启动，测试结束后停止临时 API。`pnpm test:scan` 只校验手机扫码逻辑与路由，不需要数据库；`pnpm test:mobile-receiving` 包含真实 PostgreSQL/API 验收，数据库不可用必须失败，不能视为通过。`build:app` 只生成 uni-app 的 App 资源；可安装签名测试 APK 另由任务34的 HBuilderX 流程交付。早期任务记录见 [docs/TASK_01_REPORT.md](docs/TASK_01_REPORT.md)，当前结果以各最新任务报告为准。
 
 定位：自有仓库电商采购 → 运单关联 → 手机扫码验收 → 库存管理 → 出库发货。多商家 SaaS 数据隔离预留，V1 不提供平台个人买家订单自动同步或在线订阅收费。
 
-> 下方保留 V1 设计说明。工程骨架、数据模型、迁移、seed、认证、商家成员权限和商品 API 已实现；采购/库存等业务接口尚未实现，也没有可安装 APK。`database/schema.sql` 是结构参考稿，不作为初始化脚本执行。
+> 下方保留 V1 设计说明。实际采购、入库、库存、出库、调整和采购退货业务已实现；任务34已交付可安装的独立测试 APK（本地忽略文件，不含在 Git 中），不代表正式上线。`database/schema.sql` 是结构参考稿，不作为初始化脚本重复执行。
 
 ## 使用顺序
 
@@ -343,13 +347,13 @@ pnpm start:api
 
 已接入全局 DTO 验证、成功/错误包装、业务错误码、requestId、日志脱敏、配置验证、CORS、安全头与限流。开发运行命令仍为 `pnpm db:up`、`pnpm start:api`；健康接口 `/api/v1/health`，开发文档 `/api/docs`。生产必须显式提供 HTTPS WEB_ORIGIN，Swagger 强制关闭；详细变量和新模块用法见 [后端基础说明](docs/BACKEND_FOUNDATION.md)。
 
-`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共、认证、商家权限和原有冒烟测试；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存。任务 07 已提供商家角色权限，库存业务接口仍未实现；任务 04 历史结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。
+`pnpm test:api` 运行公共模块 HTTP/配置/日志测试；`pnpm test` 构建全仓并执行公共、认证、商家权限及业务回归；`pnpm test:db` 验证真实数据库停启与 API 恢复。限流目前为每进程内存。商家角色、库存事务和查询接口均已实现；任务 04 历史结果见 [任务 04 报告](docs/TASK_04_REPORT.md)。
 
 ## 任务 05：注册、登录与本人资料
 
 运行 `pnpm prisma:migrate:deploy` 应用邮箱规范化唯一索引，再用 `pnpm start:api` 启动。开发缺少 JWT_ACCESS_SECRET 时会创建被忽略的 `.env.auth.local`，保留现有 .env 和密钥文件；生产必须通过进程环境提供签名密钥。Access Token 默认 15 分钟。
 
-在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，历史结果见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；商家/角色现由任务 07 实现，库存业务尚未实现。
+在 [Swagger](http://localhost:3000/api/docs) 执行 `POST /api/v1/auth/register` 和 `POST /api/v1/auth/login`，将登录返回的 data.accessToken 填入 Authorize 的 bearer 栏，再执行 `GET /api/v1/me`。详细 JSON 示例、密码规则和错误见 [认证说明](docs/AUTHENTICATION.md)，历史结果见 [任务 05 报告](docs/TASK_05_REPORT.md)。认证测试 `pnpm test:auth` 使用真实 PostgreSQL 独立测试库；商家/角色和库存业务已在后续任务实现。
 
 ## 任务 06：令牌刷新与安全退出
 

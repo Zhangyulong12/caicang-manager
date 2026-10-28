@@ -24,9 +24,7 @@ export class ReportOverviewQueryDto {
   @IsDateString({ strict: true })
   to?: string;
   @ApiPropertyOptional({ format: 'uuid' }) @ValidateIf(present) @IsUUID() warehouseId?: string;
-}
-export class ReportExportQueryDto extends ReportOverviewQueryDto {
-  @ApiProperty({ enum: REPORT_DATASETS }) @IsIn(REPORT_DATASETS) dataset!: ReportDataset;
+
   @ApiPropertyOptional({
     description: 'UUID 或 UNASSIGNED（原采购未指定账号）；仅采购/退款相关报表',
   })
@@ -58,6 +56,9 @@ export class ReportExportQueryDto extends ReportOverviewQueryDto {
   @MaxLength(80)
   articleNo?: string;
 }
+export class ReportExportQueryDto extends ReportOverviewQueryDto {
+  @ApiProperty({ enum: REPORT_DATASETS }) @IsIn(REPORT_DATASETS) dataset!: ReportDataset;
+}
 export class ReportTableQueryDto extends IntersectionType(
   ReportExportQueryDto,
   PaginationQueryDto,
@@ -86,11 +87,17 @@ export class ReportTableDto {
   @ApiProperty() scopeNote!: string;
 }
 export class ReportOverviewDto {
-  @ApiProperty() purchaseAmount!: string;
+  @ApiProperty({ type: String, nullable: true }) purchaseAmount!: string | null;
+  @ApiProperty() monthPurchaseAmount!: string;
+  @ApiProperty() missingAllocationCount!: string;
+  @ApiProperty() pendingPackageCount!: string;
+  @ApiProperty() receivedQuantity!: string;
+  @ApiProperty() receivedCost!: string;
+  @ApiProperty() scopeNote!: string;
   @ApiProperty() purchaseQuantity!: string;
   @ApiProperty() purchaseOrderCount!: string;
   @ApiProperty() pendingQuantity!: string;
-  @ApiProperty() pendingAmount!: string;
+  @ApiProperty({ type: String, nullable: true }) pendingAmount!: string | null;
   @ApiProperty() inventoryQuantity!: string;
   @ApiProperty() inventoryCost!: string;
   @ApiProperty() outboundQuantity!: string;

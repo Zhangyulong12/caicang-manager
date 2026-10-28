@@ -386,7 +386,11 @@ test(
             assert.equal(results.buyer.permissions.includes('receiving:confirm'), false);
             assert.ok(results.warehouse.permissions.includes('receiving:confirm'));
             assert.equal(results.warehouse.permissions.includes('purchase:write'), false);
+            assert.equal(results.warehouse.permissions.includes('reports:read'), false);
+            assert.ok(results.buyer.permissions.includes('reports:read'));
+            assert.equal(results.viewer.permissions.includes('reports:export'), false);
             assert.deepEqual(results.viewer.permissions, [
+              'reports:read',
               'tenant:read',
               'products:read',
               'warehouses:read',

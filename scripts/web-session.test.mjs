@@ -469,9 +469,27 @@ test(
           store.clear();
         });
         await http.test(
-          'all eleven menu destinations exist and role guards refuse settings without permission',
+          'all twelve menu destinations exist and role guards refuse unauthorized operations',
           () => {
-            assert.equal(navigation.length, 11);
+            assert.deepEqual(
+              navigation.map((item) => item.path),
+              [
+                '/',
+                '/products',
+                '/warehouses',
+                '/purchases',
+                '/purchase-accounts',
+                '/purchase-returns',
+                '/packages',
+                '/receipts',
+                '/inventory',
+                '/outbound',
+                '/reports',
+                '/settings',
+              ],
+            );
+            assert.equal(allowed('/reports', ['tenant:read']), false);
+            assert.equal(allowed('/reports', ['reports:read']), true);
             assert.equal(
               allowed('/settings', ['tenant:read', 'products:read', 'warehouses:read']),
               false,

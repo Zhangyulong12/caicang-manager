@@ -1,3 +1,4 @@
+import { ReportsModule } from './modules/reports/reports.module.js';
 import { Module } from '@nestjs/common';
 import { HealthController } from './health.controller.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -33,6 +34,7 @@ import { OutboundOrdersModule } from './modules/outbound/outbound.module.js';
     InventoryModule,
     AdjustmentsModule,
     OutboundOrdersModule,
+    ReportsModule,
   ],
   controllers: [HealthController],
 })

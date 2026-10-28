@@ -9,7 +9,7 @@ export function csvCell(value: string | null): string {
     // eslint-disable-next-line no-control-regex -- A leading control character must also be escaped as literal text.
     /^[\u0000-\u001f\u007f]/u.test(text)
   )
-    text = '\t' + text;
+    text = "'" + text;
   return '"' + text.replaceAll('"', '""') + '"';
 }
 export function reportCsv(

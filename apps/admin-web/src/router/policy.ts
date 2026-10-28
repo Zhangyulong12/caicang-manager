@@ -80,9 +80,8 @@ export const navigation: {
   {
     path: '/reports',
     title: '数据统计',
-    permission: 'tenant:read',
+    permission: 'reports:read',
     icon: 'DataAnalysis',
-    soon: true,
     description: '掌握采购与仓储运营数据',
   },
   {

@@ -122,6 +122,9 @@ export const REPORT_DATASETS = [
   'inventory',
   'outbound',
   'returns',
+  'products',
+  'receipts',
+  'adjustments',
 ] as const;
 export type ReportDataset = (typeof REPORT_DATASETS)[number];
 export interface ReportColumn {
@@ -139,11 +142,17 @@ export interface ReportTableData {
   scopeNote: string;
 }
 export interface ReportOverviewData {
-  purchaseAmount: string;
+  purchaseAmount: string | null;
+  monthPurchaseAmount: string;
+  missingAllocationCount: string;
+  pendingPackageCount: string;
+  receivedQuantity: string;
+  receivedCost: string;
+  scopeNote: string;
   purchaseQuantity: string;
   purchaseOrderCount: string;
   pendingQuantity: string;
-  pendingAmount: string;
+  pendingAmount: string | null;
   inventoryQuantity: string;
   inventoryCost: string;
   outboundQuantity: string;
