@@ -1,6 +1,6 @@
 # 手机端 App（uni-app）
 
-任务 34 最新现场状态（2026-10-27）：小米 13 / Android 16 已运行官方标准基座 14.76，用户实际扫描真实圆通面单并确认两 SKU 入库，再扫码出库充电器 2 件。数据库核实余额为充电器 3 件 / 55.5000、数据线 2 条 / 16.0000，原入库/出库操作号 API 重放均不重复修改库存，超库存返回 409、只读账号写入返回 403。独立 APK 已生成并保留在 `artifacts/android/caicang-manager-test-0.2.0-200-20261027.apk`（Git 忽略），签名和包内容检查通过；首次安装被手机取消，2026-10-27 14:48 重试安装成功；用户确认独立包扫码查询及库存搜索3/2正确，独立包新增入出库事务仍未验收。AppID 已为用户授权申请的 `__UNI__D5AEA8E`；源码 manifest 已声明 Barcode 模块。首次白屏的 `URL is not defined` 及库存查询 URLSearchParams 依赖已修复，运行时回归与真实 API 自动化共 46 项通过。详细证据及逐项待测内容见 `TASK_34_REPORT.md`。下文任务 19/20 的未验收描述是对应历史任务记录，不能作为当前整体状态。
+任务 34 最新现场状态（2026-10-28）：核心真机验收及测试 APK 已按用户确认范围交付。小米 13 / Android 16 的独立包实际入库充电器 1 件（3→4）、再出库 1 件（4→3），最终充电器 3 件 / 55.5000、数据线 2 件 / 16.0000，与 Web、数据库和流水一致；API 幂等重放及权限/商家隔离通过，用户确认手机只读权限正常，移动端自动化重跑 46 项通过。用户决定不继续剩余手机异常测试，详见 TASK_34_REPORT 的通过/未执行矩阵。测试 APK 保留在 artifacts/android/caicang-manager-test-0.2.0-200-20261027.apk（Git 忽略），已签名并安装。下文任务19/20未验收描述是历史记录，不作为当前整体状态。
 
 ## 一、这一版做了什么
 
@@ -48,6 +48,8 @@ apps/mobile/
 ```
 
 `client.ts` 不 import 任何 uni API，`api/index.ts` 才做适配。这样同一份令牌逻辑既跑在手机上，也能在 `scripts/mobile.test.mjs` 里对真实 API 执行。
+
+库存查询使用提示：在手机输入商品名称或 SKU 并点击“查询”；Web 先切换到对应商家，再打开“库存管理 → 商品库存”，查看“当前数量”列。测试商家的商品不会出现在其他商家的列表。
 
 ## 三、页面与导航
 
@@ -103,7 +105,7 @@ const result = await api.request<ReceiptData[]>('/receipts?page=1&pageSize=20', 
 | `.env.example` | 说明如何用 `.env.development.local` 覆盖 |
 
 - Android 真机**不能用 localhost**。本轮检查 `.env.development` 仍是 localhost、`.env.production` 仍是示例域名，均未覆盖。**默认 `build:app` 读取 production；只改 development 后直接 build:app 仍会连接示例域名。** 使用下方 LAN 构建命令，通过进程变量覆盖并检查产物中的真实地址。
-- 手机与电脑必须在可互访的局域网，先用手机浏览器打开健康接口。任务 34 于 2026-10-26 通过 ADB 在真实手机内执行 curl，经 WLAN 请求 `http://192.168.243.90:3000/api/v1/health` 返回 HTTP 200，未使用端口转发；浏览器/App 请求仍需分别验收。现有 Node 防火墙规则已允许本轮访问，无需更改安全策略。IP 改变后须重新检查与构建。
+- 手机与电脑必须在可互访的局域网，先用手机浏览器打开健康接口。任务 34 于 2026-10-26 通过 ADB 在真实手机内执行 curl，经 WLAN 请求 `http://192.168.243.90:3000/api/v1/health` 返回 HTTP 200，未使用端口转发；App 与 Web 联调结果见任务34报告。现有 Node 防火墙规则已允许本轮访问，无需更改安全策略。IP 改变后须重新检查与构建。
 - 代码里的兜底地址是 `https://api.invalid.local/api/v1`，故意不可解析：忘记配置时宁可连不上，也不要悄悄连到错误服务器。
 - 正式环境必须 HTTPS；`manifest.json` 里保留了 `usesCleartextTraffic: true` 以便真机调试 HTTP，上线前应改为 `false`。
 
@@ -128,7 +130,7 @@ LAN 脚本先要求健康接口成功，再运行 `build:app --mode development`
 4. 源码由 HBuilderX 运行时会重新编译，需要本地 `.env.development.local` 配置 LAN 地址。先检查该文件，保留已有内容，仅在本机配置 `VITE_API_BASE_URL=http://192.168.243.90:3000/api/v1`；不能沿用 localhost。该文件已被 Git 忽略。本轮没有创建或覆盖它。
 5. 本轮按 CLI 提示导入 `apps/mobile/dist/build/app` 编译资源，HBuilderX 识别为 app(App)，实际同步到标准基座运行并完成扫码入库。运行前须让 app 工程的文件成为当前编辑文件，核对对话框为运行项目 app，避免误运行会重新编译 localhost 地址的 mobile 源码工程。
 6. 手机开启开发者模式、USB 调试并授权电脑；在手机浏览器先访问 LAN 健康接口，再运行 HBuilderX「运行 → 运行到手机或模拟器 → Android App 基座」。记录 HBuilderX/基座版本、手机型号、Android 版本及实际 API 地址。
-7. 按 TASK_34_REPORT 逐项继续真机验收。官方 App 云打包插件已安装，用户已自行绑定手机号。公共测试证书被 DCloud 拒绝后，改用仓库外 `D:\CaicangSigning\caicang-task34-test.keystore` 的自有测试证书、包名 `com.caicang.manager.test`、快速安心打包，取消默认广告；APK 已生成且 v1/v2/v3 签名验证通过，首次手机安装被取消，后续重试已成功，仍须在独立包重测核心流程。正式发布仍需管理自有生产证书，基座通过不能代替 APK 验收。
+7. 按 TASK_34_REPORT 逐项继续真机验收。官方 App 云打包插件已安装，用户已自行绑定手机号。公共测试证书被 DCloud 拒绝后，改用仓库外 `D:\CaicangSigning\caicang-task34-test.keystore` 的自有测试证书、包名 `com.caicang.manager.test`、快速安心打包，取消默认广告；APK 已生成且 v1/v2/v3 签名验证通过，首次手机安装被取消，后续重试已成功，独立包核心流程已实际验证，其余异常测试按用户决定收尾。正式发布仍需管理自有生产证书，基座通过不能代替 APK 验收。
 
 ## 九、扫码查包裹
 
@@ -242,7 +244,7 @@ docker exec caicang-postgres psql -U caicang -d caicang -c "SELECT id,total_cost
 - 底部导航暂时只有文字没有图标（避免往仓库里塞二进制资源），后续补 81×81 PNG。
 - 断网时不做离线队列：收货、查询都要求在线，避免出现"以为收了、其实没入库"。
 - 未做指纹/面容解锁与"保持登录"开关。
-- `uni.request` 的类型声明没有 PATCH：H5 走 XHR 可用，App 端接入写接口（如修改包裹）前需要真机实测一次。
+- `uni.request` 类型声明的 PATCH 兼容需按接口验证：任务34已在独立 APK 实测出库草稿 5→1 的 PATCH 修改成功；其他未测写接口不能由此推定通过。
 - 收货只支持"整件"数量，不支持按重量/批次/序列号验收，也不支持拆行分批到货的独立包装记录。
 - 备注只保存在入库单文本字段，不支持拍照附件。
 - 相机扫码无法在自动化测试里覆盖：`scripts/scan.test.mjs` 覆盖码值清洗、去重与候选分类，`scripts/mobile-receiving.test.mjs` 覆盖数量与幂等，摄像头、授权弹窗与真机入库必须真机验收。
