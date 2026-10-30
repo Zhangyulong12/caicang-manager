@@ -1,20 +1,39 @@
-# GitHub整理待确认清单（任务36）
+# GitHub 项目展示维护与上传记录
+
+任务37只优化本地README和展示文档，不提交、推送或修改远端About。任务35、36此前已按用户授权上传，提交为 `a8b7a6e`；下方任务36的核对流程保留为历史记录。截图准备见 [截图指南](screenshots/README.md)，首页开发过程归档在 [README_HISTORY.md](README_HISTORY.md)。
+
+## 手动修改 About（任务37）
+
+以下采用用户指定的建议文案；**本次没有修改GitHub About，不声称远端已更新**：
+
+> 采仓管家：面向电商采购入仓的多商家仓储管理系统。基于 Vue 3、uni-app、NestJS、Prisma、PostgreSQL，支持采购账号、多 SKU 采购、快递扫码验收、库存管理、出库、供应商退货和采购对账。已完成 Android 测试 APK 核心验收及隔离生产部署演练，尚未公网正式上线。
+
+1. 使用有仓库管理权限的GitHub账号，打开 [caicang-manager](https://github.com/Zhangyulong12/caicang-manager) 的 **Code** 首页。
+2. 找到页面右侧 **About**，点击旁边的齿轮按钮（Edit repository metadata）。窄屏布局可先展开侧栏；没有编辑按钮时检查账号和权限。
+3. 在 **Description** 中粘贴上面的完整文案。
+4. **Website** 暂时留空；没有正式站点，不填写localhost、局域网IP或测试API地址。
+5. 可选填写Topics：`vue3`、`uni-app`、`nestjs`、`prisma`、`postgresql`、`inventory-management`、`warehouse-management`、`multi-tenant`。
+6. 点击 **Save changes**，刷新仓库首页，亲自核对About文本及“尚未公网正式上线”是否完整保留。
+
+齿轮入口和保存方式参考 [GitHub官方仓库元数据操作说明](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics)。About属于仓库元数据，修改README或普通git push不会自动更新它。当前也没有新截图或公开演示网址，不能写成已发布。
+
+## 任务36的历史核对记录
 
 任务36验收阶段只整理本地文件并读取公开仓库元数据，没有提交或推送。用户后续明确要求“上传到github”，现按已展示范围同步任务35、36的代码和报告；About修改仍单独待确认。
 
-## About现状与建议
+### 任务36当时的 About 读取与建议
 
-2026-10-30通过GitHub公开REST接口读取 `Zhangyulong12/caicang-manager`：公开仓库、默认分支main，当前About为：
+2026-10-30任务36曾通过GitHub公开REST接口读取 `Zhangyulong12/caicang-manager`：公开仓库、默认分支main，当时About为（任务37未重新读取或改写远端）：
 
 > 采仓管家 V1.0：采购、仓库验收与出库管理；当前完成 Windows 环境和 Monorepo 骨架。
 
-该描述明显落后于现有代码。建议改为以下文本，**等待用户确认，尚未更新**：
+以下是任务36当时保留的建议，现已由本文顶部任务37的用户指定文案替代，不再作为本次粘贴内容；远端仍未由本任务更新：
 
 > 采仓管家：面向电商采购入仓的多商家管理系统。NestJS、Vue3、uni-app、PostgreSQL；支持采购账号、包裹扫码验收、库存、出库、供应商退货及采购对账。含Android测试APK验收记录与隔离生产部署方案，尚未公网正式上线。
 
 公开元数据读取证据保留在Git忽略的 `test-results/task36/github-about.json`。没有读取或输出GitHub凭据。
 
-## 提交前核对
+### 任务36提交前核对
 
 - 先审阅 [TASK_36_REPORT.md](TASK_36_REPORT.md) 的本轮结果及文件范围。工作区原有任务35变更一并保留，不能把它们误称为本轮新改动。
 - 原有未跟踪 `test/` 不纳入自动整理；`.env`、测试结果、备份、APK和签名凭据继续忽略。
@@ -25,7 +44,7 @@
 
 本轮13个文件及保留的40个原有未提交文件，见本机 `test-results/task36/change-review.json`；完整可审阅文本差异（含新增文件）在 `test-results/task36/review-all.patch`。两份证据被Git忽略，不代表已提交。正式测试最终结果：全仓744、模型66、注册代理8、生产演练13通过，均无失败或跳过，详情及人工未执行项见最终报告。
 
-## 用户授权后的上传核对
+### 任务36用户授权后的上传核对
 
 上传前已核对工作区53个待审阅文件与最终验收差异完全一致，保留原test/目录；随后只补充本上传说明。原.env、.env.auth.local和手机manifest的内容哈希未变。沿用本轮已实际执行的测试结果，不声称为上传重新执行了全部回归。
 
