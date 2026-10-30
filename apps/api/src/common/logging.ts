@@ -22,6 +22,44 @@ export function redactSensitive(value: unknown, depth = 0): unknown {
   return value;
 }
 
+/** Diagnostic identifiers only: never the exception message, SQL, headers or stack arguments. */
+export function safeFailureMetadata(error: unknown): Record<string, unknown> {
+  const names = [
+    'Error',
+    'TypeError',
+    'RangeError',
+    'BusinessException',
+    'PrismaClientKnownRequestError',
+    'PrismaClientInitializationError',
+    'PrismaClientValidationError',
+  ];
+  const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+  const frames =
+    error instanceof Error
+      ? (error.stack ?? '')
+          .split('\n')
+          .slice(1)
+          .flatMap((line) => {
+            const match = /([a-zA-Z0-9_.-]+\.(?:m?js|ts)):(\d+):(\d+)\)?$/.exec(line);
+            return match
+              ? [{ file: match[1], line: Number(match[2]), column: Number(match[3]) }]
+              : [];
+          })
+          .slice(0, 8)
+      : [];
+  return {
+    name: error instanceof Error && names.includes(error.name) ? error.name : 'Error',
+    code:
+      typeof code === 'string' &&
+      /^(?:P\d{4}|[0-9A-Z]{5}|EADDRINUSE|EADDRNOTAVAIL|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EACCES)$/.test(
+        code,
+      )
+        ? code
+        : undefined,
+    frames,
+  };
+}
+
 /** Startup-only diagnostics. HTTP/framework free-text logging stays disabled. */
 export function formatBootstrapFailure(
   error: unknown,
@@ -96,6 +134,14 @@ export function formatBootstrapFailure(
 /** Never writes free text, payloads, headers, exception messages or stacks. */
 @Injectable()
 export class SafeLogger implements LoggerService {
+  failure(requestId: string, error: unknown): void {
+    this.write({
+      level: 'error',
+      event: 'request_failed',
+      requestId: resolveRequestId(requestId),
+      diagnostic: safeFailureMetadata(error),
+    });
+  }
   private framework(level: string, context?: unknown): void {
     const allowed = [
       'NestFactory',

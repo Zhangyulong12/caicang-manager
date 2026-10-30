@@ -1,12 +1,14 @@
 # Windows 开发、Android APK 与 Linux 正式部署指南
 
-> 这是一套 Codex 应按阶段搭建的操作方案。资料包仅含本地 PostgreSQL Compose 基础配置；生成 API/管理后台/手机 App 代码后才可完整执行。
+> 任务35最新入口：[生产部署、备份恢复与排障](PRODUCTION_DEPLOYMENT.md)、[安全审计](SECURITY_AUDIT.md)、[实际验收报告](TASK_35_REPORT.md)。已新增独立生产镜像和Compose，默认不开放公网；下文任务01及旧方案为历史记录，不能据此覆盖开发.env或重复导入SQL。
+
+> 当前已有API、Web、手机业务、10个迁移、独立生产配置与备份恢复脚本。任务36复核结果见 [TASK_36_REPORT.md](TASK_36_REPORT.md)。以下按日期保留的早期搭建说明属于历史规划，不能代替最新生产步骤。
 
 ## 任务 01 当前可执行范围（2026-10-14）
 
 开发骨架已建立。当前从项目根执行 `pnpm install --frozen-lockfile`、`pnpm db:up`、`pnpm prisma:generate`、`pnpm build:shared`、`pnpm dev`，详情和实际验证记录见 README 与 `TASK_01_REPORT.md`。
 
-下文迁移、seed、Android 签名打包、生产部署均是后续阶段方案，当前未提供这些交付；不要执行不存在的脚本或将参考 SQL 导入已经使用迁移的数据库。Docker 数据已在 D 盘，不需要再次迁移。
+任务01时尚未提供的迁移、seed、Android测试包和生产准备现已分别交付，实际范围以任务33—36报告为准。不要将参考SQL导入已经使用迁移的数据库，不需要重新迁移Docker数据。正式公网和正式Android发布仍未执行。
 
 ## 1. Windows 准备
 

@@ -43,6 +43,7 @@ key.properties
 signing.properties
 signing-config.json
 secrets/
+.secrets/
 
 # Local database data and backups (keep schema.sql and migrations)
 .data/

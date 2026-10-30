@@ -1,0 +1,150 @@
+name: ${COMPOSE_PROJECT_NAME:-caicang-production}
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+services:
+  postgres:
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    command:
+      [
+        postgres,
+        -c,
+        log_statement=none,
+        -c,
+        log_min_error_statement=panic,
+        -c,
+        log_error_verbosity=terse,
+        -c,
+        log_parameter_max_length_on_error=0,
+      ]
+    environment:
+      POSTGRES_USER: caicang_owner
+      POSTGRES_DB: ${POSTGRES_DB:-caicang}
+      POSTGRES_PASSWORD_FILE: /run/secrets/owner_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets: [owner_password, app_password]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-app.sh:/docker-entrypoint-initdb.d/10-app.sh:ro
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U caicang_owner -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    logging: *logging
+  migrate:
+    image: caicang-migration:${RELEASE_TAG:?Set a fixed release tag}
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+      target: migration
+    environment:
+      NODE_ENV: production
+      POSTGRES_DB: ${POSTGRES_DB:-caicang}
+      OWNER_PASSWORD_FILE: /run/secrets/owner_password
+    secrets: [owner_password]
+    networks: [database]
+    depends_on:
+      postgres: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *logging
+  api:
+    image: caicang-api:${RELEASE_TAG:?Set a fixed release tag}
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+      target: api
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: '3000'
+      POSTGRES_DB: ${POSTGRES_DB:-caicang}
+      APP_PASSWORD_FILE: /run/secrets/app_password
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      WEB_ORIGIN: https://${SITE_DOMAIN:?Set the real HTTPS hostname}
+      SWAGGER_ENABLED: 'false'
+      PUBLIC_REGISTRATION_ENABLED: ${PUBLIC_REGISTRATION_ENABLED:-false}
+      TRUSTED_PROXIES: ${PROXY_IP:-172.30.35.2}/32
+      RATE_LIMIT_LIMIT: '120'
+      RATE_LIMIT_TTL_MS: '60000'
+    secrets: [app_password, jwt_secret]
+    networks:
+      database: {}
+      proxy:
+        ipv4_address: ${API_PROXY_IP:-172.30.35.3}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    init: true
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          'fetch("http://127.0.0.1:3000/api/v1/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+    restart: unless-stopped
+    logging: *logging
+  web:
+    image: caicang-web:${RELEASE_TAG:?Set a fixed release tag}
+    build:
+      context: ../..
+      dockerfile: infra/production/Dockerfile
+      target: web
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set the real HTTPS hostname}
+      ACME_EMAIL: ${ACME_EMAIL:?Set a certificate contact address}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:9000']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+    ports:
+      - ${PUBLIC_BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-80}:8080
+      - ${PUBLIC_BIND_ADDRESS:-127.0.0.1}:${HTTPS_PORT:-443}:8443
+    networks:
+      proxy:
+        ipv4_address: ${PROXY_IP:-172.30.35.2}
+      edge: {}
+    volumes:
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      api: { condition: service_healthy }
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging: *logging
+networks:
+  database: { internal: true }
+  proxy:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${PROXY_SUBNET:-172.30.35.0/29}
+  edge: {}
+volumes:
+  pgdata: {}
+  caddydata: {}
+  caddyconfig: {}
+secrets:
+  owner_password: { file: '${SECRETS_DIR:?Set a private secrets directory}/owner_password' }
+  app_password: { file: '${SECRETS_DIR:?Set a private secrets directory}/app_password' }
+  jwt_secret: { file: '${SECRETS_DIR:?Set a private secrets directory}/jwt_secret' }

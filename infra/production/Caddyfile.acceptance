@@ -1,0 +1,18 @@
+{
+  import /etc/caddy/logging.caddy
+  admin off
+  http_port 8080
+  https_port 8443
+  auto_https disable_redirects
+  skip_install_trust
+}
+http://127.0.0.1:9000 {
+  respond "ok" 200
+}
+http://{$SITE_DOMAIN}:8080 {
+  redir https://{$SITE_DOMAIN}{uri} 308
+}
+https://{$SITE_DOMAIN}:8443 {
+  tls internal
+  import /etc/caddy/routes.caddy
+}

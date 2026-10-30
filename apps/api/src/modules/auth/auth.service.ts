@@ -45,6 +45,8 @@ export class AuthService implements OnModuleInit {
   }
 
   async register(dto: RegisterDto): Promise<RegisterData> {
+    if (!this.config.values.publicRegistrationEnabled)
+      throw new BusinessException('REGISTRATION_DISABLED');
     const passwordHash = await hash(dto.password, 12);
     try {
       const user = await this.prisma.user.create({

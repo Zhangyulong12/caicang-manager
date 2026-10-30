@@ -1,0 +1,14 @@
+log default {
+  output stdout
+  format filter {
+    wrap json
+    fields {
+      request>uri delete
+      request>headers delete
+      request>remote_ip delete
+      request>remote_port delete
+      request>client_ip delete
+      resp_headers delete
+    }
+  }
+}

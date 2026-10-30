@@ -20,6 +20,7 @@ export interface Environment {
   jwtAccessSecret: string;
   jwtAccessTtlSeconds: number;
   refreshTokenTtlSeconds: number;
+  publicRegistrationEnabled: boolean;
 }
 
 export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
@@ -123,6 +124,7 @@ export function validateEnvironment(source: NodeJS.ProcessEnv): Environment {
     jwtAccessSecret,
     jwtAccessTtlSeconds,
     refreshTokenTtlSeconds,
+    publicRegistrationEnabled: boolean('PUBLIC_REGISTRATION_ENABLED', !production),
   };
 }
 

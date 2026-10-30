@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, env } from 'prisma/config';
 
 const envPath = fileURLToPath(new URL('../../.env', import.meta.url));
-if (existsSync(envPath)) loadEnvFile(envPath);
+if (process.env.NODE_ENV !== 'production' && existsSync(envPath)) loadEnvFile(envPath);
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',

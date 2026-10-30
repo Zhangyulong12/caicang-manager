@@ -31,6 +31,7 @@ export const session = reactive<SessionState>({
 });
 
 interface CacheSnapshot {
+  userId: string | null;
   tenants: TenantChoiceData[];
   currentTenant: CurrentTenantData | null;
 }
@@ -40,7 +41,10 @@ function readCache(): CacheSnapshot {
     const parsed: unknown = JSON.parse(uni.getStorageSync(CACHE_KEY) || 'null');
     if (parsed && typeof parsed === 'object') {
       const record = parsed as Partial<CacheSnapshot>;
+      if (record.userId !== session.user?.id)
+        return { userId: null, tenants: [], currentTenant: null };
       return {
+        userId: record.userId ?? null,
         tenants: Array.isArray(record.tenants) ? record.tenants : [],
         currentTenant: record.currentTenant ?? null,
       };
@@ -48,11 +52,12 @@ function readCache(): CacheSnapshot {
   } catch {
     /* 缓存损坏时按空处理，重新从服务端拉取。 */
   }
-  return { tenants: [], currentTenant: null };
+  return { userId: null, tenants: [], currentTenant: null };
 }
 
 function writeCache(): void {
   const snapshot: CacheSnapshot = {
+    userId: session.user?.id ?? null,
     tenants: session.tenants,
     currentTenant: session.currentTenant,
   };
@@ -125,11 +130,7 @@ async function restoreTenant(): Promise<void> {
     writeCache();
     return;
   }
-  if (
-    session.currentTenant?.tenant.id === candidate.tenant.id &&
-    session.currentTenant.permissions.length > 0
-  )
-    return;
+  // Membership/role may have changed while the App was backgrounded; revalidate on the server.
   await selectTenant(candidate.tenant.id);
 }
 
@@ -151,6 +152,12 @@ export async function bootstrap(): Promise<void> {
   } catch (error) {
     if (error instanceof ApiFailure && error.status === 401) {
       clearLocal();
+    } else if (error instanceof ApiFailure && [403, 404].includes(error.status)) {
+      session.currentTenant = null;
+      session.tenants = [];
+      uni.removeStorageSync(CACHE_KEY);
+      uni.removeStorageSync(TENANT_KEY);
+      session.lastError = errorMessage(error);
     } else {
       // 断网时保留本地缓存，首页仍可打开并提示"离线"。
       session.lastError = errorMessage(error);
@@ -164,6 +171,9 @@ export async function signIn(email: string, password: string): Promise<void> {
   session.busy = true;
   try {
     const stored = await api.login({ email: email.trim(), password });
+    session.tenants = [];
+    session.currentTenant = null;
+    uni.removeStorageSync(CACHE_KEY);
     session.user = stored.user;
     rememberEmail(email.trim());
     // 登录已成功，商家列表拉取失败不应把用户挡在登录页外，首页会提示并可重试。

@@ -41,14 +41,15 @@ onShow(async () => {
 async function pick(tenantId: string): Promise<void> {
   if (switching.value) return;
   if (tenantId === currentId.value) {
-    uni.switchTab({ url: '/pages/home/index' });
+    uni.reLaunch({ url: '/pages/home/index' });
     return;
   }
   switching.value = tenantId;
   try {
     const current = await selectTenant(tenantId);
     toast('已切换到 ' + current.tenant.name);
-    uni.switchTab({ url: '/pages/home/index' });
+    // Clear cached tab pages, drafts and displayed records from the previous workspace.
+    uni.reLaunch({ url: '/pages/home/index' });
   } catch (failure) {
     toastError(failure);
   } finally {

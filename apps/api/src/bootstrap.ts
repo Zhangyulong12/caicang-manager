@@ -38,7 +38,11 @@ export async function createApplication(
     ) => {
       const origin = request.headers.origin;
       const sameOrigin = origin === `${request.protocol}://${request.get('host')}`;
-      if (origin && !sameOrigin && !config.origins.includes(origin)) {
+      if (
+        origin &&
+        !(sameOrigin && config.nodeEnv !== 'production') &&
+        !config.origins.includes(origin)
+      ) {
         callback(new BusinessException('FORBIDDEN'), { origin: false });
         return;
       }

@@ -12,6 +12,8 @@ function resolve(): { url: string; channel: string; configured: boolean } {
   const configured = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
   const fallback = import.meta.env.DEV ? DEVELOPMENT_FALLBACK : PRODUCTION_FALLBACK;
   const value = configured || fallback;
+  if (!import.meta.env.DEV && !value.startsWith('https://'))
+    throw new Error('正式环境必须使用 HTTPS API 地址');
   return {
     url: normalizeApiBaseUrl(value),
     channel: import.meta.env.DEV ? '开发环境' : '正式环境',

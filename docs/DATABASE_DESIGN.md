@@ -1,5 +1,9 @@
 # 数据库设计（PostgreSQL）
 
+## 任务36复核与操作入口
+
+当前数据库以Prisma目录中的10个可追踪迁移为准；下文17张表是最初业务设计，不代表加入认证会话、采购账号和供应商退货后的当前总表数。任务36分别检查迁移状态、空库迁移/重复seed/约束，并在独立生产演练库验证重复部署迁移不改行、重启持久化及备份恢复。命令与真实结果见 [TASK_36_REPORT.md](TASK_36_REPORT.md)，升级/备份/全新目标库恢复步骤见 [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md)。禁止对已有库重放database/schema.sql、reset或删除卷。
+
 ## 任务 31：供应商采购退货增量
 
 第十个迁移 `20261025090000_purchase_returns` 新增三表：purchase_returns（原采购/仓库、单号、DRAFT/CONFIRMED/CANCELLED、原因/日期/退款、创建及确认信息、幂等号/摘要）；purchase_return_items（原采购行/商品、可选指定入库行、数量、商品快照、实际库存扣减成本）；purchase_return_allocations（原入库行、分配数量及历史单位成本）。三表 UUID 主键、tenant_id、创建/更新时间，全部关联通过复合外键验证同商家、同原采购和商品，RESTRICT 保留历史。
@@ -55,27 +59,25 @@
 
 ## 2. 表清单（17 张业务表）
 
-|表|主要用途|关键约束|
-|---|---|---|
-|tenants|商家/租户|tenant UUID|
-|users|平台登录用户|email 全局唯一、密码只存哈希|
-|tenant_memberships|用户归属与角色|tenant_id+user_id 唯一|
-|warehouses|仓库|tenant_id+code 唯一|
-|products|SKU 主数据|tenant_id+sku 唯一，非空条码商家内唯一|
-|purchase_orders|采购主单|tenant_id+order_no 唯一，状态机|
-|purchase_order_items|采购行|qty>0，不能重复 SKU|
-|packages|包裹与运单|tenant+carrier+tracking 唯一，按 tracking 索引|
-|package_expected_items|包裹预计 SKU 数量|同包裹同采购行唯一|
-|receipts|验收入库单|tenant+client_operation_id 唯一，支持部分收货|
-|receipt_items|验收入库行|实际验收数量、成本快照|
-|stock_balances|仓库/SKU 现存数量成本|tenant+warehouse+SKU 唯一，非负|
-|outbound_orders|发货出库主单|唯一单号、确认操作 UUID|
-|outbound_order_items|出库 SKU 明细|数量>0、成本快照|
-|stock_adjustments|经授权的库存调整|原因、数量增减、操作 UUID|
-|stock_movements|不可变库存流水|来源类型+来源明细唯一、前后数量校验|
-|audit_logs|重要业务行为审计|按租户与时间索引|
-
-
+| 表                     | 主要用途              | 关键约束                                       |
+| ---------------------- | --------------------- | ---------------------------------------------- |
+| tenants                | 商家/租户             | tenant UUID                                    |
+| users                  | 平台登录用户          | email 全局唯一、密码只存哈希                   |
+| tenant_memberships     | 用户归属与角色        | tenant_id+user_id 唯一                         |
+| warehouses             | 仓库                  | tenant_id+code 唯一                            |
+| products               | SKU 主数据            | tenant_id+sku 唯一，非空条码商家内唯一         |
+| purchase_orders        | 采购主单              | tenant_id+order_no 唯一，状态机                |
+| purchase_order_items   | 采购行                | qty>0，不能重复 SKU                            |
+| packages               | 包裹与运单            | tenant+carrier+tracking 唯一，按 tracking 索引 |
+| package_expected_items | 包裹预计 SKU 数量     | 同包裹同采购行唯一                             |
+| receipts               | 验收入库单            | tenant+client_operation_id 唯一，支持部分收货  |
+| receipt_items          | 验收入库行            | 实际验收数量、成本快照                         |
+| stock_balances         | 仓库/SKU 现存数量成本 | tenant+warehouse+SKU 唯一，非负                |
+| outbound_orders        | 发货出库主单          | 唯一单号、确认操作 UUID                        |
+| outbound_order_items   | 出库 SKU 明细         | 数量>0、成本快照                               |
+| stock_adjustments      | 经授权的库存调整      | 原因、数量增减、操作 UUID                      |
+| stock_movements        | 不可变库存流水        | 来源类型+来源明细唯一、前后数量校验            |
+| audit_logs             | 重要业务行为审计      | 按租户与时间索引                               |
 
 ## 3. 字段/类型共识
 
@@ -127,10 +129,10 @@ V1 币种人民币。确认采购时计算：
 
 在原 17 张业务/身份表之外，追踪迁移 `20261017090000_auth_refresh_sessions` 新增两张认证基础表。它们与 users 一样是全局账号身份基础设施，不持有商家业务数据，不带 tenant_id；原有 15 张租户业务表隔离规则保持不变。`database/schema.sql` 保留为原始参考，不含本任务认证表，禁止作为初始化脚本叠加执行。
 
-|表|字段及约束|用途|
-|---|---|---|
-|auth_sessions|UUID id、user_id 外键、expires_at、revoked_at、created_at/updated_at；user/revoked 和 expiry 索引|每次登录独立会话；过期或撤销时拒绝 Access/Refresh|
-|refresh_tokens|UUID id、session_id 外键、token_hash VARCHAR(64) 唯一并校验小写 hex、used_at、created_at/updated_at；session 索引|保存随机凭据的 SHA-256 摘要；已用行保留以检测重放|
+| 表             | 字段及约束                                                                                                        | 用途                                              |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| auth_sessions  | UUID id、user_id 外键、expires_at、revoked_at、created_at/updated_at；user/revoked 和 expiry 索引                 | 每次登录独立会话；过期或撤销时拒绝 Access/Refresh |
+| refresh_tokens | UUID id、session_id 外键、token_hash VARCHAR(64) 唯一并校验小写 hex、used_at、created_at/updated_at；session 索引 | 保存随机凭据的 SHA-256 摘要；已用行保留以检测重放 |
 
 两个外键在删除账号/会话时级联删除其认证凭据，不影响原业务外键的 Restrict。更新时间有数据库触发器。会话绝对有效期在登录时确定，刷新不延长。Refresh Token 原文只在签发时返回；不保存 Token 原文、地址、IP、UA 或签名密钥。
 

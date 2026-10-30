@@ -18,3 +18,11 @@ storeDir: D:/.pnpm-store
 cacheDir: D:/Dev/caicang-manager/.cache/pnpm
 overrides:
   'unplugin-auto-import>@vueuse/core': 10.11.1
+  # Task 35: patched API runtime dependencies; keep framework and mobile versions fixed.
+  'express>body-parser': 2.4.0
+  '@nestjs/platform-express>multer': 2.5.0
+  'express>qs': 6.16.1
+  'body-parser>qs': 6.16.1
+  '@prisma/config>deepmerge-ts': 8.0.2
+  'prisma>mysql2': 3.23.1
+  'ajv>fast-uri': 3.1.9

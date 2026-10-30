@@ -202,7 +202,7 @@ export function createApiClient(options: ClientOptions) {
         saveSession(next);
         return next;
       } catch (error) {
-        saveSession(null);
+        if (readSession()?.sessionKey === stored.sessionKey) saveSession(null);
         throw error instanceof ApiFailure
           ? error
           : new ApiFailure(0, 'NETWORK_ERROR', '网络连接失败，请检查网络后重试');
@@ -219,14 +219,33 @@ export function createApiClient(options: ClientOptions) {
 
   async function request<T>(path: string, options_: Omit<RequestOptions, 'token'> = {}) {
     let session = requireSession();
+    const captured = {
+      userId: session.user.id,
+      key: session.sessionKey,
+      tenant: options.storage.getItem(TENANT_KEY),
+    };
+    const checkScope = () => {
+      const current = readSession();
+      if (!current || current.user.id !== captured.userId || current.sessionKey !== captured.key)
+        throw new ApiFailure(401, 'SESSION_CHANGED', '登录状态已改变，请重新操作');
+      if (options.storage.getItem(TENANT_KEY) !== captured.tenant)
+        throw new ApiFailure(409, 'SCOPE_CHANGED', '商家已切换，请重新查询');
+    };
     if (session.accessExpiresAt <= now() + leeway) session = await refresh(session);
+    checkScope();
     try {
-      return await raw<T>(path, { ...options_, token: session.accessToken });
+      const result = await raw<T>(path, { ...options_, token: session.accessToken });
+      checkScope();
+      return result;
     } catch (error) {
+      checkScope();
       if (!(error instanceof ApiFailure) || error.status !== 401) throw error;
       if (error.code === 'SESSION_CHANGED') throw error;
       const next = await refresh(session);
-      return await raw<T>(path, { ...options_, token: next.accessToken });
+      checkScope();
+      const result = await raw<T>(path, { ...options_, token: next.accessToken });
+      checkScope();
+      return result;
     }
   }
 
@@ -258,8 +277,10 @@ export function createApiClient(options: ClientOptions) {
       } catch {
         // 网络异常也必须先让本机退出，否则用户会卡在已失效的会话里。
       }
-      saveSession(null);
-      options.storage.removeItem(TENANT_KEY);
+      if (readSession()?.sessionKey === current.sessionKey) {
+        saveSession(null);
+        options.storage.removeItem(TENANT_KEY);
+      }
     },
     async refreshNow(): Promise<Session> {
       return await refresh(requireSession());

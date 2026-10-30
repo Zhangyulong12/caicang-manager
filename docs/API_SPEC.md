@@ -1,5 +1,7 @@
 # API_SPEC.md — 采仓管家 V1.0 REST API 契约
 
+任务36契约复核：本轮不增加业务端点。全仓测试继续核验DTO、响应错误、OpenAPI、角色和商家隔离；隔离生产演练另验证HTTPS、数据库重启与备份恢复。实际通过/失败/未执行项见 [TASK_36_REPORT.md](TASK_36_REPORT.md)。部署域名仍为占位方案，不能把下面地址当作已上线服务。
+
 Base URL：本地 `http://localhost:3000/api/v1`；局域网设备换成电脑 IPv4；正式生产 `https://api.<domain>/api/v1`。
 
 健康接口 `GET /health` 执行 PostgreSQL `SELECT 1` 后返回 `data: {status:"ok", service:"caicang-api", database:"reachable", timestamp:<ISO8601>}` 与 `requestId`；数据库查询失败返回 503 / `DATABASE_UNAVAILABLE`。开发 Swagger UI 为 `/api/docs`，OpenAPI JSON 为 `/api/docs-json`。
@@ -441,3 +443,7 @@ PATCH `/packages/{id}` 支持快递公司/运单/备注、完整替换预计明�
 - 每个关键写接口（新建采购、确认下单、包裹关联、收货、发货、调整）至少具备 DB 唯一键或明确的幂等策略。重点收货/发货必须实现客户端操作 ID。
 - 所有财务和库存的持久化逻辑在服务端，不依赖前端提交的库存余额或成本结果。
 - API 更新以 OpenAPI 为契约源；在 CI 校验 DTO 与 API 文档一致。
+
+## Task 35 production safety gate
+
+Production defaults PUBLIC_REGISTRATION_ENABLED=false. POST /api/v1/auth/register returns HTTP 403 with standard error code REGISTRATION_DISABLED and a clear registration-closed message. Development/test defaults remain enabled; all normal DTO/hash/rate-limit checks still apply when explicitly enabled. This does not bypass Tenant Guard or change other endpoint authorization. Production Swagger remains disabled. See SECURITY_AUDIT.md and PRODUCTION_DEPLOYMENT.md.

@@ -1,0 +1,48 @@
+encode zstd gzip
+header {
+  -Server
+  Strict-Transport-Security "max-age=31536000"
+  X-Content-Type-Options nosniff
+  X-Frame-Options DENY
+  Referrer-Policy no-referrer
+  Permissions-Policy "camera=(), microphone=(), geolocation=()"
+}
+log {
+  output stdout
+  format filter {
+    wrap json
+    fields {
+      request>uri delete
+      request>headers delete
+      request>remote_ip delete
+      request>remote_port delete
+      request>client_ip delete
+      resp_headers delete
+    }
+  }
+}
+@private path /api/docs* /api/v1/health/details
+respond @private 404
+handle /api/* {
+  request_body {
+    max_size 64KB
+  }
+  reverse_proxy api:3000 {
+    # Discard client-controlled forwarding chains. Nest only trusts this edge's exact IP.
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto https
+    header_up X-Forwarded-Host {$SITE_DOMAIN}
+    transport http {
+      dial_timeout 3s
+      response_header_timeout 30s
+    }
+  }
+}
+handle {
+  header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+  @html path / /index.html
+  header @html Cache-Control "no-cache"
+  root * /srv
+  try_files {path} /index.html
+  file_server
+}

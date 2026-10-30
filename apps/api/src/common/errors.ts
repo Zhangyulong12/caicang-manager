@@ -6,6 +6,7 @@ export const ERRORS: Record<ApiErrorCode, { status: number; message: string }> =
   VALIDATION_ERROR: { status: 400, message: '请求参数验证失败' },
   UNAUTHENTICATED: { status: 401, message: '请先登录' },
   FORBIDDEN: { status: 403, message: '没有操作权限' },
+  REGISTRATION_DISABLED: { status: 403, message: '暂未开放公开注册，请联系管理员' },
   NOT_FOUND: { status: 404, message: '资源不存在' },
   METHOD_NOT_ALLOWED: { status: 405, message: '不支持此请求方法' },
   RESOURCE_CONFLICT: { status: 409, message: '数据或操作冲突' },

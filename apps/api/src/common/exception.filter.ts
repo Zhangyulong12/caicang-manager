@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import type { ApiErrorCode, ApiErrorResponse } from '@caicang/api-contract';
 import { Prisma } from '../generated/prisma/client.js';
 import { BusinessException, ERRORS } from './errors.js';
-import { redactSensitive } from './logging.js';
+import { redactSensitive, SafeLogger } from './logging.js';
 import type { ApiRequest } from './request-context.js';
 
 const httpCodes: Record<number, ApiErrorCode> = {
@@ -21,6 +21,7 @@ const httpCodes: Record<number, ApiErrorCode> = {
 };
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+  constructor(private readonly logger: SafeLogger) {}
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const response = http.getResponse<Response>();
@@ -55,6 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (exception.type === 'entity.too.large') code = 'PAYLOAD_TOO_LARGE';
     }
     request.errorCode = code;
+    if (ERRORS[code].status >= 500) this.logger.failure(request.requestId, exception);
     const body: ApiErrorResponse = {
       error: { code, message: ERRORS[code].message, details },
       requestId: request.requestId,

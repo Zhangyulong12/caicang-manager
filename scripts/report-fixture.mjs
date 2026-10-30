@@ -142,6 +142,7 @@ export async function reportFixture(t, execute) {
       };
       try {
         await execute({
+          databaseUrl: url.toString(),
           http,
           db,
           request,
